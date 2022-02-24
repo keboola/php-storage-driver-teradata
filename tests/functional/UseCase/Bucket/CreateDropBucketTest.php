@@ -67,5 +67,7 @@ class CreateDropBucketTest extends BaseCase
         );
 
         $this->assertFalse($this->isDatabaseExists($db, $bucket));
+
+        $db->close();
     }
 }

@@ -41,6 +41,7 @@ class BaseCase extends TestCase
         $this->cleanUserOrDatabase($db, $this->getProjectUser(), $this->getCredentials()->getPrincipal());
         $this->dropRole($db, $this->getProjectReadOnlyRole());
         $this->dropRole($db, $this->getProjectRole());
+        $db->close();
     }
 
     protected function getConnection(GenericBackendCredentials $credentials): Connection
