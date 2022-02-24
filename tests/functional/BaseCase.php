@@ -38,7 +38,7 @@ class BaseCase extends TestCase
     protected function cleanTestProject(): void
     {
         $db = $this->getConnection($this->getCredentials());
-        $this->cleanUser($db, $this->getProjectUser());
+        $this->cleanUserOrDatabase($db, $this->getProjectUser(), $this->getCredentials()->getPrincipal());
         $this->dropRole($db, $this->getProjectReadOnlyRole());
         $this->dropRole($db, $this->getProjectRole());
     }
@@ -73,17 +73,46 @@ class BaseCase extends TestCase
 
     /**
      * Drop user and child objects
+     *
+     * @param string $cleanerUser - Connected user which will be granted access to drop user/database
      */
-    protected function cleanUser(Connection $connection, string $name): void
+    protected function cleanUserOrDatabase(Connection $connection, string $name, string $cleanerUser): void
     {
-        if (!$this->isUserExists($connection, $name)) {
+        $isUserExists = $this->isUserExists($connection, $name);
+        $isDatabaseExists = $this->isDatabaseExists($connection, $name);
+
+        if (!$isUserExists && !$isDatabaseExists) {
             return;
         }
 
-        // delete all objects in the DB
-        $connection->executeStatement(sprintf('DELETE USER %s ALL', TeradataQuote::quoteSingleIdentifier($name)));
-        // drop the empty db
-        $connection->executeStatement(sprintf('DROP USER %s', TeradataQuote::quoteSingleIdentifier($name)));
+        $connection->executeStatement(sprintf(
+            'GRANT ALL ON %s TO %s',
+            TeradataQuote::quoteSingleIdentifier($name),
+            $cleanerUser
+        ));
+        $connection->executeStatement(sprintf(
+            'GRANT DROP USER, DROP DATABASE ON %s TO %s',
+            TeradataQuote::quoteSingleIdentifier($name),
+            $cleanerUser
+        ));
+        if ($isUserExists) {
+            $connection->executeStatement(sprintf('DELETE USER %s ALL', TeradataQuote::quoteSingleIdentifier($name)));
+            $childDatabases = $this->getChildDatabases($connection, $name);
+            foreach ($childDatabases as $childDatabase) {
+                $this->cleanUserOrDatabase($connection, $childDatabase, $cleanerUser);
+            }
+            $connection->executeStatement(sprintf('DROP USER %s', TeradataQuote::quoteSingleIdentifier($name)));
+        } else {
+            $connection->executeStatement(sprintf(
+                'DELETE DATABASE %s ALL',
+                TeradataQuote::quoteSingleIdentifier($name)
+            ));
+            $childDatabases = $this->getChildDatabases($connection, $name);
+            foreach ($childDatabases as $childDatabase) {
+                $this->cleanUserOrDatabase($connection, $childDatabase, $cleanerUser);
+            }
+            $connection->executeStatement(sprintf('DROP DATABASE %s', TeradataQuote::quoteSingleIdentifier($name)));
+        }
     }
 
     /**
@@ -97,6 +126,32 @@ class BaseCase extends TestCase
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    /**
+     * Check if database exists
+     */
+    protected function isDatabaseExists(Connection $connection, string $name): bool
+    {
+        try {
+            $connection->executeStatement(sprintf('HELP DATABASE %s', TeradataQuote::quoteSingleIdentifier($name)));
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * @return string[]
+     */
+    protected function getChildDatabases(Connection $connection, string $name): array
+    {
+        /** @var string[] $return */
+        $return = $connection->fetchFirstColumn(sprintf(
+            'SELECT Child FROM DBC.ChildrenV WHERE Parent = %s;',
+            TeradataQuote::quote($name),
+        ));
+        return $return;
     }
 
     protected function getProjectUser(): string
@@ -176,5 +231,49 @@ class BaseCase extends TestCase
             ->setPrincipal($this->getProjectUser())
             ->setSecret(self::PROJECT_PASSWORD)
             ->setPort($rootCredentials->getPort());
+    }
+
+    /**
+     * Get list of AccessRight's of user on database
+     *
+     * @return string[]
+     */
+    protected function getRoleAccessRightForDatabase(Connection $db, string $role, string $database): array
+    {
+        /** @var string[] $return */
+        $return = $db->fetchFirstColumn(sprintf(
+            'SELECT AccessRight FROM DBC.AllRoleRightsV WHERE RoleName = %s AND DatabaseName = %s',
+            TeradataQuote::quote($role),
+            TeradataQuote::quote($database)
+        ));
+        return $return;
+    }
+
+    /**
+     * Get list of AccessRight's of role on database
+     *
+     * @return string[]
+     */
+    protected function getUserAccessRightForDatabase(Connection $db, string $role, string $database): array
+    {
+        /** @var string[] $return */
+        $return = $db->fetchFirstColumn(sprintf(
+            'SELECT AccessRight FROM DBC.AllRightsV WHERE UserName = %s AND DatabaseName = %s',
+            TeradataQuote::quote($role),
+            TeradataQuote::quote($database)
+        ));
+        return $return;
+    }
+
+    /**
+     * @param array<mixed> $expected
+     * @param array<mixed> $actual
+     */
+    protected function assertEqualsArrays(array $expected, array $actual): void
+    {
+        sort($expected);
+        sort($actual);
+
+        $this->assertEquals($expected, $actual);
     }
 }

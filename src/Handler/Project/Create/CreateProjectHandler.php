@@ -9,6 +9,7 @@ use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateProjectHandler implements DriverCommandHandlerInterface
@@ -37,6 +38,16 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             $databaseName = $meta->getRootDatabase();
         }
 
+        // allow override spaces for user
+        /** @var CreateProjectCommand\CreateProjectTeradataMeta|null $meta */
+        $meta = MetaHelper::getMetaFromCommand($command, CreateProjectCommand\CreateProjectTeradataMeta::class);
+        $permSpace = 60000000;
+        $spoolSpace = 120000000;
+        if ($meta !== null) {
+            $permSpace = $meta->getPermSpace() !== '' ? $meta->getPermSpace() : $permSpace;
+            $spoolSpace = $meta->getSpoolSpace() !== '' ? $meta->getSpoolSpace() : $permSpace;
+        }
+
         $db->executeStatement(sprintf(
             'CREATE ROLE %s;',
             TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
@@ -47,27 +58,50 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($command->getReadOnlyRoleName())
         ));
 
+        // grant project read only role to project role
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',
             TeradataQuote::quoteSingleIdentifier($command->getReadOnlyRoleName()),
             TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
         ));
 
+        // grant project role to root user (@todo should we create also role for our root user and grant to it?)
+        $db->executeStatement(sprintf(
+            'GRANT %s TO %s;',
+            TeradataQuote::quoteSingleIdentifier($command->getProjectRole()),
+            TeradataQuote::quoteSingleIdentifier($credentials->getPrincipal()),
+        ));
+
         $db->executeStatement(sprintf(
             'CREATE USER %s FROM %s AS '
-            .'PERMANENT = 60000000, SPOOL = 120000000, '
-            .'PASSWORD = %s, DEFAULT DATABASE=%s, DEFAULT ROLE=%s;',
+            . 'PERMANENT = %s, SPOOL = %s, '
+            . 'PASSWORD = %s, DEFAULT DATABASE=%s, DEFAULT ROLE=%s;',
             TeradataQuote::quoteSingleIdentifier($command->getProjectUser()),
             TeradataQuote::quoteSingleIdentifier($databaseName),
+            $permSpace,
+            $spoolSpace,
             $command->getProjectPassword(),
             TeradataQuote::quoteSingleIdentifier($command->getProjectUser()),
             TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
         ));
 
+        // grant create/drop user to project user
+        // project user than can crete workspace
+        // grant create/drop database to project role
+        // this is needed to create buckets
+        $db->executeStatement(sprintf(
+            'GRANT CREATE USER, DROP USER, CREATE DATABASE, DROP DATABASE ON %s TO %s;',
+            TeradataQuote::quoteSingleIdentifier($command->getProjectUser()),
+            TeradataQuote::quoteSingleIdentifier($command->getProjectUser())
+        ));
+
+        // grant project role to project user
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',
             TeradataQuote::quoteSingleIdentifier($command->getProjectRole()),
             TeradataQuote::quoteSingleIdentifier($command->getProjectUser())
         ));
+
+        $db->close();
     }
 }

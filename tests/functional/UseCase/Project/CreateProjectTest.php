@@ -14,6 +14,12 @@ class CreateProjectTest extends BaseCase
         $this->cleanTestProject();
     }
 
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        $this->cleanTestProject();
+    }
+
     public function testCreateProject(): void
     {
         $this->createTestProject();
@@ -28,5 +34,38 @@ class CreateProjectTest extends BaseCase
         // test created users
         $this->assertTrue($this->isRoleExists($db, $this->getProjectRole()));
         $this->assertTrue($this->isRoleExists($db, $this->getProjectReadOnlyRole()));
+
+        $this->assertEqualsArrays(
+            [
+                'DG',
+                'DT',
+                'E ',
+                'I ',
+                'D ',
+                'CV',
+                'CD',
+                'DD',
+                'DF',
+                'DM',
+                'PD',
+                'CA',
+                'CM',
+                'CT',
+                'DP',
+                'U ',
+                'CU',
+                'DU',
+                'CG',
+                'CP',
+                'DA',
+                'ST',
+                'RS',
+                'R ',
+                'DV',
+            ],
+            $this->getUserAccessRightForDatabase($db, $this->getProjectUser(), $this->getProjectUser())
+        );
+
+        $db->close();
     }
 }
