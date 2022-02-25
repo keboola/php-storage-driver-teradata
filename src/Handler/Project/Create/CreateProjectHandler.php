@@ -83,7 +83,7 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($databaseName),
             $permSpace,
             $spoolSpace,
-            TeradataQuote::quote($command->getProjectPassword()),
+            TeradataQuote::quoteSingleIdentifier($command->getProjectPassword()),
             TeradataQuote::quoteSingleIdentifier($command->getProjectUser()),
             TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
         ));
