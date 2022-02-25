@@ -14,8 +14,8 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateProjectHandler implements DriverCommandHandlerInterface
 {
-    public const DEFAULT_PERM_SPACE_SIZE = 60000000;
-    public const DEFAULT_SPOOL_SPACE_SIZE = 120000000;
+    public const DEFAULT_PERM_SPACE_SIZE = 1e9; // 1GB
+    public const DEFAULT_SPOOL_SPACE_SIZE = 1e9; // 1GB
 
     /**
      * @inheritDoc

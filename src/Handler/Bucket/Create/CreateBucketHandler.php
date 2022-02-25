@@ -10,13 +10,12 @@ use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Contract\Driver\MetaHelper;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
-use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateBucketHandler implements DriverCommandHandlerInterface
 {
-    public const DEFAULT_PERM_SPACE_SIZE = CreateProjectHandler::DEFAULT_SPOOL_SPACE_SIZE / 10;
-    public const DEFAULT_SPOOL_SPACE_SIZE = CreateProjectHandler::DEFAULT_SPOOL_SPACE_SIZE / 10;
+    public const DEFAULT_PERM_SPACE_SIZE = 1e8; // 100MB;
+    public const DEFAULT_SPOOL_SPACE_SIZE = 1e8; // 100MB;
 
     /**
      * @inheritDoc
