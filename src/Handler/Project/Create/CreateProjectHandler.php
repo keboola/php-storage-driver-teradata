@@ -38,7 +38,7 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             // override root user and use other database as root
             $meta = $meta->unpack();
             assert($meta instanceof CreateProjectCommand\CreateProjectTeradataMeta);
-            $databaseName = $meta->getRootDatabase();
+            $databaseName = $meta->getRootDatabase() === '' ? $databaseName : $meta->getRootDatabase();
         }
 
         // allow override spaces for user
@@ -83,7 +83,7 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($databaseName),
             $permSpace,
             $spoolSpace,
-            $command->getProjectPassword(),
+            TeradataQuote::quote($command->getProjectPassword()),
             TeradataQuote::quoteSingleIdentifier($command->getProjectUser()),
             TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
         ));
