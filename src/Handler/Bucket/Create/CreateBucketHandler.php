@@ -10,10 +10,14 @@ use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
 use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
+use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateBucketHandler implements DriverCommandHandlerInterface
 {
+    public const DEFAULT_PERM_SPACE_SIZE = CreateProjectHandler::DEFAULT_SPOOL_SPACE_SIZE / 10;
+    public const DEFAULT_SPOOL_SPACE_SIZE = CreateProjectHandler::DEFAULT_SPOOL_SPACE_SIZE / 10;
+
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
@@ -28,8 +32,8 @@ final class CreateBucketHandler implements DriverCommandHandlerInterface
 
         /** @var CreateBucketCommand\CreateBucketTeradataMeta|null $meta */
         $meta = MetaHelper::getMetaFromCommand($command, CreateBucketCommand\CreateBucketTeradataMeta::class);
-        $permSpace = 6000000; // 10x smaller than default for project
-        $spoolSpace = 12000000; // 10x smaller than default for project
+        $permSpace = self::DEFAULT_PERM_SPACE_SIZE;
+        $spoolSpace = self::DEFAULT_SPOOL_SPACE_SIZE;
         if ($meta !== null) {
             $permSpace = $meta->getPermSpace() !== '' ? $meta->getPermSpace() : $permSpace;
             $spoolSpace = $meta->getSpoolSpace() !== '' ? $meta->getSpoolSpace() : $permSpace;

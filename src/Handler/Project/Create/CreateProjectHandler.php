@@ -14,6 +14,9 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateProjectHandler implements DriverCommandHandlerInterface
 {
+    public const DEFAULT_PERM_SPACE_SIZE = 60000000;
+    public const DEFAULT_SPOOL_SPACE_SIZE = 120000000;
+
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
@@ -41,8 +44,8 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
         // allow override spaces for user
         /** @var CreateProjectCommand\CreateProjectTeradataMeta|null $meta */
         $meta = MetaHelper::getMetaFromCommand($command, CreateProjectCommand\CreateProjectTeradataMeta::class);
-        $permSpace = 60000000;
-        $spoolSpace = 120000000;
+        $permSpace = self::DEFAULT_PERM_SPACE_SIZE;
+        $spoolSpace = self::DEFAULT_SPOOL_SPACE_SIZE;
         if ($meta !== null) {
             $permSpace = $meta->getPermSpace() !== '' ? $meta->getPermSpace() : $permSpace;
             $spoolSpace = $meta->getSpoolSpace() !== '' ? $meta->getSpoolSpace() : $permSpace;
