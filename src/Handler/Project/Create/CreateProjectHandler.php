@@ -7,9 +7,9 @@ namespace Keboola\StorageDriver\Teradata\Handler\Project\Create;
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
+use Keboola\StorageDriver\Contract\Driver\MetaHelper;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
-use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateProjectHandler implements DriverCommandHandlerInterface
@@ -43,7 +43,7 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
 
         // allow override spaces for user
         /** @var CreateProjectCommand\CreateProjectTeradataMeta|null $meta */
-        $meta = MetaHelper::getMetaFromCommand($command, CreateProjectCommand\CreateProjectTeradataMeta::class);
+        $meta = MetaHelper::getMetaRestricted($command, CreateProjectCommand\CreateProjectTeradataMeta::class);
         $permSpace = self::DEFAULT_PERM_SPACE_SIZE;
         $spoolSpace = self::DEFAULT_SPOOL_SPACE_SIZE;
         if ($meta !== null) {

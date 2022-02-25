@@ -7,9 +7,9 @@ namespace Keboola\StorageDriver\Teradata\Handler\Bucket\Create;
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
+use Keboola\StorageDriver\Contract\Driver\MetaHelper;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
-use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
@@ -31,7 +31,7 @@ final class CreateBucketHandler implements DriverCommandHandlerInterface
         assert($command instanceof CreateBucketCommand);
 
         /** @var CreateBucketCommand\CreateBucketTeradataMeta|null $meta */
-        $meta = MetaHelper::getMetaFromCommand($command, CreateBucketCommand\CreateBucketTeradataMeta::class);
+        $meta = MetaHelper::getMetaRestricted($command, CreateBucketCommand\CreateBucketTeradataMeta::class);
         $permSpace = self::DEFAULT_PERM_SPACE_SIZE;
         $spoolSpace = self::DEFAULT_SPOOL_SPACE_SIZE;
         if ($meta !== null) {
