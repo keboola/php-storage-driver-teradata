@@ -20,7 +20,6 @@ class TeradataDriverClient implements ClientInterface
      * @inheritDoc
      */
     public function runCommand(
-        string $backend,
         Message $credentials,
         Message $command,
         array $features

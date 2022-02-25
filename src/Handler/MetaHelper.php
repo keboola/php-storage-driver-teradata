@@ -6,6 +6,7 @@ namespace Keboola\StorageDriver\Teradata\Handler;
 
 use Google\Protobuf\Any;
 use Google\Protobuf\Internal\Message;
+use Keboola\StorageDriver\Contract\Driver\Exception\Exception;
 
 final class MetaHelper
 {
@@ -25,7 +26,13 @@ final class MetaHelper
         }
 
         $meta = $meta->unpack();
-        assert($meta instanceof $expectedMetaInstance);
+        if (!$meta instanceof $expectedMetaInstance) {
+            throw new Exception(sprintf(
+                'Unexpected meta instance "%s" expected "%s"',
+                get_class($meta),
+                $expectedMetaInstance
+            ));
+        }
 
         return $meta;
     }
