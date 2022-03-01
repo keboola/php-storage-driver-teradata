@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Project;
 
+use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 
-class CreateProjectTest extends BaseCase
+class CreateDropProjectTest extends BaseCase
 {
     protected function setUp(): void
     {
@@ -67,5 +69,23 @@ class CreateProjectTest extends BaseCase
         );
 
         $db->close();
+
+        $handler = new DropProjectHandler();
+        $command = (new DropProjectCommand())
+            ->setProjectUser($this->getProjectUser())
+            ->setProjectRole($this->getProjectRole())
+            ->setReadOnlyRoleName($this->getProjectReadOnlyRole());
+
+        $handler(
+            $this->getCredentials(),
+            $command,
+            []
+        );
+
+        $db = $this->getConnection($this->getCredentials());
+
+        $this->assertFalse($this->isUserExists($db, $this->getProjectUser()));
+        $this->assertFalse($this->isRoleExists($db, $this->getProjectRole()));
+        $this->assertFalse($this->isRoleExists($db, $this->getProjectReadOnlyRole()));
     }
 }
