@@ -6,9 +6,13 @@ namespace Keboola\StorageDriver\Teradata\Handler\Project\Create;
 
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
+use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Contract\Driver\MetaHelper;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Shared\BackendSupportsInterface;
+use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
+use Keboola\StorageDriver\Shared\Utils\Password;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
@@ -51,27 +55,39 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             $spoolSpace = $meta->getSpoolSpace() !== '' ? $meta->getSpoolSpace() : $permSpace;
         }
 
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $command->getStackPrefix()
+        );
+        $newProjectRoleName = $nameGenerator->createRoleNameForProject($command->getProjectId());
+        $newProjectReadOnlyRoleName = $nameGenerator->createReadOnlyRoleNameForProject($command->getProjectId());
+        $newProjectUsername = $nameGenerator->createUserNameForProject($command->getProjectId());
+        $newProjectPassword = Password::generate(
+            30,
+            Password::SET_LOWERCASE | Password::SET_UPPERCASE | Password::SET_NUMBER | Password::SET_SPECIAL_CHARACTERS
+        );
+
         $db->executeStatement(sprintf(
             'CREATE ROLE %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
+            TeradataQuote::quoteSingleIdentifier($newProjectRoleName)
         ));
 
         $db->executeStatement(sprintf(
             'CREATE ROLE %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getReadOnlyRoleName())
+            TeradataQuote::quoteSingleIdentifier($newProjectReadOnlyRoleName)
         ));
 
         // grant project read only role to project role
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getReadOnlyRoleName()),
-            TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
+            TeradataQuote::quoteSingleIdentifier($newProjectReadOnlyRoleName),
+            TeradataQuote::quoteSingleIdentifier($newProjectRoleName)
         ));
 
         // grant project role to root user (@todo should we create also role for our root user and grant to it?)
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getProjectRole()),
+            TeradataQuote::quoteSingleIdentifier($newProjectRoleName),
             TeradataQuote::quoteSingleIdentifier($credentials->getPrincipal()),
         ));
 
@@ -79,13 +95,13 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             'CREATE USER %s FROM %s AS '
             . 'PERMANENT = %s, SPOOL = %s, '
             . 'PASSWORD = %s, DEFAULT DATABASE=%s, DEFAULT ROLE=%s;',
-            TeradataQuote::quoteSingleIdentifier($command->getProjectUser()),
+            TeradataQuote::quoteSingleIdentifier($newProjectUsername),
             TeradataQuote::quoteSingleIdentifier($databaseName),
             $permSpace,
             $spoolSpace,
-            TeradataQuote::quoteSingleIdentifier($command->getProjectPassword()),
-            TeradataQuote::quoteSingleIdentifier($command->getProjectUser()),
-            TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
+            TeradataQuote::quoteSingleIdentifier($newProjectPassword),
+            TeradataQuote::quoteSingleIdentifier($newProjectUsername),
+            TeradataQuote::quoteSingleIdentifier($newProjectRoleName)
         ));
 
         // grant create/drop user to project user
@@ -94,17 +110,24 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
         // this is needed to create buckets
         $db->executeStatement(sprintf(
             'GRANT CREATE USER, DROP USER, CREATE DATABASE, DROP DATABASE ON %s TO %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getProjectUser()),
-            TeradataQuote::quoteSingleIdentifier($command->getProjectUser())
+            TeradataQuote::quoteSingleIdentifier($newProjectUsername),
+            TeradataQuote::quoteSingleIdentifier($newProjectUsername)
         ));
 
         // grant project role to project user
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getProjectRole()),
-            TeradataQuote::quoteSingleIdentifier($command->getProjectUser())
+            TeradataQuote::quoteSingleIdentifier($newProjectRoleName),
+            TeradataQuote::quoteSingleIdentifier($newProjectUsername)
         ));
 
         $db->close();
+
+        return (new CreateProjectResponse())
+            ->setProjectUserName($newProjectUsername)
+            ->setProjectRoleName($newProjectRoleName)
+            ->setProjectReadOnlyRoleName($newProjectReadOnlyRoleName)
+            ->setProjectPassword($newProjectPassword)
+            ;
     }
 }

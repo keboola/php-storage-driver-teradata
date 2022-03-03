@@ -29,7 +29,7 @@ final class DropBucketHandler implements DriverCommandHandlerInterface
 
         $db->executeStatement(sprintf(
             'DROP DATABASE %s',
-            TeradataQuote::quoteSingleIdentifier($command->getBucketName()),
+            TeradataQuote::quoteSingleIdentifier($command->getBucketObjectName()),
         ));
 
         $db->close();

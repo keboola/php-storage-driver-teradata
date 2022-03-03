@@ -29,7 +29,7 @@ final class DropProjectHandler implements DriverCommandHandlerInterface
 
         $db->executeStatement(sprintf(
             'DROP ROLE %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getProjectRole())
+            TeradataQuote::quoteSingleIdentifier($command->getProjectRoleName())
         ));
 
         $db->executeStatement(sprintf(
@@ -39,7 +39,7 @@ final class DropProjectHandler implements DriverCommandHandlerInterface
 
         $db->executeStatement(sprintf(
             'DROP USER %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getProjectUser())
+            TeradataQuote::quoteSingleIdentifier($command->getProjectUserName())
         ));
 
         $db->close();

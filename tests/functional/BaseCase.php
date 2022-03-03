@@ -8,7 +8,10 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Google\Protobuf\Any;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
+use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Shared\BackendSupportsInterface;
+use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -37,10 +40,18 @@ class BaseCase extends TestCase
 
     protected function cleanTestProject(): void
     {
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $this->getStackPrefix()
+        );
+        $projectRoleName = $nameGenerator->createRoleNameForProject($this->getProjectId());
+        $projectReadOnlyRoleName = $nameGenerator->createReadOnlyRoleNameForProject($this->getProjectId());
+        $projectUsername = $nameGenerator->createUserNameForProject($this->getProjectId());
+
         $db = $this->getConnection($this->getCredentials());
-        $this->cleanUserOrDatabase($db, $this->getProjectUser(), $this->getCredentials()->getPrincipal());
-        $this->dropRole($db, $this->getProjectReadOnlyRole());
-        $this->dropRole($db, $this->getProjectRole());
+        $this->cleanUserOrDatabase($db, $projectUsername, $this->getCredentials()->getPrincipal());
+        $this->dropRole($db, $projectReadOnlyRoleName);
+        $this->dropRole($db, $projectRoleName);
         $db->close();
     }
 
@@ -157,7 +168,11 @@ class BaseCase extends TestCase
 
     protected function getProjectUser(): string
     {
-        return md5($this->getName()) . self::PROJECT_USER_SUFFIX;
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $this->getStackPrefix()
+        );
+        return $nameGenerator->createUserNameForProject($this->getProjectId());
     }
 
     /**
@@ -189,18 +204,37 @@ class BaseCase extends TestCase
 
     protected function getProjectReadOnlyRole(): string
     {
-        return md5($this->getName()) . self::PROJECT_READ_ONLY_ROLE_SUFFIX;
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $this->getStackPrefix()
+        );
+        return $nameGenerator->createReadOnlyRoleNameForProject($this->getProjectId());
     }
 
     protected function getProjectRole(): string
     {
-        return md5($this->getName()) . self::PROJECT_ROLE_SUFFIX;
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $this->getStackPrefix()
+        );
+        return $nameGenerator->createRoleNameForProject($this->getProjectId());
+    }
+
+    protected function getProjectId(): string
+    {
+        return md5($this->getName());
+    }
+
+    protected function getStackPrefix(): string
+    {
+        return md5(get_class($this));
     }
 
     /**
      * Create test project scoped for each test name
+     * @return array{GenericBackendCredentials,CreateProjectResponse}
      */
-    protected function createTestProject(): void
+    protected function createTestProject(): array
     {
         $handler = new CreateProjectHandler();
         $meta = new Any();
@@ -208,17 +242,26 @@ class BaseCase extends TestCase
             $this->getRootDatabase()
         ));
         $command = (new CreateProjectCommand())
-            ->setProjectUser($this->getProjectUser())
-            ->setProjectPassword(self::PROJECT_PASSWORD)
-            ->setProjectRole($this->getProjectRole())
-            ->setReadOnlyRoleName($this->getProjectReadOnlyRole())
+            ->setProjectId($this->getProjectId())
+            ->setStackPrefix($this->getStackPrefix())
             ->setMeta($meta);
 
-        $handler(
+        $response = $handler(
             $this->getCredentials(),
             $command,
             []
         );
+        assert($response instanceof CreateProjectResponse);
+
+        $rootCredentials = $this->getCredentials();
+        return [
+            (new GenericBackendCredentials())
+                ->setHost($rootCredentials->getHost())
+                ->setPrincipal($response->getProjectUserName())
+                ->setSecret($response->getProjectPassword())
+                ->setPort($rootCredentials->getPort()),
+            $response,
+        ];
     }
 
     /**
