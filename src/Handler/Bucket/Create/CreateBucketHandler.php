@@ -6,9 +6,12 @@ namespace Keboola\StorageDriver\Teradata\Handler\Bucket\Create;
 
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Contract\Driver\MetaHelper;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Shared\BackendSupportsInterface;
+use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
@@ -37,13 +40,21 @@ final class CreateBucketHandler implements DriverCommandHandlerInterface
             $permSpace = $meta->getPermSpace() !== '' ? $meta->getPermSpace() : $permSpace;
             $spoolSpace = $meta->getSpoolSpace() !== '' ? $meta->getSpoolSpace() : $permSpace;
         }
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $command->getStackPrefix()
+        );
+        $newBucketDatabaseName = $nameGenerator->createObjectNameForBucketInProject(
+            $command->getBucketId(),
+            $command->getProjectId()
+        );
 
         $db = ConnectionFactory::getConnection($credentials);
 
         $db->executeStatement(sprintf(
             'CREATE DATABASE %s AS '
             . 'PERMANENT = %s, SPOOL = %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getBucketName()),
+            TeradataQuote::quoteSingleIdentifier($newBucketDatabaseName),
             $permSpace,
             $spoolSpace
         ));
@@ -51,10 +62,13 @@ final class CreateBucketHandler implements DriverCommandHandlerInterface
         // grant select to read only role
         $db->executeStatement(sprintf(
             'GRANT SELECT ON %s TO %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getBucketName()),
-            TeradataQuote::quoteSingleIdentifier($command->getProjectReadOnlyRole()),
+            TeradataQuote::quoteSingleIdentifier($newBucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($command->getProjectReadOnlyRoleName()),
         ));
 
         $db->close();
+
+        return (new CreateBucketResponse())
+            ->setCreateBucketObjectName($newBucketDatabaseName);
     }
 }

@@ -24,18 +24,17 @@ class CreateDropProjectTest extends BaseCase
 
     public function testCreateProject(): void
     {
-        $this->createTestProject();
+        [$credentials,$response] = $this->createTestProject();
 
-        $credentials = $this->getTestProjectCredentials();
         $db = $this->getConnection($credentials);
         // test default database
         $this->assertSame(
-            strtoupper($this->getProjectUser()),
+            strtoupper($response->getProjectUserName()),
             $db->fetchOne('SELECT DATABASE;')
         );
         // test created users
-        $this->assertTrue($this->isRoleExists($db, $this->getProjectRole()));
-        $this->assertTrue($this->isRoleExists($db, $this->getProjectReadOnlyRole()));
+        $this->assertTrue($this->isRoleExists($db, $response->getProjectRoleName()));
+        $this->assertTrue($this->isRoleExists($db, $response->getProjectReadOnlyRoleName()));
 
         $this->assertEqualsArrays(
             [
@@ -65,16 +64,16 @@ class CreateDropProjectTest extends BaseCase
                 'R ',
                 'DV',
             ],
-            $this->getUserAccessRightForDatabase($db, $this->getProjectUser(), $this->getProjectUser())
+            $this->getUserAccessRightForDatabase($db, $response->getProjectUserName(), $response->getProjectUserName())
         );
 
         $db->close();
 
         $handler = new DropProjectHandler();
         $command = (new DropProjectCommand())
-            ->setProjectUser($this->getProjectUser())
-            ->setProjectRole($this->getProjectRole())
-            ->setReadOnlyRoleName($this->getProjectReadOnlyRole());
+            ->setProjectUserName($response->getProjectUserName())
+            ->setProjectRoleName($response->getProjectRoleName())
+            ->setReadOnlyRoleName($response->getProjectReadOnlyRoleName());
 
         $handler(
             $this->getCredentials(),
@@ -84,8 +83,8 @@ class CreateDropProjectTest extends BaseCase
 
         $db = $this->getConnection($this->getCredentials());
 
-        $this->assertFalse($this->isUserExists($db, $this->getProjectUser()));
-        $this->assertFalse($this->isRoleExists($db, $this->getProjectRole()));
-        $this->assertFalse($this->isRoleExists($db, $this->getProjectReadOnlyRole()));
+        $this->assertFalse($this->isUserExists($db, $response->getProjectUserName()));
+        $this->assertFalse($this->isRoleExists($db, $response->getProjectRoleName()));
+        $this->assertFalse($this->isRoleExists($db, $response->getProjectReadOnlyRoleName()));
     }
 }
