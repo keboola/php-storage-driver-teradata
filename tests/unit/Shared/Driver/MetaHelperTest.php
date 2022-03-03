@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Keboola\StorageDriver\UnitTests\Contract\Driver;
+namespace Keboola\StorageDriver\UnitTests\Shared\Driver;
 
 use Google\Protobuf\Any;
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Backend\InitBackendCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand\CreateBucketTeradataMeta;
-use Keboola\StorageDriver\Contract\Driver\MetaHelper;
+use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -24,7 +24,7 @@ class MetaHelperTest extends TestCase
 
     public function testGetMetaNoMetaSet(): void
     {
-        $result = MetaHelper::getMeta(
+        $result = \Keboola\StorageDriver\Shared\Driver\MetaHelper::getMeta(
             new InitBackendCommand()
         );
         $this->assertNull($result);
@@ -38,7 +38,7 @@ class MetaHelperTest extends TestCase
                 ->setGlobalRoleName('test')
         );
 
-        $result = MetaHelper::getMeta(
+        $result = \Keboola\StorageDriver\Shared\Driver\MetaHelper::getMeta(
             (new InitBackendCommand())->setMeta($meta)
         );
         $this->assertInstanceOf(InitBackendCommand\InitBackendSynapseMeta::class, $result);
@@ -47,7 +47,7 @@ class MetaHelperTest extends TestCase
 
     public function testGetMetaRestrictedNotContainMeta(): void
     {
-        $result = MetaHelper::getMetaRestricted(
+        $result = \Keboola\StorageDriver\Shared\Driver\MetaHelper::getMetaRestricted(
             $this->createMock(Message::class),
             InitBackendCommand\InitBackendSynapseMeta::class
         );
@@ -71,7 +71,7 @@ class MetaHelperTest extends TestCase
         );
 
         $this->expectException(Throwable::class);
-        MetaHelper::getMetaRestricted(
+        \Keboola\StorageDriver\Shared\Driver\MetaHelper::getMetaRestricted(
             (new InitBackendCommand())->setMeta($meta),
             CreateBucketTeradataMeta::class
         );
@@ -85,7 +85,7 @@ class MetaHelperTest extends TestCase
                 ->setGlobalRoleName('test')
         );
 
-        $result = MetaHelper::getMetaRestricted(
+        $result = \Keboola\StorageDriver\Shared\Driver\MetaHelper::getMetaRestricted(
             (new InitBackendCommand())->setMeta($meta),
             InitBackendCommand\InitBackendSynapseMeta::class
         );

@@ -8,7 +8,7 @@ use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
-use Keboola\StorageDriver\Contract\Driver\MetaHelper;
+use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;

@@ -12,7 +12,7 @@ use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Contract\Driver\ClientInterface;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
-use Keboola\StorageDriver\Contract\Driver\Exception\CommandNotSupportedException;
+use Keboola\StorageDriver\Shared\Driver\Exception\CommandNotSupportedException;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\Handler\Backend\Init\InitBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Backend\Remove\RemoveBackendHandler;

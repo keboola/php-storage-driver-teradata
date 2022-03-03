@@ -6,7 +6,7 @@ namespace Keboola\StorageDriver\Teradata\Handler;
 
 use Google\Protobuf\Any;
 use Google\Protobuf\Internal\Message;
-use Keboola\StorageDriver\Contract\Driver\Exception\Exception;
+use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
 
 final class MetaHelper
 {

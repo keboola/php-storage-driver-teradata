@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\UnitTests;
 
 use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
-use Keboola\StorageDriver\Contract\Driver\Exception\CommandNotSupportedException;
+use Keboola\StorageDriver\Shared\Driver\Exception\CommandNotSupportedException;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\GeneratedTests\CustomMessage;
 use Keboola\StorageDriver\Teradata\TeradataDriverClient;
