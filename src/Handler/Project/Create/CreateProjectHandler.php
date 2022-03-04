@@ -13,13 +13,20 @@ use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Shared\Utils\Password;
-use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateProjectHandler implements DriverCommandHandlerInterface
 {
     public const DEFAULT_PERM_SPACE_SIZE = 1e9; // 1GB
     public const DEFAULT_SPOOL_SPACE_SIZE = 1e9; // 1GB
+
+    private TeradataSessionManager $manager;
+
+    public function __construct(TeradataSessionManager $manager)
+    {
+        $this->manager = $manager;
+    }
 
     /**
      * @inheritDoc
@@ -33,7 +40,7 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof CreateProjectCommand);
 
-        $db = ConnectionFactory::getConnection($credentials);
+        $db = $this->manager->createSession($credentials);
 
         // root user is also root database
         $databaseName = $credentials->getPrincipal();

@@ -69,7 +69,7 @@ class CreateDropProjectTest extends BaseCase
 
         $db->close();
 
-        $handler = new DropProjectHandler();
+        $handler = new DropProjectHandler($this->sessionManager);
         $command = (new DropProjectCommand())
             ->setProjectUserName($response->getProjectUserName())
             ->setProjectRoleName($response->getProjectRoleName())

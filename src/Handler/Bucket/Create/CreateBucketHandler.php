@@ -13,12 +13,20 @@ use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateBucketHandler implements DriverCommandHandlerInterface
 {
     public const DEFAULT_PERM_SPACE_SIZE = 1e8; // 100MB;
     public const DEFAULT_SPOOL_SPACE_SIZE = 1e8; // 100MB;
+
+    private TeradataSessionManager $manager;
+
+    public function __construct(TeradataSessionManager $manager)
+    {
+        $this->manager = $manager;
+    }
 
     /**
      * @inheritDoc
@@ -49,7 +57,7 @@ final class CreateBucketHandler implements DriverCommandHandlerInterface
             $command->getProjectId()
         );
 
-        $db = ConnectionFactory::getConnection($credentials);
+        $db = $this->manager->createSession($credentials);
 
         $db->executeStatement(sprintf(
             'CREATE DATABASE %s AS '

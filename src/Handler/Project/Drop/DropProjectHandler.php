@@ -9,10 +9,18 @@ use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class DropProjectHandler implements DriverCommandHandlerInterface
 {
+    private TeradataSessionManager $manager;
+
+    public function __construct(TeradataSessionManager $manager)
+    {
+        $this->manager = $manager;
+    }
+
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
@@ -25,7 +33,7 @@ final class DropProjectHandler implements DriverCommandHandlerInterface
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof DropProjectCommand);
 
-        $db = ConnectionFactory::getConnection($credentials);
+        $db = $this->manager->createSession($credentials);
 
         $db->executeStatement(sprintf(
             'DROP ROLE %s;',

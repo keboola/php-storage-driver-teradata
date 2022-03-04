@@ -12,8 +12,8 @@ use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
-use Keboola\StorageDriver\Teradata\ConnectionFactory;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
+use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use PHPUnit\Framework\TestCase;
 
@@ -23,6 +23,21 @@ class BaseCase extends TestCase
     protected const PROJECT_ROLE_SUFFIX = '_KBC_role';
     protected const PROJECT_READ_ONLY_ROLE_SUFFIX = '_KBC_RO';
     protected const PROJECT_PASSWORD = 'PassW0rd#';
+
+    /**
+     * Set all connections to db here so they can be closed in teardown
+     *
+     * @var Connection[]
+     */
+    protected array $dbs = [];
+
+    protected TeradataSessionManager $sessionManager;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->sessionManager = new TeradataSessionManager();
+    }
 
     /**
      * Check if parent has child
@@ -55,9 +70,19 @@ class BaseCase extends TestCase
         $db->close();
     }
 
+    protected function getStackPrefix(): string
+    {
+        return md5(get_class($this));
+    }
+
+    protected function getProjectId(): string
+    {
+        return md5($this->getName());
+    }
+
     protected function getConnection(GenericBackendCredentials $credentials): Connection
     {
-        return ConnectionFactory::getConnection($credentials);
+        return $this->sessionManager->createSession($credentials, (bool) getenv('DEBUG'));
     }
 
     /**
@@ -166,15 +191,6 @@ class BaseCase extends TestCase
         return $return;
     }
 
-    protected function getProjectUser(): string
-    {
-        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
-            BackendSupportsInterface::BACKEND_TERADATA,
-            $this->getStackPrefix()
-        );
-        return $nameGenerator->createUserNameForProject($this->getProjectId());
-    }
-
     /**
      * Drop role if exists
      */
@@ -220,23 +236,14 @@ class BaseCase extends TestCase
         return $nameGenerator->createRoleNameForProject($this->getProjectId());
     }
 
-    protected function getProjectId(): string
-    {
-        return md5($this->getName());
-    }
-
-    protected function getStackPrefix(): string
-    {
-        return md5(get_class($this));
-    }
-
     /**
      * Create test project scoped for each test name
+     *
      * @return array{GenericBackendCredentials,CreateProjectResponse}
      */
     protected function createTestProject(): array
     {
-        $handler = new CreateProjectHandler();
+        $handler = new CreateProjectHandler($this->sessionManager);
         $meta = new Any();
         $meta->pack((new CreateProjectCommand\CreateProjectTeradataMeta())->setRootDatabase(
             $this->getRootDatabase()
@@ -275,6 +282,15 @@ class BaseCase extends TestCase
             ->setPrincipal($this->getProjectUser())
             ->setSecret(self::PROJECT_PASSWORD)
             ->setPort($rootCredentials->getPort());
+    }
+
+    protected function getProjectUser(): string
+    {
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $this->getStackPrefix()
+        );
+        return $nameGenerator->createUserNameForProject($this->getProjectId());
     }
 
     /**

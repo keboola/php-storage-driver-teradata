@@ -31,27 +31,34 @@ class TeradataDriverClient implements ClientInterface
         array $features
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
-        $handler = $this->getHandler($command);
-        return $handler(
-            $credentials,
-            $command,
-            $features
-        );
+        $manager = new TeradataSessionManager();
+        $handler = $this->getHandler($command, $manager);
+        try {
+            $response = $handler(
+                $credentials,
+                $command,
+                $features
+            );
+        } finally {
+            $manager->close();
+        }
+
+        return $response;
     }
 
-    private function getHandler(Message $command): DriverCommandHandlerInterface
+    private function getHandler(Message $command, TeradataSessionManager $manager): DriverCommandHandlerInterface
     {
         switch (true) {
             case $command instanceof InitBackendCommand:
-                return new InitBackendHandler();
+                return new InitBackendHandler($manager);
             case $command instanceof RemoveBackendCommand:
                 return new RemoveBackendHandler();
             case $command instanceof CreateProjectCommand:
-                return new CreateProjectHandler();
+                return new CreateProjectHandler($manager);
             case $command instanceof CreateBucketCommand:
-                return new CreateBucketHandler();
+                return new CreateBucketHandler($manager);
             case $command instanceof DropBucketCommand:
-                return new DropBucketHandler();
+                return new DropBucketHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));

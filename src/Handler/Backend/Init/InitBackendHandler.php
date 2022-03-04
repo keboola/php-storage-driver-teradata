@@ -10,10 +10,17 @@ use Keboola\StorageDriver\Command\Backend\InitBackendResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
-use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 
 final class InitBackendHandler implements DriverCommandHandlerInterface
 {
+    private TeradataSessionManager $manager;
+
+    public function __construct(TeradataSessionManager $manager)
+    {
+        $this->manager = $manager;
+    }
+
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
@@ -26,7 +33,7 @@ final class InitBackendHandler implements DriverCommandHandlerInterface
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof InitBackendCommand);
 
-        $db = ConnectionFactory::getConnection($credentials);
+        $db = $this->manager->createSession($credentials);
 
         $db->fetchOne('SELECT 1');
 
