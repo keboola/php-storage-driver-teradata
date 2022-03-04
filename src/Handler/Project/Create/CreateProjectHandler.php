@@ -8,9 +8,9 @@ use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
-use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
+use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Shared\Utils\Password;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
@@ -127,7 +127,6 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             ->setProjectUserName($newProjectUsername)
             ->setProjectRoleName($newProjectRoleName)
             ->setProjectReadOnlyRoleName($newProjectReadOnlyRoleName)
-            ->setProjectPassword($newProjectPassword)
-            ;
+            ->setProjectPassword($newProjectPassword);
     }
 }
