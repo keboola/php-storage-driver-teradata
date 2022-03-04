@@ -28,7 +28,7 @@ final class CreateBucketHandler implements DriverCommandHandlerInterface
         Message $credentials, // project credentials
         Message $command,
         array $features
-    ) {
+    ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof CreateBucketCommand);
 

@@ -21,7 +21,7 @@ final class DropProjectHandler implements DriverCommandHandlerInterface
         Message $credentials,
         Message $command,
         array $features
-    ) {
+    ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof DropProjectCommand);
 
@@ -43,5 +43,6 @@ final class DropProjectHandler implements DriverCommandHandlerInterface
         ));
 
         $db->close();
+        return null;
     }
 }

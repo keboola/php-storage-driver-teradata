@@ -29,7 +29,7 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
         Message $credentials,
         Message $command,
         array $features
-    ) {
+    ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof CreateProjectCommand);
 

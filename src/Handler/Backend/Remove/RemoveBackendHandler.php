@@ -18,8 +18,10 @@ final class RemoveBackendHandler implements DriverCommandHandlerInterface
         Message $credentials,
         Message $command,
         array $features
-    ) {
+    ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof RemoveBackendCommand);
+
+        return null;
     }
 }

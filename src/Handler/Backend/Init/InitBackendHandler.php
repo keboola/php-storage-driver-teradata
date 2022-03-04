@@ -6,9 +6,10 @@ namespace Keboola\StorageDriver\Teradata\Handler\Backend\Init;
 
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Backend\InitBackendCommand;
+use Keboola\StorageDriver\Command\Backend\InitBackendResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
-use Keboola\StorageDriver\Contract\Driver\Exception\Exception;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
 
 final class InitBackendHandler implements DriverCommandHandlerInterface
@@ -21,7 +22,7 @@ final class InitBackendHandler implements DriverCommandHandlerInterface
         Message $credentials,
         Message $command,
         array $features
-    ) {
+    ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof InitBackendCommand);
 
@@ -56,6 +57,8 @@ final class InitBackendHandler implements DriverCommandHandlerInterface
         $this->checkAccessRight($rights, 'CV', $credentials->getPrincipal());
         // check drop view
         $this->checkAccessRight($rights, 'DV', $credentials->getPrincipal());
+
+        return new InitBackendResponse();
     }
 
     /**

@@ -21,7 +21,7 @@ final class DropBucketHandler implements DriverCommandHandlerInterface
         Message $credentials, // project credentials
         Message $command,
         array $features
-    ) {
+    ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof DropBucketCommand);
 
@@ -33,5 +33,6 @@ final class DropBucketHandler implements DriverCommandHandlerInterface
         ));
 
         $db->close();
+        return null;
     }
 }

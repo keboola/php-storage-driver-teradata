@@ -29,7 +29,7 @@ class TeradataDriverClient implements ClientInterface
         Message $credentials,
         Message $command,
         array $features
-    ) {
+    ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         $handler = $this->getHandler($command);
         return $handler(
