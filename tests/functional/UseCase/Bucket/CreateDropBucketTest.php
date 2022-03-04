@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Bucket;
 
-use Doctrine\DBAL\Connection;
-use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
-use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
-use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
@@ -39,9 +35,7 @@ class CreateDropBucketTest extends BaseCase
 
     public function testCreateDropBucket(): void
     {
-        $bucket = md5($this->getName()) . '_Test_bucket';
-
-        [$response, $db] = $this->createBucket($bucket);
+        [$response, $db] = $this->createTestBucket($this->projectCredentials, $this->projectResponse);
 
         $handler = new DropBucketHandler($this->sessionManager);
         $command = (new DropBucketCommand())
@@ -59,48 +53,9 @@ class CreateDropBucketTest extends BaseCase
         $db->close();
     }
 
-    /**
-     * @return array{CreateBucketResponse, Connection}
-     */
-    private function createBucket(string $bucket): array
-    {
-        $handler = new CreateBucketHandler($this->sessionManager);
-        $command = (new CreateBucketCommand())
-            ->setStackPrefix($this->getStackPrefix())
-            ->setProjectId($this->getProjectId())
-            ->setBucketId($bucket)
-            ->setProjectRoleName($this->projectResponse->getProjectRoleName())
-            ->setProjectReadOnlyRoleName($this->projectResponse->getProjectReadOnlyRoleName());
-
-        $response = $handler(
-            $this->projectCredentials,
-            $command,
-            []
-        );
-        $this->assertInstanceOf(CreateBucketResponse::class, $response);
-
-        $db = $this->getConnection($this->projectCredentials);
-
-        $this->assertTrue($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
-
-        // read only role has read access to bucket
-        $this->assertEqualsArrays(
-            ['R '],
-            $this->getRoleAccessRightForDatabase(
-                $db,
-                $this->projectResponse->getProjectReadOnlyRoleName(),
-                $response->getCreateBucketObjectName()
-            )
-        );
-
-        return [$response, $db];
-    }
-
     public function testCreateDropCascadeBucket(): void
     {
-        $bucket = md5($this->getName()) . '_Test_bucket';
-
-        [$response, $db] = $this->createBucket($bucket);
+        [$response, $db] = $this->createTestBucket($this->projectCredentials, $this->projectResponse);
 
         // create table
         $db->executeStatement(sprintf(
