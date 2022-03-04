@@ -11,9 +11,6 @@ use Keboola\StorageDriver\Teradata\Handler\Backend\Init\InitBackendHandler;
 
 class InitTest extends BaseCase
 {
-    /**
-     * @doesNotPerformAssertions
-     */
     public function testInitBackend(): void
     {
         $handler = new InitBackendHandler();
