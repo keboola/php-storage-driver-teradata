@@ -10,6 +10,7 @@ use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
+use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Contract\Driver\ClientInterface;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -19,6 +20,7 @@ use Keboola\StorageDriver\Teradata\Handler\Backend\Remove\RemoveBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
+use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 
 class TeradataDriverClient implements ClientInterface
 {
@@ -55,6 +57,8 @@ class TeradataDriverClient implements ClientInterface
                 return new RemoveBackendHandler();
             case $command instanceof CreateProjectCommand:
                 return new CreateProjectHandler($manager);
+            case $command instanceof DropProjectCommand:
+                return new DropProjectHandler($manager);
             case $command instanceof CreateBucketCommand:
                 return new CreateBucketHandler($manager);
             case $command instanceof DropBucketCommand:
