@@ -39,7 +39,6 @@ class CreateDropProjectTest extends BaseCase
 
         $this->assertEqualsArrays(
             [
-                TeradataAccessRight::RIGHT_DROP_GLOP_SET,
                 TeradataAccessRight::RIGHT_DROP_TABLE,
                 TeradataAccessRight::RIGHT_EXECUTE,
                 TeradataAccessRight::RIGHT_INSERT,
@@ -47,6 +46,7 @@ class CreateDropProjectTest extends BaseCase
                 TeradataAccessRight::RIGHT_CREATE_VIEW,
                 TeradataAccessRight::RIGHT_CREATE_DATABASE,
                 TeradataAccessRight::RIGHT_DROP_DATABASE,
+                TeradataAccessRight::RIGHT_DROP_TRIGGER,
                 TeradataAccessRight::RIGHT_DROP_FUNCTION,
                 TeradataAccessRight::RIGHT_DROP_MACRO,
                 TeradataAccessRight::RIGHT_DROP_PROCEDURE,

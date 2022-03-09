@@ -22,7 +22,7 @@ final class TeradataAccessRight
     public const RIGHT_CREATE_TABLE = 'CT'; // Create Table
     public const RIGHT_CREATE_USER = 'CU'; // Create User
     public const RIGHT_CREATE_VIEW = 'CV'; // Create View
-    public const RIGHT_DELETE = 'D'; // Delete
+    public const RIGHT_DELETE = 'D '; // Delete
     public const RIGHT_DROP_AUTHORIZATION = 'DA'; // Drop Authorization
     public const RIGHT_DROP_DATABASE = 'DD'; // Drop Database
     public const RIGHT_DROP_FUNCTION = 'DF'; // Drop Function
@@ -34,12 +34,12 @@ final class TeradataAccessRight
     public const RIGHT_DROP_TABLE = 'DT'; // Drop Table
     public const RIGHT_DROP_USER = 'DU'; // Drop User
     public const RIGHT_DROP_VIEW = 'DV'; // Drop View
-    public const RIGHT_EXECUTE = 'E'; // Execute
+    public const RIGHT_EXECUTE = 'E '; // Execute
     public const RIGHT_EXECUTE_FUNCTION = 'EF'; // Execute Function
     public const RIGHT_CREATE_GLOP_SET = 'GC'; // Create GLOP SET
     public const RIGHT_DROP_GLOP_SET = 'GD'; // Drop GLOP SET
     public const RIGHT_GLOP_MEMBER = 'GM'; // GLOP Member
-    public const RIGHT_INSERT = 'I'; // Insert
+    public const RIGHT_INSERT = 'I '; // Insert
     public const RIGHT_INDEXES = 'IX'; // Indexes
     public const RIGHT_MONITOR_RESOURCE = 'MR'; // Monitor Resource
     public const RIGHT_MONITOR_SESSION = 'MS'; // Monitor Session
@@ -54,7 +54,7 @@ final class TeradataAccessRight
     public const RIGHT_CREATE_PROCEDURE = 'PC'; // Create Procedure
     public const RIGHT_DROP_PROCEDURE = 'PD'; // Drop Procedure
     public const RIGHT_EXECUTE_PROCEDURE = 'PE'; // Execute Procedure
-    public const RIGHT_RETRIEVE_OR_SELECT = 'R'; // Retrieve or Select
+    public const RIGHT_RETRIEVE_OR_SELECT = 'R '; // Retrieve or Select
     public const RIGHT_REFERENCES = 'RF'; // References
     public const RIGHT_RESTORE = 'RS'; // Restore
     public const RIGHT_SHOW = 'SH'; // Show
@@ -64,7 +64,7 @@ final class TeradataAccessRight
     public const RIGHT_SET_RESOURCE_RATE = 'SR'; // Set Resource Rate
     public const RIGHT_STATISTICS = 'ST'; // Statistics
     public const RIGHT_CONNECT_THROUGH = 'TH'; // Connect Through
-    public const RIGHT_UPDATE = 'U'; // Update
+    public const RIGHT_UPDATE = 'U '; // Update
     public const RIGHT_UDT_METHOD = 'UM'; // UDT Method
     public const RIGHT_UDT_TYPE = 'UT'; // UDT Type
     public const RIGHT_UDT_USAGE = 'UU'; // UDT Usage
