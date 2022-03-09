@@ -10,6 +10,7 @@ use Keboola\StorageDriver\Command\Backend\InitBackendResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
+use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 
 final class InitBackendHandler implements DriverCommandHandlerInterface
@@ -41,29 +42,29 @@ final class InitBackendHandler implements DriverCommandHandlerInterface
         $rights = $db->fetchFirstColumn("SELECT AccessRight FROM DBC.UserRightsV WHERE TableName = 'All'");
 
         // check create user
-        $this->checkAccessRight($rights, 'CU', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_CREATE_USER, $credentials->getPrincipal());
         // check drop user
-        $this->checkAccessRight($rights, 'DU', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_DROP_USER, $credentials->getPrincipal());
 
         // check create role
-        $this->checkAccessRight($rights, 'CR', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_CREATE_ROLE, $credentials->getPrincipal());
         // check drop role
-        $this->checkAccessRight($rights, 'DR', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_DROP_ROLE, $credentials->getPrincipal());
 
         // check create database
-        $this->checkAccessRight($rights, 'CD', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_CREATE_DATABASE, $credentials->getPrincipal());
         // check drop database
-        $this->checkAccessRight($rights, 'DD', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_DROP_DATABASE, $credentials->getPrincipal());
 
         // check create table
-        $this->checkAccessRight($rights, 'CT', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_CREATE_TABLE, $credentials->getPrincipal());
         // check drop table
-        $this->checkAccessRight($rights, 'DT', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_DROP_TABLE, $credentials->getPrincipal());
 
         // check create view
-        $this->checkAccessRight($rights, 'CV', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_CREATE_VIEW, $credentials->getPrincipal());
         // check drop view
-        $this->checkAccessRight($rights, 'DV', $credentials->getPrincipal());
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_DROP_VIEW, $credentials->getPrincipal());
 
         return new InitBackendResponse();
     }

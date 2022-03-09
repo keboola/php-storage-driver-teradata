@@ -7,6 +7,7 @@ namespace Keboola\StorageDriver\FunctionalTests\UseCase\Project;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
+use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 
 class CreateDropProjectTest extends BaseCase
 {
@@ -24,7 +25,7 @@ class CreateDropProjectTest extends BaseCase
 
     public function testCreateProject(): void
     {
-        [$credentials,$response] = $this->createTestProject();
+        [$credentials, $response] = $this->createTestProject();
 
         $db = $this->getConnection($credentials);
         // test default database
@@ -38,31 +39,31 @@ class CreateDropProjectTest extends BaseCase
 
         $this->assertEqualsArrays(
             [
-                'DG',
-                'DT',
-                'E ',
-                'I ',
-                'D ',
-                'CV',
-                'CD',
-                'DD',
-                'DF',
-                'DM',
-                'PD',
-                'CA',
-                'CM',
-                'CT',
-                'DP',
-                'U ',
-                'CU',
-                'DU',
-                'CG',
-                'CP',
-                'DA',
-                'ST',
-                'RS',
-                'R ',
-                'DV',
+                TeradataAccessRight::RIGHT_DROP_GLOP_SET,
+                TeradataAccessRight::RIGHT_DROP_TABLE,
+                TeradataAccessRight::RIGHT_EXECUTE,
+                TeradataAccessRight::RIGHT_INSERT,
+                TeradataAccessRight::RIGHT_DELETE,
+                TeradataAccessRight::RIGHT_CREATE_VIEW,
+                TeradataAccessRight::RIGHT_CREATE_DATABASE,
+                TeradataAccessRight::RIGHT_DROP_DATABASE,
+                TeradataAccessRight::RIGHT_DROP_FUNCTION,
+                TeradataAccessRight::RIGHT_DROP_MACRO,
+                TeradataAccessRight::RIGHT_DROP_PROCEDURE,
+                TeradataAccessRight::RIGHT_CREATE_AUTHORIZATION,
+                TeradataAccessRight::RIGHT_CREATE_MACRO,
+                TeradataAccessRight::RIGHT_CREATE_TABLE,
+                TeradataAccessRight::RIGHT_DUMP,
+                TeradataAccessRight::RIGHT_UPDATE,
+                TeradataAccessRight::RIGHT_CREATE_USER,
+                TeradataAccessRight::RIGHT_DROP_USER,
+                TeradataAccessRight::RIGHT_CREATE_TRIGGER,
+                TeradataAccessRight::RIGHT_CHECKPOINT,
+                TeradataAccessRight::RIGHT_DROP_AUTHORIZATION,
+                TeradataAccessRight::RIGHT_STATISTICS,
+                TeradataAccessRight::RIGHT_RESTORE,
+                TeradataAccessRight::RIGHT_RETRIEVE_OR_SELECT,
+                TeradataAccessRight::RIGHT_DROP_VIEW,
             ],
             $this->getUserAccessRightForDatabase($db, $response->getProjectUserName(), $response->getProjectUserName())
         );
