@@ -307,22 +307,6 @@ class BaseCase extends TestCase
     }
 
     /**
-     * Get list of AccessRight's of user on database
-     *
-     * @return string[]
-     */
-    protected function getRoleAccessRightForDatabase(Connection $db, string $role, string $database): array
-    {
-        /** @var string[] $return */
-        $return = $db->fetchFirstColumn(sprintf(
-            'SELECT AccessRight FROM DBC.AllRoleRightsV WHERE RoleName = %s AND DatabaseName = %s',
-            TeradataQuote::quote($role),
-            TeradataQuote::quote($database)
-        ));
-        return $return;
-    }
-
-    /**
      * Get list of AccessRight's of role on database
      *
      * @return string[]
@@ -389,5 +373,11 @@ class BaseCase extends TestCase
         );
 
         return [$response, $db];
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        $this->sessionManager->close();
     }
 }
