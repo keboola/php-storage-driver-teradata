@@ -78,6 +78,7 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
         $builder = new TeradataTableQueryBuilder();
         // convert RepeatedField to Array: https://github.com/protocolbuffers/protobuf/issues/7648
         $primaryKeys = [];
+        /** @var string $primaryKey */
         foreach ($command->getPrimaryKeysNames() as $primaryKey) {
             $primaryKeys[] = $primaryKey;
         }
