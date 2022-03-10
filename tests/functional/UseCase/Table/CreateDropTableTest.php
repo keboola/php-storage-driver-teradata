@@ -15,6 +15,8 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
+use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
+use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
 class CreateDropTableTest extends BaseCase
 {
@@ -64,7 +66,11 @@ class CreateDropTableTest extends BaseCase
             ->setType(Teradata::TYPE_VARCHAR)
             ->setLength('50')
             ->setNullable(true)
-            ->setDefault("'Some Default'")
+            ->setDefault("'Some Default'");
+        $columns[] = (new CreateTableCommand\TableColumn())
+            ->setName('large')
+            ->setType(Teradata::TYPE_CLOB)
+            ->setLength('2097087999') // the biggest length for latin chars, bigger than for unicode chars
             ->setMeta($metaIsLatinEnabled);
         $primaryKeysNames = new RepeatedField(GPBType::STRING);
         $primaryKeysNames[] = 'id';
@@ -81,9 +87,45 @@ class CreateDropTableTest extends BaseCase
         );
         $this->assertNull($response);
 
+        // CHECK TABLE
         $db = $this->getConnection($this->projectCredentials);
 
         $this->assertTrue($this->isTableExists($db, $bucketDatabaseName, $tableName));
+
+        $table = new TeradataTableReflection($db, $bucketDatabaseName, $tableName);
+        $this->assertEqualsArrays(['id'], $table->getPrimaryKeysNames());
+
+        // check columns
+        /** @var TeradataColumn[] $columns */
+        $columns = iterator_to_array($table->getColumnsDefinitions());
+        $this->assertCount(3, $columns);
+
+        // check column ID
+        $column = $columns[0];
+        $this->assertSame('id', $column->getColumnName());
+        $columnDef = $column->getColumnDefinition();
+        $this->assertSame(Teradata::TYPE_INTEGER, $columnDef->getType());
+        $this->assertSame('4', $columnDef->getLength()); // default size
+        $this->assertFalse($columnDef->isNullable());
+        $this->assertNull($columnDef->getDefault());
+
+        // check column NAME
+        $column = $columns[1];
+        $this->assertSame('name', $column->getColumnName());
+        $columnDef = $column->getColumnDefinition();
+        $this->assertSame(Teradata::TYPE_VARCHAR, $columnDef->getType());
+        $this->assertSame('50', $columnDef->getLength());
+        $this->assertTrue($columnDef->isNullable());
+        $this->assertSame("'Some Default'", $columnDef->getDefault());
+
+        // check column LARGE
+        $column = $columns[2];
+        $this->assertSame('large', $column->getColumnName());
+        $columnDef = $column->getColumnDefinition();
+        $this->assertSame(Teradata::TYPE_CLOB, $columnDef->getType());
+        $this->assertSame('2097087999', $columnDef->getLength());
+        $this->assertFalse($columnDef->isNullable());
+        $this->assertNull($columnDef->getDefault());
 
         $db->close();
 
