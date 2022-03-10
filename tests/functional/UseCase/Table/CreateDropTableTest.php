@@ -45,50 +45,34 @@ class CreateDropTableTest extends BaseCase
         $tableName = md5($this->getName()) . '_Test_table';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
 
-        // TODO je potreba nastavit jinou databazi? Pokud jo, tak potom je zbytecne nastavovat command.path.
-        // use bucket database
-        //$meta = new Any();
-        //$meta->pack(
-        //    (new GenericBackendCredentials\TeradataCredentialsMeta())
-        //        ->setDatabase($bucketDatabaseName)
-        //);
-        //$bucketCredentials = (new GenericBackendCredentials())
-        //    ->setHost($this->projectCredentials->getHost())
-        //    ->setPrincipal($this->projectCredentials->getPrincipal())
-        //    ->setSecret($this->projectCredentials->getSecret())
-        //    ->setPort($this->projectCredentials->getPort())
-        //    ->setMeta($meta);
-
         // CREATE TABLE
-        $handler = new CreateTableHandler();
+        $handler = new CreateTableHandler($this->sessionManager);
 
         $metaIsLatinEnabled = new Any();
-        $metaIsLatinEnabled->pack((new CreateTableCommand\TableColumn\TeradataTableColumnMeta())->setIsLatin(true));
+        $metaIsLatinEnabled->pack(
+            (new CreateTableCommand\TableColumn\TeradataTableColumnMeta())->setIsLatin(true)
+        );
 
-        // TODO phpstan: jak nastavit repeated?
-        // ERR Parameter #1 $var of method Keboola\StorageDriver\Command\Table\CreateTableCommand::setPath()
-        //     expects Google\Protobuf\Internal\RepeatedField&iterable<string>, array<int, string> given.
-        $path = [$bucketDatabaseName];
-        // ERR Parameter #2 $value of method Google\Protobuf\Internal\RepeatedField::offsetSet() expects object,
-        //     string given.
-        //$path = new RepeatedField(GPBType::STRING);
-        //$path[] = $bucketDatabaseName;
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $columns = new RepeatedField(GPBType::MESSAGE, CreateTableCommand\TableColumn::class);
+        $columns[] = (new CreateTableCommand\TableColumn())
+            ->setName('id')
+            ->setType(Teradata::TYPE_INTEGER);
+        $columns[] = (new CreateTableCommand\TableColumn())
+            ->setName('name')
+            ->setType(Teradata::TYPE_VARCHAR)
+            ->setLength('50')
+            ->setNullable(true)
+            ->setDefault("'Some Default'")
+            ->setMeta($metaIsLatinEnabled);
+        $primaryKeysNames = new RepeatedField(GPBType::STRING);
+        $primaryKeysNames[] = 'id';
         $command = (new CreateTableCommand())
             ->setPath($path)
             ->setTableName($tableName)
-            ->setColumns([
-                (new CreateTableCommand\TableColumn())
-                    ->setName('id')
-                    ->setType(Teradata::TYPE_INTEGER),
-                (new CreateTableCommand\TableColumn())
-                    ->setName('name')
-                    ->setType(Teradata::TYPE_VARCHAR)
-                    ->setLength('50')
-                    ->setNullable(true)
-                    ->setDefault("'Some Default'")
-                    ->setMeta($metaIsLatinEnabled),
-            ])
-            ->setPrimaryKeysNames(['id']);
+            ->setColumns($columns)
+            ->setPrimaryKeysNames($primaryKeysNames);
 
         $response = $handler(
             $this->projectCredentials,
@@ -104,9 +88,9 @@ class CreateDropTableTest extends BaseCase
         $db->close();
 
         // DROP TABLE
-        $handler = new DropTableHandler();
+        $handler = new DropTableHandler($this->sessionManager);
         $command = (new DropTableCommand())
-            ->setPath([$bucketDatabaseName])
+            ->setPath($path)
             ->setTableName($tableName);
 
         $handler(

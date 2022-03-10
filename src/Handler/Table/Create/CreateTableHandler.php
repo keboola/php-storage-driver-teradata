@@ -13,12 +13,20 @@ use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 
 final class CreateTableHandler implements DriverCommandHandlerInterface
 {
+    private TeradataSessionManager $manager;
+
+    public function __construct(TeradataSessionManager $manager)
+    {
+        $this->manager = $manager;
+    }
+
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
@@ -43,7 +51,7 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
         }
         $databaseName = implode('.', $paths);
 
-        $db = ConnectionFactory::getConnection($credentials);
+        $db = $this->manager->createSession($credentials);
 
         // define columns
         $columns = [];

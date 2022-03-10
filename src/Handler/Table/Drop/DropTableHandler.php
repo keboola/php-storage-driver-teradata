@@ -10,10 +10,18 @@ use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 
 final class DropTableHandler implements DriverCommandHandlerInterface
 {
+    private TeradataSessionManager $manager;
+
+    public function __construct(TeradataSessionManager $manager)
+    {
+        $this->manager = $manager;
+    }
+
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
@@ -37,7 +45,7 @@ final class DropTableHandler implements DriverCommandHandlerInterface
         }
         $databaseName = implode('.', $paths);
 
-        $db = ConnectionFactory::getConnection($credentials);
+        $db = $this->manager->createSession($credentials);
 
         // build sql
         $builder = new TeradataTableQueryBuilder();

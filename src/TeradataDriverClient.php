@@ -11,6 +11,8 @@ use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
+use Keboola\StorageDriver\Command\Table\CreateTableCommand;
+use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Contract\Driver\ClientInterface;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -21,6 +23,8 @@ use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 
 class TeradataDriverClient implements ClientInterface
 {
@@ -63,6 +67,10 @@ class TeradataDriverClient implements ClientInterface
                 return new CreateBucketHandler($manager);
             case $command instanceof DropBucketCommand:
                 return new DropBucketHandler($manager);
+            case $command instanceof CreateTableCommand:
+                return new CreateTableHandler($manager);
+            case $command instanceof DropTableCommand:
+                return new DropTableHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));
