@@ -9,7 +9,6 @@ use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\Teradata\ConnectionFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 
@@ -25,6 +24,7 @@ final class DropTableHandler implements DriverCommandHandlerInterface
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
+     * @param DropTableCommand $command
      */
     public function __invoke(
         Message $credentials,
@@ -35,20 +35,15 @@ final class DropTableHandler implements DriverCommandHandlerInterface
         assert($command instanceof DropTableCommand);
 
         // validate
-        assert($command->getPath()->count() > 0, 'DropTableCommand.path is required');
+        assert($command->getPath()->count() === 1, 'DropTableCommand.path is required and size must equal 1');
         assert(!empty($command->getTableName()), 'DropTableCommand.tableName is required');
-
-        // get bucket database
-        $paths = [];
-        foreach ($command->getPath() as $path) {
-            $paths[] = $path;
-        }
-        $databaseName = implode('.', $paths);
 
         $db = $this->manager->createSession($credentials);
 
         // build sql
         $builder = new TeradataTableQueryBuilder();
+        /** @var string $databaseName */
+        $databaseName = $command->getPath()[0];
         $dropTableSql = $builder->getDropTableCommand($databaseName, $command->getTableName());
 
         // drop table

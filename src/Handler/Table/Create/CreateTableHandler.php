@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\Teradata\Handler\Table\Create;
 
 use Google\Protobuf\Internal\Message;
+use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand\TableColumn;
@@ -12,7 +13,6 @@ use Keboola\StorageDriver\Command\Table\CreateTableCommand\TableColumn\TeradataT
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
-use Keboola\StorageDriver\Teradata\ConnectionFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
@@ -30,6 +30,7 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
+     * @param CreateTableCommand $command
      */
     public function __invoke(
         Message $credentials,
@@ -40,16 +41,9 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
         assert($command instanceof CreateTableCommand);
 
         // validate
-        assert($command->getPath()->count() > 0, 'CreateTableCommand.path is required');
+        assert($command->getPath()->count() === 1, 'CreateTableCommand.path is required and size must equal 1');
         assert(!empty($command->getTableName()), 'CreateTableCommand.tableName is required');
         assert($command->getColumns()->count() > 0, 'CreateTableCommand.columns is required');
-
-        // get bucket database
-        $paths = [];
-        foreach ($command->getPath() as $path) {
-            $paths[] = $path;
-        }
-        $databaseName = implode('.', $paths);
 
         $db = $this->manager->createSession($credentials);
 
@@ -76,12 +70,9 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
 
         // build sql
         $builder = new TeradataTableQueryBuilder();
-        // convert RepeatedField to Array: https://github.com/protocolbuffers/protobuf/issues/7648
-        $primaryKeys = [];
-        /** @var string $primaryKey */
-        foreach ($command->getPrimaryKeysNames() as $primaryKey) {
-            $primaryKeys[] = $primaryKey;
-        }
+        /** @var string $databaseName */
+        $databaseName = $command->getPath()[0];
+        $primaryKeys = $this->repeatedStringToArray($command->getPrimaryKeysNames());
         $createTableSql = $builder->getCreateTableCommand(
             $databaseName,
             $command->getTableName(),
@@ -94,5 +85,19 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
 
         $db->close();
         return null;
+    }
+
+    /**
+     * Convert RepeatedField to Array: https://github.com/protocolbuffers/protobuf/issues/7648
+     *
+     * @return string[]
+     */
+    private function repeatedStringToArray(RepeatedField $repeated): array
+    {
+        $values = [];
+        foreach ($repeated as $value) {
+            $values[] = strval($value);
+        }
+        return $values;
     }
 }
