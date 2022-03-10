@@ -16,6 +16,7 @@ use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
+use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use PHPUnit\Framework\TestCase;
@@ -380,7 +381,7 @@ class BaseCase extends TestCase
 
         // read only role has read access to bucket
         $this->assertEqualsArrays(
-            ['R '],
+            [TeradataAccessRight::RIGHT_RETRIEVE_OR_SELECT],
             $this->getRoleAccessRightForDatabase(
                 $db,
                 $projectResponse->getProjectReadOnlyRoleName(),
