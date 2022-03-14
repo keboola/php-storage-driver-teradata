@@ -1,0 +1,494 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Keboola\StorageDriver\FunctionalTests\UseCase\Table;
+
+use Google\Protobuf\Internal\GPBType;
+use Google\Protobuf\Internal\RepeatedField;
+use Google\Protobuf\NullValue;
+use Google\Protobuf\Value;
+use Keboola\Datatype\Definition\Teradata;
+use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Table\CreateTableCommand;
+use Keboola\StorageDriver\Command\Table\DropTableCommand;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
+use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
+use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
+
+class PreviewTableTest extends BaseCase
+{
+    protected GenericBackendCredentials $projectCredentials;
+
+    protected CreateBucketResponse $bucketResponse;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->cleanTestProject();
+
+        [$projectCredentials, $projectResponse] = $this->createTestProject();
+        $this->projectCredentials = $projectCredentials;
+
+        [$bucketResponse, $connection] = $this->createTestBucket($projectCredentials, $projectResponse);
+        $this->bucketResponse = $bucketResponse;
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        $this->cleanTestProject();
+    }
+
+    public function testCreateTable(): void
+    {
+        $tableName = md5($this->getName()) . '_Test_table';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+
+        // CREATE TABLE
+        $tableStructure = [
+            'columns' => [
+                'id' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'int' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'decimal' => [
+                    'type' => Teradata::TYPE_DECIMAL,
+                    'length' => '10,2',
+                    'nullable' => true,
+                ],
+                'float' => [
+                    'type' => Teradata::TYPE_FLOAT,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'date' => [
+                    'type' => Teradata::TYPE_DATE,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'time' => [
+                    'type' => Teradata::TYPE_TIME,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'varchar' => [
+                    'type' => Teradata::TYPE_VARCHAR,
+                    'length' => '200',
+                    'nullable' => true,
+                ],
+            ],
+            'primaryKeysNames' => ['id'],
+        ];
+        $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
+
+        // FILL DATA
+        $insertGroups = [
+            [
+                'columns' => '"id", "int", "decimal", "float", "date", "time", "varchar"',
+                'rows' => [
+                    "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', 'Variable character 1'",
+                    sprintf(
+                        "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '%s'",
+                        str_repeat('VeryLongString123456', 5)
+                    ),
+                    '3, NULL, NULL, NULL, NULL, NULL, NULL',
+                ],
+            ],
+        ];
+        $this->fillTableWithData($bucketDatabaseName, $tableName, $insertGroups);
+
+        // CHECK: all records + truncated
+        $filter = [
+            'input' => [
+                'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', 'varchar'],
+                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'limit' => 0,
+            ],
+            'expectedColumns' => ['id', 'int', 'decimal', 'float', 'date', 'time', 'varchar'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '1'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '100'],
+                        'truncated' => false,
+                    ],
+                    'decimal' => [
+                        'value' => ['string_value' => '100.23'],
+                        'truncated' => false,
+                    ],
+                    'float' => [
+                        'value' => ['string_value' => '100.23456'],
+                        'truncated' => false,
+                    ],
+                    'date' => [
+                        'value' => ['string_value' => '2022-01-01'],
+                        'truncated' => false,
+                    ],
+                    'time' => [
+                        'value' => ['string_value' => '12:00:01.000000'],
+                        'truncated' => false,
+                    ],
+                    'varchar' => [
+                        'value' => ['string_value' => 'Variable character 1'],
+                        'truncated' => false,
+                    ],
+                ],
+                [
+                    'id' => [
+                        'value' => ['string_value' => '2'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '200'],
+                        'truncated' => false,
+                    ],
+                    'decimal' => [
+                        'value' => ['string_value' => '200.23'],
+                        'truncated' => false,
+                    ],
+                    'float' => [
+                        'value' => ['string_value' => '200.23456'],
+                        'truncated' => false,
+                    ],
+                    'date' => [
+                        'value' => ['string_value' => '2022-01-02'],
+                        'truncated' => false,
+                    ],
+                    'time' => [
+                        'value' => ['string_value' => '12:00:02.000000'],
+                        'truncated' => false,
+                    ],
+                    'varchar' => [
+                        'value' => ['string_value' => 'VeryLongString123456VeryLongString123456VeryLongSt'],
+                        'truncated' => true,
+                    ],
+                ],
+                [
+                    'id' => [
+                        'value' => ['string_value' => '3'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['null_value' => NullValue::NULL_VALUE],
+                        'truncated' => false,
+                    ],
+                    'decimal' => [
+                        'value' => ['null_value' => NullValue::NULL_VALUE],
+                        'truncated' => false,
+                    ],
+                    'float' => [
+                        'value' => ['null_value' => NullValue::NULL_VALUE],
+                        'truncated' => false,
+                    ],
+                    'date' => [
+                        'value' => ['null_value' => NullValue::NULL_VALUE],
+                        'truncated' => false,
+                    ],
+                    'time' => [
+                        'value' => ['null_value' => NullValue::NULL_VALUE],
+                        'truncated' => false,
+                    ],
+                    'varchar' => [
+                        'value' => ['null_value' => NullValue::NULL_VALUE],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
+        // CHECK: order by
+        $filter = [
+            'input' => [
+                'columns' => ['id', 'int'],
+                'orderBy' => ['int' => PreviewTableCommand\PreviewTableOrderBy\Order::DESC],
+                'limit' => 0,
+            ],
+            'expectedColumns' => ['id', 'int'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '2'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '200'],
+                        'truncated' => false,
+                    ],
+                ],
+                [
+                    'id' => [
+                        'value' => ['string_value' => '1'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '100'],
+                        'truncated' => false,
+                    ],
+                ],
+                [
+                    'id' => [
+                        'value' => ['string_value' => '3'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['null_value' => NullValue::NULL_VALUE],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
+        // CHECK: limit
+        $filter = [
+            'input' => [
+                'columns' => ['id', 'int'],
+                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'limit' => 2,
+            ],
+            'expectedColumns' => ['id', 'int'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '1'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '100'],
+                        'truncated' => false,
+                    ],
+                ],
+                [
+                    'id' => [
+                        'value' => ['string_value' => '2'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '200'],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
+        // DROP TABLE
+        $this->dropTable($bucketDatabaseName, $tableName);
+    }
+
+    /**
+     * Convert RepeatedField to Array: https://github.com/protocolbuffers/protobuf/issues/7648
+     *
+     * @return string[]
+     */
+    private function repeatedStringToArray(RepeatedField $repeated): array
+    {
+        $values = [];
+        foreach ($repeated as $value) {
+            $values[] = strval($value);
+        }
+        return $values;
+    }
+
+    /**
+     * @param array{columns: array<string, array<string, mixed>>, primaryKeysNames: array<int, string>} $structure
+     */
+    private function createTable(string $databaseName, string $tableName, array $structure): void
+    {
+        $createTableHandler = new CreateTableHandler($this->sessionManager);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $databaseName;
+
+        $columns = new RepeatedField(GPBType::MESSAGE, CreateTableCommand\TableColumn::class);
+        /** @var array{type: string, length: string, nullable: bool} $columnData */
+        foreach ($structure['columns'] as $columnName => $columnData) {
+            $columns[] = (new CreateTableCommand\TableColumn())
+                ->setName($columnName)
+                ->setType($columnData['type'])
+                ->setLength($columnData['length'])
+                ->setNullable($columnData['nullable']);
+        }
+
+        $primaryKeysNames = new RepeatedField(GPBType::STRING);
+        foreach ($structure['primaryKeysNames'] as $primaryKeyName) {
+            $primaryKeysNames[] = $primaryKeyName;
+        }
+
+        $createTableCommand = (new CreateTableCommand())
+            ->setPath($path)
+            ->setTableName($tableName)
+            ->setColumns($columns)
+            ->setPrimaryKeysNames($primaryKeysNames);
+
+        $createTableResponse = $createTableHandler(
+            $this->projectCredentials,
+            $createTableCommand,
+            []
+        );
+        $this->assertNull($createTableResponse);
+    }
+
+    /**
+     * @param array{columns: string, rows: array<int, string>}[] $insertGroups
+     */
+    private function fillTableWithData(string $databaseName, string $tableName, array $insertGroups): void
+    {
+        try {
+            $db = $this->getConnection($this->projectCredentials);
+
+            foreach ($insertGroups as $insertGroup) {
+                foreach ($insertGroup['rows'] as $insertRow) {
+                    $insertSql = sprintf(
+                        "INSERT INTO %s.%s\n(%s) VALUES\n(%s);",
+                        TeradataQuote::quoteSingleIdentifier($databaseName),
+                        TeradataQuote::quoteSingleIdentifier($tableName),
+                        $insertGroup['columns'],
+                        $insertRow
+                    );
+                    $inserted = $db->executeStatement($insertSql);
+                    $this->assertEquals(1, $inserted);
+                }
+            }
+        } finally {
+            if (isset($db)) {
+                $db->close();
+            }
+        }
+    }
+
+    private function dropTable(string $databaseName, string $tableName): void
+    {
+        $handler = new DropTableHandler($this->sessionManager);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $databaseName;
+        $command = (new DropTableCommand())
+            ->setPath($path)
+            ->setTableName($tableName);
+
+        $handler(
+            $this->projectCredentials,
+            $command,
+            []
+        );
+    }
+
+    /**
+     * @param array{columns: array<string>, orderBy: array<string, int>, limit: int} $commandInput
+     */
+    private function previewTable(string $databaseName, string $tableName, array $commandInput): PreviewTableResponse
+    {
+        $handler = new PreviewTableHandler($this->sessionManager);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $databaseName;
+
+        $columns = new RepeatedField(GPBType::STRING);
+        foreach ($commandInput['columns'] as $column) {
+            $columns[] = $column;
+        }
+
+        /** @var string $inputOrderByKey */
+        $inputOrderByKey = key($commandInput['orderBy']);
+        /** @var int $inputOrderByValue */
+        $inputOrderByValue = current($commandInput['orderBy']);
+        $orderBy = (new PreviewTableCommand\PreviewTableOrderBy())
+            ->setColumnName($inputOrderByKey)
+            ->setOrder($inputOrderByValue);
+
+        $limit = $commandInput['limit'];
+
+        $command = (new PreviewTableCommand())
+            // TODO changeSince, changeUntil
+            // TODO fulltextSearch
+            // TODO whereFilters
+            ->setPath($path)
+            ->setTableName($tableName)
+            ->setColumns($columns)
+            ->setOrderBy($orderBy)
+            ->setLimit($limit);
+
+        $response = $handler(
+            $this->projectCredentials,
+            $command,
+            []
+        );
+        $this->assertInstanceOf(PreviewTableResponse::class, $response);
+        return $response;
+    }
+
+    /**
+     * @param string[] $expectedColumns
+     * @param array<string, array{value: array<string, mixed>, truncated: bool}>[] $expectedRows
+     */
+    private function checkPreviewData(PreviewTableResponse $response, array $expectedColumns, array $expectedRows): void
+    {
+        $columns = $this->repeatedStringToArray($response->getColumns());
+        $this->assertEqualsArrays($expectedColumns, $columns);
+
+        // check rows
+        $this->assertCount(count($expectedRows), $response->getRows());
+        /** @var PreviewTableResponse\Row[] $rows */
+        $rows = $response->getRows();
+        foreach ($rows as $rowNumber => $row) {
+            /** @var array<string, array> $expectedRow */
+            $expectedRow = $expectedRows[$rowNumber];
+
+            // check columns
+            /** @var PreviewTableResponse\Row\Column[] $columns */
+            $columns = $row->getColumns();
+            $this->assertCount(count($expectedRow), $columns);
+
+            foreach ($columns as $column) {
+                /** @var array<string, mixed> $expectedColumnValue */
+                $expectedColumn = $expectedRow[$column->getColumnName()];
+
+                // check column value
+                /** @var array<string, mixed> $expectedColumnValue */
+                $expectedColumnValue = $expectedColumn['value'];
+                /** @var Value $columnValue */
+                $columnValue = $column->getValue();
+                $columnValueKind = $columnValue->getKind();
+                $this->assertSame(key($expectedColumnValue), $columnValueKind);
+                // preview returns all data as string
+                if ($columnValueKind === 'null_value') {
+                    $this->assertTrue($columnValue->hasNullValue());
+                    $this->assertSame(current($expectedColumnValue), $columnValue->getNullValue());
+                } elseif ($columnValueKind === 'string_value') {
+                    $this->assertTrue($columnValue->hasStringValue());
+                    $this->assertSame(current($expectedColumnValue), $columnValue->getStringValue());
+                } else {
+                    $this->fail(sprintf(
+                        "Unsupported value kind '%s' in row #%d and column '%s'",
+                        $columnValueKind,
+                        $rowNumber,
+                        $column->getColumnName()
+                    ));
+                }
+
+                // check column truncated
+                $this->assertSame($expectedColumn['truncated'], $column->getIsTruncated());
+            }
+        }
+    }
+}
