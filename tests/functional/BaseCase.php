@@ -7,12 +7,16 @@ namespace Keboola\StorageDriver\FunctionalTests;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Google\Protobuf\Any;
+use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
+use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use PHPUnit\Framework\TestCase;
@@ -218,6 +222,16 @@ class BaseCase extends TestCase
         return count($roles) === 1;
     }
 
+    protected function isTableExists(Connection $connection, string $databaseName, string $tableName): bool
+    {
+        $tables = $connection->fetchAllAssociative(sprintf(
+            'SELECT TableName FROM DBC.TablesVX WHERE DatabaseName = %s AND TableName = %s',
+            TeradataQuote::quote($databaseName),
+            TeradataQuote::quote($tableName)
+        ));
+        return count($tables) === 1;
+    }
+
     protected function getProjectReadOnlyRole(): string
     {
         $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
@@ -335,5 +349,52 @@ class BaseCase extends TestCase
         sort($actual);
 
         $this->assertEquals($expected, $actual);
+    }
+
+    /**
+     * @return array{CreateBucketResponse, Connection}
+     */
+    protected function createTestBucket(
+        GenericBackendCredentials $projectCredentials,
+        CreateProjectResponse $projectResponse
+    ): array {
+        $bucket = md5($this->getName()) . '_Test_bucket';
+
+        $handler = new CreateBucketHandler($this->sessionManager);
+        $command = (new CreateBucketCommand())
+            ->setStackPrefix($this->getStackPrefix())
+            ->setProjectId($this->getProjectId())
+            ->setBucketId($bucket)
+            ->setProjectRoleName($projectResponse->getProjectRoleName())
+            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName());
+
+        $response = $handler(
+            $projectCredentials,
+            $command,
+            []
+        );
+        $this->assertInstanceOf(CreateBucketResponse::class, $response);
+
+        $db = $this->getConnection($projectCredentials);
+
+        $this->assertTrue($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
+
+        // read only role has read access to bucket
+        $this->assertEqualsArrays(
+            [TeradataAccessRight::RIGHT_RETRIEVE_OR_SELECT],
+            $this->getRoleAccessRightForDatabase(
+                $db,
+                $projectResponse->getProjectReadOnlyRoleName(),
+                $response->getCreateBucketObjectName()
+            )
+        );
+
+        return [$response, $db];
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        $this->sessionManager->close();
     }
 }
