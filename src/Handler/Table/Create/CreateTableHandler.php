@@ -45,45 +45,49 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
         assert(!empty($command->getTableName()), 'CreateTableCommand.tableName is required');
         assert($command->getColumns()->count() > 0, 'CreateTableCommand.columns is required');
 
-        $db = $this->manager->createSession($credentials);
+        try {
+            $db = $this->manager->createSession($credentials);
 
-        // define columns
-        $columns = [];
-        /** @var TableColumn $column */
-        foreach ($command->getColumns() as $column) {
-            // validate
-            assert(!empty($column->getName()), 'TableColumn.name is required');
-            assert(!empty($column->getType()), 'TableColumn.type is required');
+            // define columns
+            $columns = [];
+            /** @var TableColumn $column */
+            foreach ($command->getColumns() as $column) {
+                // validate
+                assert(!empty($column->getName()), 'TableColumn.name is required');
+                assert(!empty($column->getType()), 'TableColumn.type is required');
 
-            /** @var TeradataTableColumnMeta|null $columnMeta */
-            $columnMeta = MetaHelper::getMetaRestricted($column, TeradataTableColumnMeta::class);
+                /** @var TeradataTableColumnMeta|null $columnMeta */
+                $columnMeta = MetaHelper::getMetaRestricted($column, TeradataTableColumnMeta::class);
 
-            $columnDefinition = new Teradata($column->getType(), [
-                'length' => $column->getLength(),
-                'nullable' => $column->getNullable(),
-                'default' => $column->getDefault() === '' ? null : $column->getDefault(),
-                'isLatin' => $columnMeta ? $columnMeta->getIsLatin() : false,
-            ]);
-            $columns[] = new TeradataColumn($column->getName(), $columnDefinition);
+                $columnDefinition = new Teradata($column->getType(), [
+                    'length' => $column->getLength() === '' ? null : $column->getLength(),
+                    'nullable' => $column->getNullable(),
+                    'default' => $column->getDefault() === '' ? null : $column->getDefault(),
+                    'isLatin' => $columnMeta ? $columnMeta->getIsLatin() : false,
+                ]);
+                $columns[] = new TeradataColumn($column->getName(), $columnDefinition);
+            }
+            $columnsCollection = new ColumnCollection($columns);
+
+            // build sql
+            $builder = new TeradataTableQueryBuilder();
+            /** @var string $databaseName */
+            $databaseName = $command->getPath()[0];
+            $primaryKeys = $this->repeatedStringToArray($command->getPrimaryKeysNames());
+            $createTableSql = $builder->getCreateTableCommand(
+                $databaseName,
+                $command->getTableName(),
+                $columnsCollection,
+                $primaryKeys
+            );
+
+            // create table
+            $db->executeStatement($createTableSql);
+        } finally {
+            if (isset($db)) {
+                $db->close();
+            }
         }
-        $columnsCollection = new ColumnCollection($columns);
-
-        // build sql
-        $builder = new TeradataTableQueryBuilder();
-        /** @var string $databaseName */
-        $databaseName = $command->getPath()[0];
-        $primaryKeys = $this->repeatedStringToArray($command->getPrimaryKeysNames());
-        $createTableSql = $builder->getCreateTableCommand(
-            $databaseName,
-            $command->getTableName(),
-            $columnsCollection,
-            $primaryKeys
-        );
-
-        // create table
-        $db->executeStatement($createTableSql);
-
-        $db->close();
         return null;
     }
 
