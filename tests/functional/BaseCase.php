@@ -11,11 +11,14 @@ use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
+use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
+use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
+use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -386,6 +389,48 @@ class BaseCase extends TestCase
                 $db,
                 $projectResponse->getProjectReadOnlyRoleName(),
                 $response->getCreateBucketObjectName()
+            )
+        );
+
+        return [$response, $db];
+    }
+
+    /**
+     * @return array{CreateWorkspaceResponse, Connection}
+     */
+    protected function createTestWorkspace(
+        GenericBackendCredentials $projectCredentials,
+        CreateProjectResponse $projectResponse
+    ): array {
+        $workspace = md5($this->getName()) . '_Test_workspace';
+
+        $handler = new CreateWorkspaceHandler($this->sessionManager);
+        $command = (new CreateWorkspaceCommand())
+            ->setStackPrefix($this->getStackPrefix())
+            ->setProjectId($this->getProjectId())
+            ->setWorkspaceId($workspace)
+            ->setProjectUserName($projectResponse->getProjectUserName())
+            ->setProjectRoleName($projectResponse->getProjectRoleName())
+            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName());
+
+        $response = $handler(
+            $projectCredentials,
+            $command,
+            []
+        );
+        $this->assertInstanceOf(CreateWorkspaceResponse::class, $response);
+
+        $db = $this->getConnection($projectCredentials);
+
+        $this->assertTrue($this->isDatabaseExists($db, $response->getWorkspaceObjectName()));
+
+        // read only role has read access to workspace
+        $this->assertEqualsArrays(
+            [TeradataAccessRight::RIGHT_RETRIEVE_OR_SELECT],
+            $this->getRoleAccessRightForDatabase(
+                $db,
+                $projectResponse->getProjectReadOnlyRoleName(),
+                $response->getWorkspaceObjectName()
             )
         );
 
