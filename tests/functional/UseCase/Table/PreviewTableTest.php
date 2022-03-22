@@ -16,6 +16,7 @@ use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
@@ -296,20 +297,6 @@ class PreviewTableTest extends BaseCase
     }
 
     /**
-     * Convert RepeatedField to Array: https://github.com/protocolbuffers/protobuf/issues/7648
-     *
-     * @return string[]
-     */
-    private function repeatedStringToArray(RepeatedField $repeated): array
-    {
-        $values = [];
-        foreach ($repeated as $value) {
-            $values[] = strval($value);
-        }
-        return $values;
-    }
-
-    /**
      * @param array{columns: array<string, array<string, mixed>>, primaryKeysNames: array<int, string>} $structure
      */
     private function createTable(string $databaseName, string $tableName, array $structure): void
@@ -443,7 +430,7 @@ class PreviewTableTest extends BaseCase
      */
     private function checkPreviewData(PreviewTableResponse $response, array $expectedColumns, array $expectedRows): void
     {
-        $columns = $this->repeatedStringToArray($response->getColumns());
+        $columns = ProtobufHelper::repeatedStringToArray($response->getColumns());
         $this->assertEqualsArrays($expectedColumns, $columns);
 
         // check rows

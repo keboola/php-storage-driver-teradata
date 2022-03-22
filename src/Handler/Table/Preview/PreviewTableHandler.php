@@ -15,6 +15,7 @@ use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -55,7 +56,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             $databaseName = $command->getPath()[0];
 
             // build sql
-            $columns = $this->repeatedStringToArray($command->getColumns());
+            $columns = ProtobufHelper::repeatedStringToArray($command->getColumns());
             // TODO changeSince, changeUntil
             // TODO fulltextSearch
             // TODO whereFilters
@@ -148,19 +149,5 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             }
         }
         return $response;
-    }
-
-    /**
-     * Convert RepeatedField to Array: https://github.com/protocolbuffers/protobuf/issues/7648
-     *
-     * @return string[]
-     */
-    private function repeatedStringToArray(RepeatedField $repeated): array
-    {
-        $values = [];
-        foreach ($repeated as $value) {
-            $values[] = strval($value);
-        }
-        return $values;
     }
 }
