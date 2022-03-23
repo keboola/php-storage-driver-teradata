@@ -123,11 +123,11 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                             case BaseType::TIMESTAMP:
                             case BaseType::DATE:
                             case BaseType::STRING:
-                                if (mb_strlen(strval($itemValue)) > self::STRING_MAX_LENGTH) {
+                                if (mb_strlen((string) $itemValue) > self::STRING_MAX_LENGTH) {
                                     $truncated = true;
-                                    $value->setStringValue(mb_substr(strval($itemValue), 0, self::STRING_MAX_LENGTH));
+                                    $value->setStringValue(mb_substr((string) $itemValue, 0, self::STRING_MAX_LENGTH));
                                 } else {
-                                    $value->setStringValue(strval($itemValue));
+                                    $value->setStringValue((string) $itemValue);
                                 }
                                 break;
                         }
