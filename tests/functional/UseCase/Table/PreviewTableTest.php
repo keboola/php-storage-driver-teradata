@@ -46,7 +46,7 @@ class PreviewTableTest extends BaseCase
         $this->cleanTestProject();
     }
 
-    public function testCreateTable(): void
+    public function testPreviewTable(): void
     {
         $tableName = md5($this->getName()) . '_Test_table';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
