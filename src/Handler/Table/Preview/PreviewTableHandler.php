@@ -42,9 +42,9 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
         assert($command instanceof PreviewTableCommand);
 
         // validate
-        assert($command->getPath()->count() === 1, 'CreateTableCommand.path is required and size must equal 1');
-        assert(!empty($command->getTableName()), 'CreateTableCommand.tableName is required');
-        assert($command->getColumns()->count() > 0, 'CreateTableCommand.columns is required');
+        assert($command->getPath()->count() === 1, 'PreviewTableCommand.path is required and size must equal 1');
+        assert(!empty($command->getTableName()), 'PreviewTableCommand.tableName is required');
+        assert($command->getColumns()->count() > 0, 'PreviewTableCommand.columns is required');
 
         try {
             $db = $this->manager->createSession($credentials);
@@ -53,13 +53,16 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
 
             // build sql
             $columns = ProtobufHelper::repeatedStringToArray($command->getColumns());
+            assert($columns === array_unique($columns), 'PreviewTableCommand.columns has non unique names');
+            $columnsSql = implode(', ', array_map([TeradataQuote::class, 'quoteSingleIdentifier'], $columns));
+
             // TODO changeSince, changeUntil
             // TODO fulltextSearch
             // TODO whereFilters
             $selectTableSql = sprintf(
                 "SELECT %s %s\nFROM %s.%s",
                 $command->getLimit() ? sprintf('TOP %d', $command->getLimit()) : '',
-                implode(', ', array_map([TeradataQuote::class, 'quoteSingleIdentifier'], $columns)),
+                $columnsSql,
                 TeradataQuote::quoteSingleIdentifier($databaseName),
                 TeradataQuote::quoteSingleIdentifier($command->getTableName())
             );
@@ -81,20 +84,21 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             // set response
             $response = new PreviewTableResponse();
 
+            // set column names
+            if ($firstLine = $result->fetchAssociative()) {
+                $columns = new RepeatedField(GPBType::STRING);
+                foreach (array_keys($firstLine) as $column) {
+                    $columns[] = $column;
+                }
+                $response->setColumns($columns);
+            }
+
+            // set rows
             $rows = new RepeatedField(GPBType::MESSAGE, PreviewTableResponse\Row::class);
             foreach ($result->fetchAllAssociative() as $lineNumber => $line) {
-                // set column names
-                if ($lineNumber === 0) {
-                    $columns = new RepeatedField(GPBType::STRING);
-                    foreach (array_keys($line) as $column) {
-                        $columns[] = $column;
-                    }
-                    $response->setColumns($columns);
-                }
-
                 // set row
                 $row = new PreviewTableResponse\Row();
-                $columns = new RepeatedField(GPBType::MESSAGE, PreviewTableResponse\Row\Column::class);
+                $rowColumns = new RepeatedField(GPBType::MESSAGE, PreviewTableResponse\Row\Column::class);
                 foreach ($line as $itemKey => $itemValue) {
                     // set row columns
                     $value = new Value();
@@ -111,12 +115,12 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                         }
                     }
 
-                    $columns[] = (new PreviewTableResponse\Row\Column())
+                    $rowColumns[] = (new PreviewTableResponse\Row\Column())
                         ->setColumnName($itemKey)
                         ->setValue($value)
                         ->setIsTruncated($truncated);
 
-                    $row->setColumns($columns);
+                    $row->setColumns($rowColumns);
                 }
                 $rows[] = $row;
             }

@@ -21,6 +21,7 @@ use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
+use Throwable;
 
 class PreviewTableTest extends BaseCase
 {
@@ -296,6 +297,89 @@ class PreviewTableTest extends BaseCase
         $this->dropTable($bucketDatabaseName, $tableName);
     }
 
+    public function testPreviewTableMissingArguments(): void
+    {
+        $tableName = md5($this->getName()) . '_Test_table';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+
+        // CREATE TABLE
+        $tableStructure = [
+            'columns' => [
+                'id' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'int' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'decimal' => [
+                    'type' => Teradata::TYPE_DECIMAL,
+                    'length' => '10,2',
+                    'nullable' => true,
+                ],
+                'float' => [
+                    'type' => Teradata::TYPE_FLOAT,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'date' => [
+                    'type' => Teradata::TYPE_DATE,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'time' => [
+                    'type' => Teradata::TYPE_TIME,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'varchar' => [
+                    'type' => Teradata::TYPE_VARCHAR,
+                    'length' => '200',
+                    'nullable' => true,
+                ],
+            ],
+            'primaryKeysNames' => ['id'],
+        ];
+        $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
+
+        // PREVIEW
+        // empty path
+        try {
+            $this->previewTable('', $tableName, ['columns' => ['id', 'int']]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('PreviewTableCommand.path is required and size must equal 1', $e->getMessage());
+        }
+
+        // empty tableName
+        try {
+            $this->previewTable($bucketDatabaseName, '', ['columns' => ['id', 'int']]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('PreviewTableCommand.tableName is required', $e->getMessage());
+        }
+
+        // empty list of columns
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, ['columns' => []]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('PreviewTableCommand.columns is required', $e->getMessage());
+        }
+
+        // non unique values in columns
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, ['columns' => ['id', 'id', 'int']]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('PreviewTableCommand.columns has non unique names', $e->getMessage());
+        }
+        }
+    }
+
     /**
      * @param array{columns: array<string, array<string, mixed>>, primaryKeysNames: array<int, string>} $structure
      */
@@ -387,33 +471,42 @@ class PreviewTableTest extends BaseCase
     {
         $handler = new PreviewTableHandler($this->sessionManager);
 
-        $path = new RepeatedField(GPBType::STRING);
-        $path[] = $databaseName;
+        $command = new PreviewTableCommand();
+
+        if ($databaseName) {
+            $path = new RepeatedField(GPBType::STRING);
+            $path[] = $databaseName;
+            $command->setPath($path);
+        }
+
+        if ($tableName) {
+            $command->setTableName($tableName);
+        }
 
         $columns = new RepeatedField(GPBType::STRING);
         foreach ($commandInput['columns'] as $column) {
             $columns[] = $column;
         }
+        $command->setColumns($columns);
 
-        /** @var string $inputOrderByKey */
-        $inputOrderByKey = key($commandInput['orderBy']);
-        /** @var int $inputOrderByValue */
-        $inputOrderByValue = current($commandInput['orderBy']);
-        $orderBy = (new PreviewTableCommand\PreviewTableOrderBy())
-            ->setColumnName($inputOrderByKey)
-            ->setOrder($inputOrderByValue);
+        if (isset($commandInput['orderBy'])) {
+            /** @var string $inputOrderByKey */
+            $inputOrderByKey = key($commandInput['orderBy']);
+            /** @var int $inputOrderByValue */
+            $inputOrderByValue = current($commandInput['orderBy']);
+            $orderBy = (new PreviewTableCommand\PreviewTableOrderBy())
+                ->setColumnName($inputOrderByKey)
+                ->setOrder($inputOrderByValue);
+            $command->setOrderBy($orderBy);
+        }
 
-        $limit = $commandInput['limit'];
+        if (isset($commandInput['limit'])) {
+            $command->setLimit($commandInput['limit']);
+        }
 
-        $command = (new PreviewTableCommand())
-            // TODO changeSince, changeUntil
-            // TODO fulltextSearch
-            // TODO whereFilters
-            ->setPath($path)
-            ->setTableName($tableName)
-            ->setColumns($columns)
-            ->setOrderBy($orderBy)
-            ->setLimit($limit);
+        // TODO changeSince, changeUntil
+        // TODO fulltextSearch
+        // TODO whereFilters
 
         $response = $handler(
             $this->projectCredentials,
