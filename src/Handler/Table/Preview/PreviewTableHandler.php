@@ -9,17 +9,13 @@ use Google\Protobuf\Internal\Message;
 use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\NullValue;
 use Google\Protobuf\Value;
-use Keboola\Datatype\Definition\BaseType;
-use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
-use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
-use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
 class PreviewTableHandler implements DriverCommandHandlerInterface
 {
@@ -69,6 +65,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             );
 
             if ($command->hasOrderBy() && $command->getOrderBy()) {
+                /** @var PreviewTableCommand\PreviewTableOrderBy $orderBy */
                 $orderBy = $command->getOrderBy();
                 $selectTableSql .= sprintf(
                     "\nORDER BY %s %s",
@@ -80,16 +77,6 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
 
             // select table
             $result = $db->executeQuery($selectTableSql);
-
-            // get columns definitions
-            $tableRef = new TeradataTableReflection($db, $databaseName, $command->getTableName());
-            /** @var TeradataColumn[] $columnsDefArr */
-            $columnsDefArr = iterator_to_array($tableRef->getColumnsDefinitions());
-            /** @var array<string, Teradata> $columnsDef */
-            $columnsDef = [];
-            foreach ($columnsDefArr as $index => $columnDef) {
-                $columnsDef[$columnDef->getColumnName()] = $columnDef->getColumnDefinition();
-            }
 
             // set response
             $response = new PreviewTableResponse();
@@ -116,20 +103,11 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                         $value->setNullValue(NullValue::NULL_VALUE);
                     } else {
                         // preview returns all data as string
-                        switch ($columnsDef[$itemKey]->getBasetype()) {
-                            case BaseType::NUMERIC:
-                            case BaseType::INTEGER:
-                            case BaseType::FLOAT:
-                            case BaseType::TIMESTAMP:
-                            case BaseType::DATE:
-                            case BaseType::STRING:
-                                if (mb_strlen((string) $itemValue) > self::STRING_MAX_LENGTH) {
-                                    $truncated = true;
-                                    $value->setStringValue(mb_substr((string) $itemValue, 0, self::STRING_MAX_LENGTH));
-                                } else {
-                                    $value->setStringValue((string) $itemValue);
-                                }
-                                break;
+                        if (mb_strlen((string) $itemValue) > self::STRING_MAX_LENGTH) {
+                            $truncated = true;
+                            $value->setStringValue(mb_substr((string) $itemValue, 0, self::STRING_MAX_LENGTH));
+                        } else {
+                            $value->setStringValue((string) $itemValue);
                         }
                     }
 
