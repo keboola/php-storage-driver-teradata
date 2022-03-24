@@ -71,7 +71,9 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
 
             $limitSql = sprintf(
                 'TOP %d',
-                ($command->getLimit() > 0 && $command->getLimit() < self::MAX_LIMIT) ? $command->getLimit() : self::MAX_LIMIT
+                ($command->getLimit() > 0 && $command->getLimit() < self::MAX_LIMIT)
+                    ? $command->getLimit()
+                    : self::MAX_LIMIT
             );
 
             // TODO changeSince, changeUntil
@@ -104,7 +106,8 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             $response = new PreviewTableResponse();
 
             // set column names
-            if ($firstLine = $result->fetchAssociative()) {
+            $firstLine = $result->fetchAssociative();
+            if ($firstLine) {
                 $columns = new RepeatedField(GPBType::STRING);
                 foreach (array_keys($firstLine) as $column) {
                     $columns[] = $column;
@@ -118,6 +121,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                 // set row
                 $row = new PreviewTableResponse\Row();
                 $rowColumns = new RepeatedField(GPBType::MESSAGE, PreviewTableResponse\Row\Column::class);
+                /** @var ?scalar $itemValue */
                 foreach ($line as $itemKey => $itemValue) {
                     // set row columns
                     $value = new Value();

@@ -384,7 +384,10 @@ class PreviewTableTest extends BaseCase
             $this->previewTable('', $tableName, ['columns' => ['id', 'int']]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
-            $this->assertStringContainsString('PreviewTableCommand.path is required and size must equal 1', $e->getMessage());
+            $this->assertStringContainsString(
+                'PreviewTableCommand.path is required and size must equal 1',
+                $e->getMessage()
+            );
         }
 
         // empty tableName
@@ -523,7 +526,8 @@ class PreviewTableTest extends BaseCase
     }
 
     /**
-     * @param array{columns: array<string>, orderBy: array<string, int>, orderByDataType: int, limit: int} $commandInput
+     * @phpcs:ignore
+     * @param array{columns: array<string>, orderBy?: array<string, int>, orderByDataType?: int, limit?: int} $commandInput
      */
     private function previewTable(string $databaseName, string $tableName, array $commandInput): PreviewTableResponse
     {
@@ -592,7 +596,7 @@ class PreviewTableTest extends BaseCase
         /** @var PreviewTableResponse\Row[] $rows */
         $rows = $response->getRows();
         foreach ($rows as $rowNumber => $row) {
-            /** @var array<string, array> $expectedRow */
+            /** @var array<string, array<string, mixed>> $expectedRow */
             $expectedRow = $expectedRows[$rowNumber];
 
             // check columns
@@ -601,11 +605,11 @@ class PreviewTableTest extends BaseCase
             $this->assertCount(count($expectedRow), $columns);
 
             foreach ($columns as $column) {
-                /** @var array<string, mixed> $expectedColumnValue */
+                /** @var array{value: array<string, scalar>, truncated: bool} $expectedColumnValue */
                 $expectedColumn = $expectedRow[$column->getColumnName()];
 
                 // check column value
-                /** @var array<string, mixed> $expectedColumnValue */
+                /** @var array<string, scalar> $expectedColumnValue */
                 $expectedColumnValue = $expectedColumn['value'];
                 /** @var Value $columnValue */
                 $columnValue = $column->getValue();
