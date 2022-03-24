@@ -12,6 +12,7 @@ use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -259,6 +260,38 @@ class PreviewTableTest extends BaseCase
         $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
         $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
 
+        // CHECK: order by with dataType
+        $filter = [
+            'input' => [
+                'columns' => ['id'],
+                'orderBy' => ['date' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderByDataType' => DataType::INTEGER,
+            ],
+            'expectedColumns' => ['id'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '3'],
+                        'truncated' => false,
+                    ],
+                ],
+                [
+                    'id' => [
+                        'value' => ['string_value' => '1'],
+                        'truncated' => false,
+                    ],
+                ],
+                [
+                    'id' => [
+                        'value' => ['string_value' => '2'],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
         // CHECK: limit
         $filter = [
             'input' => [
@@ -377,6 +410,31 @@ class PreviewTableTest extends BaseCase
         } catch (Throwable $e) {
             $this->assertStringContainsString('PreviewTableCommand.columns has non unique names', $e->getMessage());
         }
+
+        // empty order by columnName
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, [
+                'columns' => ['id', 'int'],
+                'orderBy' => ['' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+            ]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('PreviewTableCommand.orderBy.columnName is required', $e->getMessage());
+        }
+
+        // wrong order by dataType
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, [
+                'columns' => ['id', 'int'],
+                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderByDataType' => DataType::DECIMAL,
+            ]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString(sprintf(
+                'Data type %s not recognized. Possible datatypes are',
+                DataType::DECIMAL
+            ), $e->getMessage());
         }
     }
 
@@ -465,7 +523,7 @@ class PreviewTableTest extends BaseCase
     }
 
     /**
-     * @param array{columns: array<string>, orderBy: array<string, int>, limit: int} $commandInput
+     * @param array{columns: array<string>, orderBy: array<string, int>, orderByDataType: int, limit: int} $commandInput
      */
     private function previewTable(string $databaseName, string $tableName, array $commandInput): PreviewTableResponse
     {
@@ -497,6 +555,9 @@ class PreviewTableTest extends BaseCase
             $orderBy = (new PreviewTableCommand\PreviewTableOrderBy())
                 ->setColumnName($inputOrderByKey)
                 ->setOrder($inputOrderByValue);
+            if (isset($commandInput['orderByDataType'])) {
+                $orderBy->setDataType($commandInput['orderByDataType']);
+            }
             $command->setOrderBy($orderBy);
         }
 
