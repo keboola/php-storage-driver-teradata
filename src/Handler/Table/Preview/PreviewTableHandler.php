@@ -21,6 +21,8 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
 {
     public const STRING_MAX_LENGTH = 50;
 
+    public const MAX_LIMIT = 1000;
+
     private TeradataSessionManager $manager;
 
     public function __construct(TeradataSessionManager $manager)
@@ -56,12 +58,17 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             assert($columns === array_unique($columns), 'PreviewTableCommand.columns has non unique names');
             $columnsSql = implode(', ', array_map([TeradataQuote::class, 'quoteSingleIdentifier'], $columns));
 
+            $limitSql = sprintf(
+                'TOP %d',
+                ($command->getLimit() > 0 && $command->getLimit() < self::MAX_LIMIT) ? $command->getLimit() : self::MAX_LIMIT
+            );
+
             // TODO changeSince, changeUntil
             // TODO fulltextSearch
             // TODO whereFilters
             $selectTableSql = sprintf(
                 "SELECT %s %s\nFROM %s.%s",
-                $command->getLimit() ? sprintf('TOP %d', $command->getLimit()) : '',
+                $limitSql,
                 $columnsSql,
                 TeradataQuote::quoteSingleIdentifier($databaseName),
                 TeradataQuote::quoteSingleIdentifier($command->getTableName())
