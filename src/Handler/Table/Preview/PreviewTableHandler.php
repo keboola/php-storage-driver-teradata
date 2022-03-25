@@ -107,14 +107,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             $response = new PreviewTableResponse();
 
             // set column names
-            $firstLine = $result->fetchAssociative();
-            if ($firstLine) {
-                $columns = new RepeatedField(GPBType::STRING);
-                foreach (array_keys($firstLine) as $column) {
-                    $columns[] = $column;
-                }
-                $response->setColumns($columns);
-            }
+            $response->setColumns($command->getColumns());
 
             // set rows
             $rows = new RepeatedField(GPBType::MESSAGE, PreviewTableResponse\Row::class);
