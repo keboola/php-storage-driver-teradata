@@ -22,8 +22,8 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 class PreviewTableHandler implements DriverCommandHandlerInterface
 {
-    // TODO nejspis se to ma orezat primo v query na 16384 znaku (viz ExasolExportQueryBuilder::processSelectStatement)
-    //   ale je tam zaroven podminka, ze exportni format musi byt JSON -> takze to tady nejspis neni vubec potreba?
+    // TODO truncated: orezat primo v query na 16384 znaku (viz ExasolExportQueryBuilder::processSelectStatement)
+    //   (ale je tam zaroven podminka, ze exportni format musi byt JSON)
     public const STRING_MAX_LENGTH = 50;
 
     public const MAX_LIMIT = 1000;
@@ -79,6 +79,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             // TODO changeSince, changeUntil
             // TODO fulltextSearch
             // TODO whereFilters
+            // TODO truncated: rewrite to SQL
             $selectTableSql = sprintf(
                 "SELECT %s %s\nFROM %s.%s",
                 $limitSql,
@@ -130,6 +131,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                         $value->setNullValue(NullValue::NULL_VALUE);
                     } else {
                         // preview returns all data as string
+                        // TODO truncated: rewrite to SQL
                         if (mb_strlen((string) $itemValue) > self::STRING_MAX_LENGTH) {
                             $truncated = true;
                             $value->setStringValue(mb_substr((string) $itemValue, 0, self::STRING_MAX_LENGTH));

@@ -117,7 +117,6 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', 'varchar'],
                 'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
-                'limit' => 0,
             ],
             'expectedColumns' => ['id', 'int', 'decimal', 'float', 'date', 'time', 'varchar'],
             'expectedRows' => [
@@ -221,7 +220,6 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id', 'int'],
                 'orderBy' => ['int' => PreviewTableCommand\PreviewTableOrderBy\Order::DESC],
-                'limit' => 0,
             ],
             'expectedColumns' => ['id', 'int'],
             'expectedRows' => [
