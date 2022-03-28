@@ -27,6 +27,7 @@ use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 use LogicException;
+use Throwable;
 
 class ImportTableFromFileTest extends BaseCase
 {
@@ -335,25 +336,7 @@ class ImportTableFromFileTest extends BaseCase
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $db = $this->getConnection($this->projectCredentials);
 
-        $db->executeQuery(sprintf(
-            'CREATE MULTISET TABLE %s.%s, NO FALLBACK (
-                "id" VARCHAR(50) CHARACTER SET UNICODE,
-                "idTwitter" VARCHAR(50) CHARACTER SET UNICODE,
-                "name" VARCHAR(100) CHARACTER SET UNICODE,
-                "import" VARCHAR(50) CHARACTER SET UNICODE,
-                "isImported" VARCHAR(50) CHARACTER SET UNICODE,
-                "apiLimitExceededDatetime" VARCHAR(50) CHARACTER SET UNICODE,
-                "analyzeSentiment" VARCHAR(50) CHARACTER SET UNICODE,
-                "importKloutScore" VARCHAR(50) CHARACTER SET UNICODE,
-                "timestamp" VARCHAR(50) CHARACTER SET UNICODE,
-                "oauthToken" VARCHAR(50) CHARACTER SET UNICODE,
-                "oauthSecret" VARCHAR(50) CHARACTER SET UNICODE,
-                "idApp" VARCHAR(50) CHARACTER SET UNICODE,
-                "_timestamp" TIMESTAMP
-            ) PRIMARY INDEX ("id");',
-            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
-            TeradataQuote::quoteSingleIdentifier($destinationTableName)
-        ));
+        $this->createAccountsTable($db, $bucketDatabaseName, $destinationTableName);
         // init some values
         $db->executeStatement(sprintf(
             // phpcs:ignore
@@ -435,5 +418,322 @@ class ImportTableFromFileTest extends BaseCase
         $qb = new TeradataTableQueryBuilder();
         $qb->getDropTableCommand($bucketDatabaseName, $destinationTableName);
         $db->close();
+    }
+
+    public function testImportTableFromTableFullLoadSlicedCompressedWithoutDeduplication(): void
+    {
+        $destinationTableName = md5($this->getName()) . '_Test_table_final';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+        $db = $this->getConnection($this->projectCredentials);
+
+        $this->createAccountsTable($db, $bucketDatabaseName, $destinationTableName);
+        // init some values
+        $db->executeStatement(sprintf(
+        // phpcs:ignore
+            'INSERT INTO %s.%s VALUES (10,448810375,\'init\',0,1,,1,0,\'2012-02-20 09:34:22\',\'ddd\',\'ddd\',1,\'2012-02-20 09:34:22\')',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($destinationTableName),
+        ));
+
+        $cmd = new TableImportFromFileCommand();
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $cmd->setFileProvider(FileProvider::S3);
+        $cmd->setFileFormat(FileFormat::CSV);
+        $columns = new RepeatedField(GPBType::STRING);
+        $columns[] = 'import';
+        $columns[] = 'isImported';
+        $columns[] = 'id';
+        $columns[] = 'idTwitter';
+        $columns[] = 'name';
+        $columns[] = 'apiLimitExceededDatetime';
+        $columns[] = 'analyzeSentiment';
+        $columns[] = 'importKloutScore';
+        $columns[] = 'timestamp';
+        $columns[] = 'oauthToken';
+        $columns[] = 'oauthSecret';
+        $columns[] = 'idApp';
+        $formatOptions = new Any();
+        $formatOptions->pack(
+            (new TableImportFromFileCommand\CsvTypeOptions())
+                ->setColumnsNames($columns)
+                ->setDelimiter(CsvOptions::DEFAULT_DELIMITER)
+                ->setEnclosure(CsvOptions::DEFAULT_ENCLOSURE)
+                ->setEscapedBy(CsvOptions::DEFAULT_ESCAPED_BY)
+                ->setSourceType(TableImportFromFileCommand\CsvTypeOptions\SourceType::SLICED_FILE)
+                ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP)
+        );
+        $cmd->setFormatTypeOptions($formatOptions);
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath('sliced/accounts-gzip')
+                ->setFileName('S3.accounts-gzip.csvmanifest')
+        );
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+        $cmd->setDestination(
+            (new Table())
+                ->setPath($path)
+                ->setTableName($destinationTableName)
+        );
+        $dedupCols = new RepeatedField(GPBType::STRING);
+        $cmd->setImportOptions(
+            (new ImportOptions())
+                ->setImportType(ImportOptions\ImportType::FULL)
+                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setDedupColumnsNames($dedupCols)
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
+                ->setNumberOfIgnoredLines(0)
+                ->setTimestampColumn('_timestamp')
+        );
+
+        $handler = new ImportTableFromFileHandler($this->sessionManager);
+        $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+        $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
+        // 1 from destination and 2 rows from source
+        $this->assertSame(3, $ref->getRowsCount());
+
+        // cleanup
+        $qb = new TeradataTableQueryBuilder();
+        $qb->getDropTableCommand($bucketDatabaseName, $destinationTableName);
+        $db->close();
+    }
+
+    public function testImportTableFromTableIncrementalSlicedWithDeduplication(): void
+    {
+        $destinationTableName = md5($this->getName()) . '_Test_table_final';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+        $db = $this->getConnection($this->projectCredentials);
+
+        $this->createAccountsTable($db, $bucketDatabaseName, $destinationTableName);
+        // init some values
+        $db->executeStatement(sprintf(
+        // phpcs:ignore
+            'INSERT INTO %s.%s VALUES (10,448810375,\'init\',0,1,,1,0,\'2012-02-20 09:34:22\',\'ddd\',\'ddd\',1,\'2012-02-20 09:34:22\')',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($destinationTableName),
+        ));
+        // this line should be updated
+        $db->executeStatement(sprintf(
+        // phpcs:ignore
+            'INSERT INTO %s.%s VALUES (15,44,\'init replace\',0,1,,1,0,\'2012-02-20 09:34:22\',\'ddd\',\'ddd\',1,\'2012-02-20 09:34:22\')',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($destinationTableName),
+        ));
+
+        $cmd = new TableImportFromFileCommand();
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $cmd->setFileProvider(FileProvider::S3);
+        $cmd->setFileFormat(FileFormat::CSV);
+        $columns = new RepeatedField(GPBType::STRING);
+        $columns[] = 'import';
+        $columns[] = 'isImported';
+        $columns[] = 'id';
+        $columns[] = 'idTwitter';
+        $columns[] = 'name';
+        $columns[] = 'apiLimitExceededDatetime';
+        $columns[] = 'analyzeSentiment';
+        $columns[] = 'importKloutScore';
+        $columns[] = 'timestamp';
+        $columns[] = 'oauthToken';
+        $columns[] = 'oauthSecret';
+        $columns[] = 'idApp';
+        $formatOptions = new Any();
+        $formatOptions->pack(
+            (new TableImportFromFileCommand\CsvTypeOptions())
+                ->setColumnsNames($columns)
+                ->setDelimiter(CsvOptions::DEFAULT_DELIMITER)
+                ->setEnclosure(CsvOptions::DEFAULT_ENCLOSURE)
+                ->setEscapedBy(CsvOptions::DEFAULT_ESCAPED_BY)
+                ->setSourceType(TableImportFromFileCommand\CsvTypeOptions\SourceType::SLICED_FILE)
+                ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::NONE)
+        );
+        $cmd->setFormatTypeOptions($formatOptions);
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath('sliced/accounts')
+                ->setFileName('S3.accounts.csvmanifest')
+        );
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+        $cmd->setDestination(
+            (new Table())
+                ->setPath($path)
+                ->setTableName($destinationTableName)
+        );
+        $dedupCols = new RepeatedField(GPBType::STRING);
+        $cmd->setImportOptions(
+            (new ImportOptions())
+                ->setImportType(ImportOptions\ImportType::INCREMENTAL)
+                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setDedupColumnsNames($dedupCols)
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
+                ->setNumberOfIgnoredLines(0)
+                ->setTimestampColumn('_timestamp')
+        );
+
+        $handler = new ImportTableFromFileHandler($this->sessionManager);
+        try {
+            $handler(
+                $this->projectCredentials,
+                $cmd,
+                []
+            );
+            $this->fail('Should fail incremental import not implemented.');
+            //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
+            // 1 row from destination + 1 row from destination updated + 1 row from slices new
+            //$this->assertSame(3, $ref->getRowsCount());
+        } catch (Throwable $e) {
+            $this->assertSame('Not implemented', $e->getMessage());
+        }
+
+        // cleanup
+        $qb = new TeradataTableQueryBuilder();
+        $qb->getDropTableCommand($bucketDatabaseName, $destinationTableName);
+        $db->close();
+    }
+
+    public function testImportTableFromTableIncrementalSlicedCompressedWithDeduplication(): void
+    {
+        $destinationTableName = md5($this->getName()) . '_Test_table_final';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+        $db = $this->getConnection($this->projectCredentials);
+
+        $this->createAccountsTable($db, $bucketDatabaseName, $destinationTableName);
+        // init some values
+        $db->executeStatement(sprintf(
+        // phpcs:ignore
+            'INSERT INTO %s.%s VALUES (10,448810375,\'init\',0,1,,1,0,\'2012-02-20 09:34:22\',\'ddd\',\'ddd\',1,\'2012-02-20 09:34:22\')',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($destinationTableName),
+        ));
+        // this line should be updated
+        $db->executeStatement(sprintf(
+        // phpcs:ignore
+            'INSERT INTO %s.%s VALUES (15,44,\'init replace\',0,1,,1,0,\'2012-02-20 09:34:22\',\'ddd\',\'ddd\',1,\'2012-02-20 09:34:22\')',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($destinationTableName),
+        ));
+
+        $cmd = new TableImportFromFileCommand();
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $cmd->setFileProvider(FileProvider::S3);
+        $cmd->setFileFormat(FileFormat::CSV);
+        $columns = new RepeatedField(GPBType::STRING);
+        $columns[] = 'import';
+        $columns[] = 'isImported';
+        $columns[] = 'id';
+        $columns[] = 'idTwitter';
+        $columns[] = 'name';
+        $columns[] = 'apiLimitExceededDatetime';
+        $columns[] = 'analyzeSentiment';
+        $columns[] = 'importKloutScore';
+        $columns[] = 'timestamp';
+        $columns[] = 'oauthToken';
+        $columns[] = 'oauthSecret';
+        $columns[] = 'idApp';
+        $formatOptions = new Any();
+        $formatOptions->pack(
+            (new TableImportFromFileCommand\CsvTypeOptions())
+                ->setColumnsNames($columns)
+                ->setDelimiter(CsvOptions::DEFAULT_DELIMITER)
+                ->setEnclosure(CsvOptions::DEFAULT_ENCLOSURE)
+                ->setEscapedBy(CsvOptions::DEFAULT_ESCAPED_BY)
+                ->setSourceType(TableImportFromFileCommand\CsvTypeOptions\SourceType::SLICED_FILE)
+                ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP)
+        );
+        $cmd->setFormatTypeOptions($formatOptions);
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath('sliced/accounts-gzip')
+                ->setFileName('S3.accounts-gzip.csvmanifest')
+        );
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+        $cmd->setDestination(
+            (new Table())
+                ->setPath($path)
+                ->setTableName($destinationTableName)
+        );
+        $dedupCols = new RepeatedField(GPBType::STRING);
+        $cmd->setImportOptions(
+            (new ImportOptions())
+                ->setImportType(ImportOptions\ImportType::INCREMENTAL)
+                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setDedupColumnsNames($dedupCols)
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
+                ->setNumberOfIgnoredLines(0)
+                ->setTimestampColumn('_timestamp')
+        );
+
+        $handler = new ImportTableFromFileHandler($this->sessionManager);
+        try {
+            $handler(
+                $this->projectCredentials,
+                $cmd,
+                []
+            );
+            $this->fail('Should fail incremental import not implemented.');
+            //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
+            // 1 row from destination + 1 row from destination updated + 1 row from slices new
+            //$this->assertSame(3, $ref->getRowsCount());
+        } catch (Throwable $e) {
+            $this->assertSame('Not implemented', $e->getMessage());
+        }
+
+        // cleanup
+        $qb = new TeradataTableQueryBuilder();
+        $qb->getDropTableCommand($bucketDatabaseName, $destinationTableName);
+        $db->close();
+    }
+
+    private function createAccountsTable(Connection $db, string $bucketDatabaseName, string $destinationTableName): void
+    {
+        $db->executeQuery(sprintf(
+            'CREATE MULTISET TABLE %s.%s, NO FALLBACK (
+                "id" VARCHAR(50) CHARACTER SET UNICODE,
+                "idTwitter" VARCHAR(50) CHARACTER SET UNICODE,
+                "name" VARCHAR(100) CHARACTER SET UNICODE,
+                "import" VARCHAR(50) CHARACTER SET UNICODE,
+                "isImported" VARCHAR(50) CHARACTER SET UNICODE,
+                "apiLimitExceededDatetime" VARCHAR(50) CHARACTER SET UNICODE,
+                "analyzeSentiment" VARCHAR(50) CHARACTER SET UNICODE,
+                "importKloutScore" VARCHAR(50) CHARACTER SET UNICODE,
+                "timestamp" VARCHAR(50) CHARACTER SET UNICODE,
+                "oauthToken" VARCHAR(50) CHARACTER SET UNICODE,
+                "oauthSecret" VARCHAR(50) CHARACTER SET UNICODE,
+                "idApp" VARCHAR(50) CHARACTER SET UNICODE,
+                "_timestamp" TIMESTAMP
+            ) PRIMARY INDEX ("id");',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($destinationTableName)
+        ));
     }
 }

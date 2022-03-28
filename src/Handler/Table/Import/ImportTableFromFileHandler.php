@@ -97,7 +97,12 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         $teradataImportOptions = $this->createOptions($importOptions, $credentials);
 
         $stagingTable = null;
-        $db = $this->manager->createSession($credentials, true);
+        $db = $this->manager->createSession($credentials);
+
+        if ($importOptions->getImportType() === ImportType::INCREMENTAL) {
+            throw new LogicException('Not implemented');
+        }
+
         try {
             /** @var TeradataTableDefinition $destinationDefinition */
             $destinationDefinition = (new TeradataTableReflection(
@@ -139,10 +144,9 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
             );
             // import data to destination
             $toFinalTableImporter = new FullImporter($db);
-            if ($importOptions->getImportType() === ImportType::INCREMENTAL) {
-                throw new LogicException('Not implemented');
-                //$toFinalTableImporter = new IncrementalImporter($db);
-            }
+            //if ($importOptions->getImportType() === ImportType::INCREMENTAL) {
+            //    //$toFinalTableImporter = new IncrementalImporter($db);
+            //}
             $importResult = $toFinalTableImporter->importToTable(
                 $stagingTable,
                 $destinationDefinition,

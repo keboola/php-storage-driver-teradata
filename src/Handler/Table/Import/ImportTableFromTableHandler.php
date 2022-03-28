@@ -58,7 +58,7 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         $importOptions = $command->getImportOptions();
         assert($importOptions !== null, 'TableImportFromFileCommand.importOptions is required.');
 
-        $db = $this->manager->createSession($credentials, true);
+        $db = $this->manager->createSession($credentials);
 
         $source = $this->createSource($db, $command);
         $teradataImportOptions = $this->createOptions($importOptions, $credentials);
