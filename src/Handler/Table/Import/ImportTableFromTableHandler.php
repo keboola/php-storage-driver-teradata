@@ -95,7 +95,7 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         $response = new TableImportFromFileResponse();
         $response->setImportedColumns(ProtobufHelper::arrayToRepeatedString($importResult->getImportedColumns()));
         $response->setImportedRowsCount($importResult->getImportedRowsCount());
-        $timers = new RepeatedField(GPBType::MESSAGE);
+        $timers = new RepeatedField(GPBType::MESSAGE, TableImportFromFileResponse\Timer::class);
         foreach ($importResult->getTimers() as $timerArr) {
             $timer = new TableImportFromFileResponse\Timer();
             $timer->setName($timerArr['name']);
