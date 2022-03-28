@@ -17,7 +17,6 @@ final class StageTableDefinitionFactory
     private const VARCHAR_MAX_TPT = 10666;
 
     /**
-     * @param string[] $sourceColumnsNames
      * @param ColumnMapping[] $columnsMapping
      */
     public static function createStagingTableDefinitionWithMapping(

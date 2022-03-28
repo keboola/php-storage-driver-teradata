@@ -128,7 +128,7 @@ class ImportTableFromTableTest extends BaseCase
             (new ImportOptions())
                 ->setImportType(ImportOptions\ImportType::FULL)
                 ->setDedupType(ImportOptions\DedupType::INSERT_DUPLICATES)
-                ->setConvertEmptyValuesToNullOnColumns([])
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
         );
 
@@ -231,7 +231,7 @@ class ImportTableFromTableTest extends BaseCase
             (new ImportOptions())
                 ->setImportType(ImportOptions\ImportType::FULL)
                 ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
-                ->setConvertEmptyValuesToNullOnColumns([])
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
@@ -355,7 +355,7 @@ class ImportTableFromTableTest extends BaseCase
             (new ImportOptions())
                 ->setImportType(ImportOptions\ImportType::INCREMENTAL)
                 ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
-                ->setConvertEmptyValuesToNullOnColumns([])
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );

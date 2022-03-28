@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\Teradata\Handler\Table\Import;
 
 use Doctrine\DBAL\Connection;
+use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\Message;
+use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Db\Import\Result;
 use Keboola\Db\ImportExport\Backend\Teradata\TeradataImportOptions;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\FullImporter;
@@ -91,9 +93,9 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         }
 
         $response = new TableImportFromFileResponse();
-        $response->setImportedColumns($importResult->getImportedColumns());
+        $response->setImportedColumns(ProtobufHelper::arrayToRepeatedString($importResult->getImportedColumns()));
         $response->setImportedRowsCount($importResult->getImportedRowsCount());
-        $timers = [];
+        $timers = new RepeatedField(GPBType::MESSAGE);
         foreach ($importResult->getTimers() as $timerArr) {
             $timer = new TableImportFromFileResponse\Timer();
             $timer->setName($timerArr['name']);
@@ -112,6 +114,7 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         $sourceMapping = $command->getSource();
         assert($sourceMapping !== null);
         $sourceColumns = [];
+        /** @var TableImportFromTableCommand\SourceTableMapping\ColumnMapping $mapping */
         foreach ($sourceMapping->getColumnMappings() as $mapping) {
             $sourceColumns[] = $mapping->getSourceColumnName();
         }
@@ -218,9 +221,11 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         Connection $db
     ): TeradataTableDefinition {
         // prepare staging table definition
+        /** @var TableImportFromTableCommand\SourceTableMapping\ColumnMapping[] $mappings */
+        $mappings = iterator_to_array($sourceMapping->getColumnMappings()->getIterator());
         $stagingTable = StageTableDefinitionFactory::createStagingTableDefinitionWithMapping(
             $destinationDefinition,
-            iterator_to_array($sourceMapping->getColumnMappings()->getIterator())
+            $mappings
         );
         // create staging table
         $qb = new TeradataTableQueryBuilder();

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\Teradata\Handler\Table\Import;
 
+use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\Message;
+use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\Db\ImportExport\Backend\Teradata\TeradataImportOptions;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\FullImporter;
@@ -147,6 +149,8 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
                 $teradataImportOptions,
                 $importState
             );
+        } catch (Throwable $e) {
+            throw $e;
         } finally {
             if ($stagingTable !== null) {
                 try {
@@ -163,9 +167,9 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         }
 
         $response = new TableImportFromFileResponse();
-        $response->setImportedColumns($importResult->getImportedColumns());
+        $response->setImportedColumns(ProtobufHelper::arrayToRepeatedString($importResult->getImportedColumns()));
         $response->setImportedRowsCount($importResult->getImportedRowsCount());
-        $timers = [];
+        $timers = new RepeatedField(GPBType::MESSAGE);
         foreach ($importResult->getTimers() as $timerArr) {
             $timer = new TableImportFromFileResponse\Timer();
             $timer->setName($timerArr['name']);

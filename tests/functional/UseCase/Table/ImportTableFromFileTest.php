@@ -107,7 +107,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setImportType(ImportOptions\ImportType::INCREMENTAL)
                 ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
-                ->setConvertEmptyValuesToNullOnColumns([])
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
@@ -227,7 +227,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setImportType(ImportOptions\ImportType::FULL)
                 ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
-                ->setConvertEmptyValuesToNullOnColumns([])
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
@@ -308,7 +308,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setImportType(ImportOptions\ImportType::FULL)
                 ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
-                ->setConvertEmptyValuesToNullOnColumns([])
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
@@ -418,7 +418,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setImportType(ImportOptions\ImportType::FULL)
                 ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
-                ->setConvertEmptyValuesToNullOnColumns([])
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
