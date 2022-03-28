@@ -355,14 +355,12 @@ class ImportTableFromFileTest extends BaseCase
             TeradataQuote::quoteSingleIdentifier($destinationTableName)
         ));
         // init some values
-        //foreach ([['1', '2', '4', ''], ['2', '3', '4', ''], ['3', '3', '3', '']] as $i) {
-        //    $db->executeStatement(sprintf(
-        //        'INSERT INTO %s.%s VALUES (%s)',
-        //        TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
-        //        TeradataQuote::quoteSingleIdentifier($destinationTableName),
-        //        implode(',', $i)
-        //    ));
-        //}
+        $db->executeStatement(sprintf(
+            // phpcs:ignore
+            'INSERT INTO %s.%s VALUES (10,448810375,\'init\',0,1,,1,0,\'2012-02-20 09:34:22\',\'ddd\',\'ddd\',1,\'2012-02-20 09:34:22\')',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($destinationTableName),
+        ));
 
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
@@ -430,8 +428,8 @@ class ImportTableFromFileTest extends BaseCase
             []
         );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-        // nothing from destination and 3 rows from source
-        $this->assertSame(3, $ref->getRowsCount());
+        // nothing from destination and 2 rows from source
+        $this->assertSame(2, $ref->getRowsCount());
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
