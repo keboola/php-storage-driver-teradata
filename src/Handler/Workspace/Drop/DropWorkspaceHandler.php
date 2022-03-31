@@ -42,6 +42,19 @@ final class DropWorkspaceHandler implements DriverCommandHandlerInterface
         $db = $this->manager->createSession($credentials);
         $ignoreErrors = $command->getIgnoreErrors();
 
+        if ($command->getIsCascade()) {
+            try {
+                $db->executeStatement(sprintf(
+                    'DELETE DATABASE %s ALL',
+                    TeradataQuote::quoteSingleIdentifier($command->getWorkspaceObjectName())
+                ));
+            } catch (Throwable $e) {
+                if (!$ignoreErrors) {
+                    throw $e;
+                }
+            }
+        }
+
         try {
             $db->executeStatement(sprintf(
                 'DROP ROLE %s;',
