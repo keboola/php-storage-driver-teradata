@@ -25,6 +25,7 @@ use Keboola\StorageDriver\Command\Table\TableImportFromFileResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
@@ -93,8 +94,9 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         $filePath = $command->getFilePath();
         assert($filePath !== null);
         $source = $this->getSourceFile($filePath, $fileCredentials, $csvOptions, $formatOptions);
-
-        $teradataImportOptions = $this->createOptions($importOptions, $credentials);
+        $meta = MetaHelper::getMetaFromCommand($command, TableImportFromFileCommand\TeradataTableImportMeta::class);
+        assert($meta instanceof TableImportFromFileCommand\TeradataTableImportMeta);
+        $teradataImportOptions = $this->createOptions($importOptions, $credentials, $meta);
 
         $stagingTable = null;
         $db = $this->manager->createSession($credentials);
@@ -212,8 +214,25 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
 
     private function createOptions(
         ImportOptions $options,
-        GenericBackendCredentials $credentials
+        GenericBackendCredentials $credentials,
+        ?TableImportFromFileCommand\TeradataTableImportMeta $meta
     ): TeradataImportOptions {
+        $adapter = TeradataImportOptions::CSV_ADAPTER_SPT;
+        if ($meta !== null) {
+            switch ($meta->getImportAdapter()) {
+                case TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::SPT:
+                    $adapter = TeradataImportOptions::CSV_ADAPTER_SPT;
+                    break;
+                case TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::TPT:
+                    $adapter = TeradataImportOptions::CSV_ADAPTER_TPT;
+                    break;
+                default:
+                    throw new LogicException(sprintf(
+                        'Unknown CSV import adapter "%s"',
+                        $meta->getImportAdapter()
+                    ));
+            }
+        }
         return new TeradataImportOptions(
             $credentials->getHost(),
             $credentials->getPrincipal(),
@@ -222,7 +241,8 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
             ProtobufHelper::repeatedStringToArray($options->getConvertEmptyValuesToNullOnColumns()),
             $options->getImportType() === ImportType::INCREMENTAL,
             $options->getTimestampColumn() === '_timestamp',
-            $options->getNumberOfIgnoredLines()
+            $options->getNumberOfIgnoredLines(),
+            $adapter
         );
     }
 }

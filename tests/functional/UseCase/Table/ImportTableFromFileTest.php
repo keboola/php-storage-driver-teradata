@@ -112,6 +112,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
+        $cmd->setMeta($this->getCmdMeta());
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         try {
@@ -232,6 +233,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
+        $cmd->setMeta($this->getCmdMeta());
 
         try {
             $handler = new ImportTableFromFileHandler($this->sessionManager);
@@ -313,6 +315,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
+        $cmd->setMeta($this->getCmdMeta());
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         $handler(
@@ -403,6 +406,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
+        $cmd->setMeta($this->getCmdMeta());
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         $handler(
@@ -411,8 +415,8 @@ class ImportTableFromFileTest extends BaseCase
             []
         );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-        // nothing from destination and 2 rows from source
-        $this->assertSame(2, $ref->getRowsCount());
+        // nothing from destination and 3 rows from source
+        $this->assertSame(3, $ref->getRowsCount());
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -493,6 +497,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
+        $cmd->setMeta($this->getCmdMeta());
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         $handler(
@@ -590,6 +595,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
+        $cmd->setMeta($this->getCmdMeta());
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         try {
@@ -692,6 +698,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
+        $cmd->setMeta($this->getCmdMeta());
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         try {
@@ -735,5 +742,15 @@ class ImportTableFromFileTest extends BaseCase
             TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
             TeradataQuote::quoteSingleIdentifier($destinationTableName)
         ));
+    }
+
+    private function getCmdMeta(): Any
+    {
+        $meta = new Any();
+        $meta->pack(
+            (new TableImportFromFileCommand\TeradataTableImportMeta())
+                ->setImportAdapter(TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::SPT)
+        );
+        return $meta;
     }
 }
