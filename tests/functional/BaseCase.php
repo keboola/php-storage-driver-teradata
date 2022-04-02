@@ -77,6 +77,22 @@ class BaseCase extends TestCase
         $db->close();
     }
 
+    protected function cleanTestWorkspace(): void
+    {
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $this->getStackPrefix()
+        );
+        $workspaceUserName = $nameGenerator->createWorkspaceUserNameForWorkspaceId($this->getWorkspaceId());
+        $workspaceRoleName = $nameGenerator->createWorkspaceRoleNameForWorkspaceId($this->getWorkspaceId());
+
+        $db = $this->getConnection($this->getCredentials());
+        $this->cleanUserOrDatabase($db, $workspaceUserName, $this->getCredentials()->getPrincipal());
+        $this->dropRole($db, $workspaceRoleName);
+        $db->close();
+    }
+
+
     protected function getStackPrefix(): string
     {
         return md5(get_class($this));
@@ -395,20 +411,23 @@ class BaseCase extends TestCase
         return [$response, $db];
     }
 
+    protected function getWorkspaceId(): string
+    {
+        return md5($this->getName()) . '_Test_workspace';
+    }
+
     /**
-     * @return array{CreateWorkspaceResponse, Connection}
+     * @return array{GenericBackendCredentials, CreateWorkspaceResponse}
      */
     protected function createTestWorkspace(
         GenericBackendCredentials $projectCredentials,
         CreateProjectResponse $projectResponse
     ): array {
-        $workspace = md5($this->getName()) . '_Test_workspace';
-
         $handler = new CreateWorkspaceHandler($this->sessionManager);
         $command = (new CreateWorkspaceCommand())
             ->setStackPrefix($this->getStackPrefix())
             ->setProjectId($this->getProjectId())
-            ->setWorkspaceId($workspace)
+            ->setWorkspaceId($this->getWorkspaceId())
             ->setProjectUserName($projectResponse->getProjectUserName())
             ->setProjectRoleName($projectResponse->getProjectRoleName())
             ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName());
@@ -420,21 +439,12 @@ class BaseCase extends TestCase
         );
         $this->assertInstanceOf(CreateWorkspaceResponse::class, $response);
 
-        $db = $this->getConnection($projectCredentials);
-
-        $this->assertTrue($this->isDatabaseExists($db, $response->getWorkspaceObjectName()));
-
-        // read only role has read access to workspace
-        $this->assertEqualsArrays(
-            [TeradataAccessRight::RIGHT_RETRIEVE_OR_SELECT],
-            $this->getRoleAccessRightForDatabase(
-                $db,
-                $projectResponse->getProjectReadOnlyRoleName(),
-                $response->getWorkspaceObjectName()
-            )
-        );
-
-        return [$response, $db];
+        $credentials = (new GenericBackendCredentials())
+            ->setHost($projectCredentials->getHost())
+            ->setPrincipal($response->getWorkspaceUserName())
+            ->setSecret($response->getWorkspacePassword())
+            ->setPort($projectCredentials->getPort());
+        return [$credentials, $response];
     }
 
     protected function tearDown(): void

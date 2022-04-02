@@ -82,13 +82,6 @@ final class CreateWorkspaceHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($newWsRoleName),
         ));
 
-        // grant workspace role to root user
-        $db->executeStatement(sprintf(
-            'GRANT %s TO %s;',
-            TeradataQuote::quoteSingleIdentifier($newWsRoleName),
-            TeradataQuote::quoteSingleIdentifier($credentials->getPrincipal()),
-        ));
-
         // grant workspace role to project user
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',
