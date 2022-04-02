@@ -343,16 +343,16 @@ class BaseCase extends TestCase
     }
 
     /**
-     * Get list of AccessRight's of role on database
+     * Get list of AccessRight's of user on database
      *
      * @return string[]
      */
-    protected function getUserAccessRightForDatabase(Connection $db, string $role, string $database): array
+    protected function getUserAccessRightForDatabase(Connection $db, string $user, string $database): array
     {
         /** @var string[] $return */
         $return = $db->fetchFirstColumn(sprintf(
             'SELECT AccessRight FROM DBC.AllRightsV WHERE UserName = %s AND DatabaseName = %s',
-            TeradataQuote::quote($role),
+            TeradataQuote::quote($user),
             TeradataQuote::quote($database)
         ));
         return $return;
