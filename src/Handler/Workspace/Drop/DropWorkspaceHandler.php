@@ -40,42 +40,23 @@ final class DropWorkspaceHandler implements DriverCommandHandlerInterface
         assert(!empty($command->getWorkspaceObjectName()), 'DropWorkspaceCommand.workspaceObjectName is required');
 
         $db = $this->manager->createSession($credentials);
-        $ignoreErrors = $command->getIgnoreErrors();
 
         if ($command->getIsCascade()) {
-            try {
-                $db->executeStatement(sprintf(
-                    'DELETE DATABASE %s ALL',
-                    TeradataQuote::quoteSingleIdentifier($command->getWorkspaceObjectName())
-                ));
-            } catch (Throwable $e) {
-                if (!$ignoreErrors) {
-                    throw $e;
-                }
-            }
+            $db->executeStatement(sprintf(
+                'DELETE DATABASE %s ALL',
+                TeradataQuote::quoteSingleIdentifier($command->getWorkspaceObjectName())
+            ));
         }
 
-        try {
-            $db->executeStatement(sprintf(
-                'DROP ROLE %s;',
-                TeradataQuote::quoteSingleIdentifier($command->getWorkspaceRoleName())
-            ));
-        } catch (Throwable $e) {
-            if (!$ignoreErrors) {
-                throw $e;
-            }
-        }
+        $db->executeStatement(sprintf(
+            'DROP USER %s;',
+            TeradataQuote::quoteSingleIdentifier($command->getWorkspaceUserName())
+        ));
 
-        try {
-            $db->executeStatement(sprintf(
-                'DROP USER %s;',
-                TeradataQuote::quoteSingleIdentifier($command->getWorkspaceUserName())
-            ));
-        } catch (Throwable $e) {
-            if (!$ignoreErrors) {
-                throw $e;
-            }
-        }
+        $db->executeStatement(sprintf(
+            'DROP ROLE %s;',
+            TeradataQuote::quoteSingleIdentifier($command->getWorkspaceRoleName())
+        ));
 
         $db->close();
         return null;
