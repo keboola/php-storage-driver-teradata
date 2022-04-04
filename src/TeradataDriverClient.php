@@ -14,6 +14,8 @@ use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
+use Keboola\StorageDriver\Command\Workspace\DropWorkspaceCommand;
 use Keboola\StorageDriver\Contract\Driver\ClientInterface;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -27,6 +29,8 @@ use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
+use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
+use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
 
 class TeradataDriverClient implements ClientInterface
 {
@@ -75,6 +79,10 @@ class TeradataDriverClient implements ClientInterface
                 return new DropTableHandler($manager);
             case $command instanceof PreviewTableCommand:
                 return new PreviewTableHandler($manager);
+            case $command instanceof CreateWorkspaceCommand:
+                return new CreateWorkspaceHandler($manager);
+            case $command instanceof DropWorkspaceCommand:
+                return new DropWorkspaceHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));

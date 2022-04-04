@@ -11,11 +11,14 @@ use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
+use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
+use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
+use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -73,6 +76,22 @@ class BaseCase extends TestCase
         $this->dropRole($db, $projectRoleName);
         $db->close();
     }
+
+    protected function cleanTestWorkspace(): void
+    {
+        $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
+            BackendSupportsInterface::BACKEND_TERADATA,
+            $this->getStackPrefix()
+        );
+        $workspaceUserName = $nameGenerator->createWorkspaceUserNameForWorkspaceId($this->getWorkspaceId());
+        $workspaceRoleName = $nameGenerator->createWorkspaceRoleNameForWorkspaceId($this->getWorkspaceId());
+
+        $db = $this->getConnection($this->getCredentials());
+        $this->cleanUserOrDatabase($db, $workspaceUserName, $this->getCredentials()->getPrincipal());
+        $this->dropRole($db, $workspaceRoleName);
+        $db->close();
+    }
+
 
     protected function getStackPrefix(): string
     {
@@ -324,16 +343,16 @@ class BaseCase extends TestCase
     }
 
     /**
-     * Get list of AccessRight's of role on database
+     * Get list of AccessRight's of user on database
      *
      * @return string[]
      */
-    protected function getUserAccessRightForDatabase(Connection $db, string $role, string $database): array
+    protected function getUserAccessRightForDatabase(Connection $db, string $user, string $database): array
     {
         /** @var string[] $return */
         $return = $db->fetchFirstColumn(sprintf(
             'SELECT AccessRight FROM DBC.AllRightsV WHERE UserName = %s AND DatabaseName = %s',
-            TeradataQuote::quote($role),
+            TeradataQuote::quote($user),
             TeradataQuote::quote($database)
         ));
         return $return;
@@ -390,6 +409,42 @@ class BaseCase extends TestCase
         );
 
         return [$response, $db];
+    }
+
+    protected function getWorkspaceId(): string
+    {
+        return md5($this->getName()) . '_Test_workspace';
+    }
+
+    /**
+     * @return array{GenericBackendCredentials, CreateWorkspaceResponse}
+     */
+    protected function createTestWorkspace(
+        GenericBackendCredentials $projectCredentials,
+        CreateProjectResponse $projectResponse
+    ): array {
+        $handler = new CreateWorkspaceHandler($this->sessionManager);
+        $command = (new CreateWorkspaceCommand())
+            ->setStackPrefix($this->getStackPrefix())
+            ->setProjectId($this->getProjectId())
+            ->setWorkspaceId($this->getWorkspaceId())
+            ->setProjectUserName($projectResponse->getProjectUserName())
+            ->setProjectRoleName($projectResponse->getProjectRoleName())
+            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName());
+
+        $response = $handler(
+            $projectCredentials,
+            $command,
+            []
+        );
+        $this->assertInstanceOf(CreateWorkspaceResponse::class, $response);
+
+        $credentials = (new GenericBackendCredentials())
+            ->setHost($projectCredentials->getHost())
+            ->setPrincipal($response->getWorkspaceUserName())
+            ->setSecret($response->getWorkspacePassword())
+            ->setPort($projectCredentials->getPort());
+        return [$credentials, $response];
     }
 
     protected function tearDown(): void

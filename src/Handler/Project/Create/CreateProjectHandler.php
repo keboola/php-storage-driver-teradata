@@ -59,7 +59,7 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
         $spoolSpace = self::DEFAULT_SPOOL_SPACE_SIZE;
         if ($meta !== null) {
             $permSpace = $meta->getPermSpace() !== '' ? $meta->getPermSpace() : $permSpace;
-            $spoolSpace = $meta->getSpoolSpace() !== '' ? $meta->getSpoolSpace() : $permSpace;
+            $spoolSpace = $meta->getSpoolSpace() !== '' ? $meta->getSpoolSpace() : $spoolSpace;
         }
 
         $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
@@ -118,6 +118,13 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
         $db->executeStatement(sprintf(
             'GRANT CREATE USER, DROP USER, CREATE DATABASE, DROP DATABASE ON %s TO %s;',
             TeradataQuote::quoteSingleIdentifier($newProjectUsername),
+            TeradataQuote::quoteSingleIdentifier($newProjectUsername)
+        ));
+
+        // grant crete/drop role to project user
+        // this is needed to create workspace
+        $db->executeStatement(sprintf(
+            'GRANT CREATE ROLE, DROP ROLE TO %s WITH GRANT OPTION;',
             TeradataQuote::quoteSingleIdentifier($newProjectUsername)
         ));
 

@@ -34,6 +34,7 @@ class CreateDropTableTest extends BaseCase
 
         [$bucketResponse, $connection] = $this->createTestBucket($projectCredentials, $projectResponse);
         $this->bucketResponse = $bucketResponse;
+        $connection->close();
     }
 
     protected function tearDown(): void
