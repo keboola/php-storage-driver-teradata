@@ -128,6 +128,13 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($newProjectUsername)
         ));
 
+        // grant execute specific function to project user
+        // this is needed to abort session for workspace
+        $db->executeStatement(sprintf(
+            'GRANT EXECUTE ON SPECIFIC FUNCTION SYSLIB.AbortSessions TO %s;',
+            TeradataQuote::quoteSingleIdentifier($newProjectUsername)
+        ));
+
         // grant project role to project user
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',

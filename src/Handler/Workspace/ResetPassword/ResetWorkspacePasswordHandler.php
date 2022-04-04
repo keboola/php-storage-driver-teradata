@@ -51,6 +51,12 @@ final class ResetWorkspacePasswordHandler implements DriverCommandHandlerInterfa
             TeradataQuote::quoteSingleIdentifier($newWsPassword)
         ));
 
+        // abort existing sessions
+        $db->executeStatement(sprintf(
+            "SELECT SYSLIB.AbortSessions (-1, %s, 0, 'Y', 'Y');",
+            TeradataQuote::quote($command->getWorkspaceUserName())
+        ));
+
         $db->close();
 
         return (new ResetWorkspacePasswordResponse())
