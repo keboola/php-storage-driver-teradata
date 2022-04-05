@@ -66,6 +66,9 @@ final class InitBackendHandler implements DriverCommandHandlerInterface
         // check drop view
         $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_DROP_VIEW, $credentials->getPrincipal());
 
+        // check execute specific function
+        $this->checkAccessRight($rights, TeradataAccessRight::RIGHT_EXECUTE, $credentials->getPrincipal());
+
         return new InitBackendResponse();
     }
 
