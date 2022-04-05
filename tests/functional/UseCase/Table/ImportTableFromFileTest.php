@@ -342,7 +342,7 @@ class ImportTableFromFileTest extends BaseCase
         $this->createAccountsTable($db, $bucketDatabaseName, $destinationTableName);
         // init some values
         $db->executeStatement(sprintf(
-            // phpcs:ignore
+        // phpcs:ignore
             'INSERT INTO %s.%s VALUES (10,448810375,\'init\',0,1,,1,0,\'2012-02-20 09:34:22\',\'ddd\',\'ddd\',1,\'2012-02-20 09:34:22\')',
             TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
             TeradataQuote::quoteSingleIdentifier($destinationTableName),
@@ -506,7 +506,7 @@ class ImportTableFromFileTest extends BaseCase
             []
         );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-        // 1 from destination and 2 rows from source
+        // 0 from destination and 3 rows from source
         $this->assertSame(3, $ref->getRowsCount());
 
         // cleanup
