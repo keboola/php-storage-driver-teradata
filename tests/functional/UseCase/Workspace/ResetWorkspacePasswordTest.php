@@ -62,9 +62,9 @@ class ResetWorkspacePasswordTest extends BaseCase
             $this->fail('Should fail');
         } catch (Throwable $e) {
             $this->assertInstanceOf(DriverException::class, $e);
-            $this->assertSame(130, $e->getCode());
+            $this->assertSame(210, $e->getCode());
             $this->assertStringContainsString(
-                'SQLSTATE[HY000] SQLDriverConnect: 130 [Teradata][ODBC Teradata Driver] (130) TLS connection failed',
+                '[Teradata][ODBC Teradata Driver][Teradata Database] (210) The UserId, Password or Account is invalid',
                 $e->getMessage()
             );
         }
