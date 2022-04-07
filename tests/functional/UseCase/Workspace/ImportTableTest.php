@@ -61,7 +61,8 @@ class ImportTableTest extends BaseCase
     protected function tearDown(): void
     {
         parent::tearDown();
-        //$this->cleanTestProject();
+        $this->cleanTestWorkspace();
+        $this->cleanTestProject();
     }
 
     public function testImportTableToWorkspace(): void
