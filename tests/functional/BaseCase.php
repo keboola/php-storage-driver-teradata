@@ -47,7 +47,7 @@ class BaseCase extends TestCase
     public function __construct(?string $name = null, array $data = [], $dataName = '')
     {
         parent::__construct($name, $data, $dataName);
-        $this->sessionManager = new TeradataSessionManager();
+        $this->sessionManager = new TeradataSessionManager((bool) getenv('DEBUG'));
     }
 
     /**
@@ -109,7 +109,7 @@ class BaseCase extends TestCase
 
     protected function getConnection(GenericBackendCredentials $credentials): Connection
     {
-        return $this->sessionManager->createSession($credentials, (bool) getenv('DEBUG'));
+        return $this->sessionManager->createSession($credentials);
     }
 
     /**
