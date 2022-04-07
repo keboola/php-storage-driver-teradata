@@ -84,9 +84,9 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($newProjectReadOnlyRoleName)
         ));
 
-        // grant project read only role to project role
+        // grant project read only role to project role with admin option so project can grant it to workspace role
         $db->executeStatement(sprintf(
-            'GRANT %s TO %s;',
+            'GRANT %s TO %s WITH ADMIN OPTION;',
             TeradataQuote::quoteSingleIdentifier($newProjectReadOnlyRoleName),
             TeradataQuote::quoteSingleIdentifier($newProjectRoleName)
         ));

@@ -18,8 +18,8 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 final class CreateWorkspaceHandler implements DriverCommandHandlerInterface
 {
-    public const DEFAULT_PERM_SPACE_SIZE = 1e9; // 1GB
-    public const DEFAULT_SPOOL_SPACE_SIZE = 1e9; // 1GB
+    public const DEFAULT_PERM_SPACE_SIZE = 1e8; // 100MB
+    public const DEFAULT_SPOOL_SPACE_SIZE = 1e8; // 100MB
 
     private TeradataSessionManager $manager;
 
@@ -110,11 +110,11 @@ final class CreateWorkspaceHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($newWsUserName)
         ));
 
-        // grant select to project read only role
+        // grant read only role to ws role
         $db->executeStatement(sprintf(
-            'GRANT SELECT ON %s TO %s;',
-            TeradataQuote::quoteSingleIdentifier($newWsUserName),
+            'GRANT %s TO %s;',
             TeradataQuote::quoteSingleIdentifier($command->getProjectReadOnlyRoleName()),
+            TeradataQuote::quoteSingleIdentifier($newWsRoleName)
         ));
 
         $db->close();
