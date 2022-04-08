@@ -47,7 +47,7 @@ class BaseCase extends TestCase
     public function __construct(?string $name = null, array $data = [], $dataName = '')
     {
         parent::__construct($name, $data, $dataName);
-        $this->sessionManager = new TeradataSessionManager((bool) getenv('DEBUG'));
+        $this->sessionManager = new TeradataSessionManager(static::isDebug());
     }
 
     /**
@@ -455,5 +455,10 @@ class BaseCase extends TestCase
     {
         parent::tearDown();
         $this->sessionManager->close();
+    }
+
+    protected static function isDebug(): bool
+    {
+        return (bool) getenv('DEBUG');
     }
 }
