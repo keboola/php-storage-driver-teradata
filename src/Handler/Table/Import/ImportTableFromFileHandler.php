@@ -217,7 +217,7 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         GenericBackendCredentials $credentials,
         ?TableImportFromFileCommand\TeradataTableImportMeta $meta
     ): TeradataImportOptions {
-        $adapter = TeradataImportOptions::CSV_ADAPTER_SPT;
+        $adapter = TeradataImportOptions::CSV_ADAPTER_TPT;
         if ($meta !== null) {
             switch ($meta->getImportAdapter()) {
                 case TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::SPT:
