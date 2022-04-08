@@ -23,6 +23,7 @@ use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use PHPUnit\Framework\TestCase;
+use PHPUnitRetry\RetryTrait;
 
 class BaseCase extends TestCase
 {
@@ -30,6 +31,8 @@ class BaseCase extends TestCase
     protected const PROJECT_ROLE_SUFFIX = '_KBC_role';
     protected const PROJECT_READ_ONLY_ROLE_SUFFIX = '_KBC_RO';
     protected const PROJECT_PASSWORD = 'PassW0rd#';
+
+    use RetryTrait;
 
     /**
      * Set all connections to db here so they can be closed in teardown
