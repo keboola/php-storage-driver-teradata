@@ -18,6 +18,7 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
+use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
@@ -191,6 +192,16 @@ class ImportTableFromFileTest extends BaseCase
         return $tableDestDef;
     }
 
+    private function getCmdMeta(int $adapter): Any
+    {
+        $meta = new Any();
+        $meta->pack(
+            (new TableImportFromFileCommand\TeradataTableImportMeta())
+                ->setImportAdapter($adapter)
+        );
+        return $meta;
+    }
+
     /**
      * @dataProvider importAdapterProvider
      */
@@ -341,14 +352,18 @@ class ImportTableFromFileTest extends BaseCase
         $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        $handler(
+        /** @var TableImportResponse $response */
+        $response = $handler(
             $this->projectCredentials,
             $cmd,
             []
         );
+        $this->assertSame(3, $response->getImportedRowsCount());
+        $this->assertSame(['col1', 'col2', 'col3'], iterator_to_array($response->getImportedColumns()));
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // nothing from destination and 3 rows from source
         $this->assertSame(3, $ref->getRowsCount());
+        $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -435,19 +450,62 @@ class ImportTableFromFileTest extends BaseCase
         $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        $handler(
+        /** @var TableImportResponse $response */
+        $response = $handler(
             $this->projectCredentials,
             $cmd,
             []
         );
+        $this->assertSame(3, $response->getImportedRowsCount());
+        $this->assertSame(
+            [
+                'import',
+                'isImported',
+                'id',
+                'idTwitter',
+                'name',
+                'apiLimitExceededDatetime',
+                'analyzeSentiment',
+                'importKloutScore',
+                'timestamp',
+                'oauthToken',
+                'oauthSecret',
+                'idApp',
+            ],
+            iterator_to_array($response->getImportedColumns())
+        );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // nothing from destination and 3 rows from source
         $this->assertSame(3, $ref->getRowsCount());
+        $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
         $qb->getDropTableCommand($bucketDatabaseName, $destinationTableName);
         $db->close();
+    }
+
+    private function createAccountsTable(Connection $db, string $bucketDatabaseName, string $destinationTableName): void
+    {
+        $db->executeQuery(sprintf(
+            'CREATE MULTISET TABLE %s.%s, NO FALLBACK (
+                "id" VARCHAR(50) CHARACTER SET UNICODE,
+                "idTwitter" VARCHAR(50) CHARACTER SET UNICODE,
+                "name" VARCHAR(100) CHARACTER SET UNICODE,
+                "import" VARCHAR(50) CHARACTER SET UNICODE,
+                "isImported" VARCHAR(50) CHARACTER SET UNICODE,
+                "apiLimitExceededDatetime" VARCHAR(50) CHARACTER SET UNICODE,
+                "analyzeSentiment" VARCHAR(50) CHARACTER SET UNICODE,
+                "importKloutScore" VARCHAR(50) CHARACTER SET UNICODE,
+                "timestamp" VARCHAR(50) CHARACTER SET UNICODE,
+                "oauthToken" VARCHAR(50) CHARACTER SET UNICODE,
+                "oauthSecret" VARCHAR(50) CHARACTER SET UNICODE,
+                "idApp" VARCHAR(50) CHARACTER SET UNICODE,
+                "_timestamp" TIMESTAMP
+            ) PRIMARY INDEX ("id");',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+            TeradataQuote::quoteSingleIdentifier($destinationTableName)
+        ));
     }
 
     /**
@@ -529,14 +587,34 @@ class ImportTableFromFileTest extends BaseCase
         $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        $handler(
+        /** @var TableImportResponse $response */
+        $response = $handler(
             $this->projectCredentials,
             $cmd,
             []
         );
+        $this->assertSame(3, $response->getImportedRowsCount());
+        $this->assertSame(
+            [
+                'import',
+                'isImported',
+                'id',
+                'idTwitter',
+                'name',
+                'apiLimitExceededDatetime',
+                'analyzeSentiment',
+                'importKloutScore',
+                'timestamp',
+                'oauthToken',
+                'oauthSecret',
+                'idApp',
+            ],
+            iterator_to_array($response->getImportedColumns())
+        );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // 0 from destination and 3 rows from source
         $this->assertSame(3, $ref->getRowsCount());
+        $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -754,38 +832,5 @@ class ImportTableFromFileTest extends BaseCase
         $qb = new TeradataTableQueryBuilder();
         $qb->getDropTableCommand($bucketDatabaseName, $destinationTableName);
         $db->close();
-    }
-
-    private function createAccountsTable(Connection $db, string $bucketDatabaseName, string $destinationTableName): void
-    {
-        $db->executeQuery(sprintf(
-            'CREATE MULTISET TABLE %s.%s, NO FALLBACK (
-                "id" VARCHAR(50) CHARACTER SET UNICODE,
-                "idTwitter" VARCHAR(50) CHARACTER SET UNICODE,
-                "name" VARCHAR(100) CHARACTER SET UNICODE,
-                "import" VARCHAR(50) CHARACTER SET UNICODE,
-                "isImported" VARCHAR(50) CHARACTER SET UNICODE,
-                "apiLimitExceededDatetime" VARCHAR(50) CHARACTER SET UNICODE,
-                "analyzeSentiment" VARCHAR(50) CHARACTER SET UNICODE,
-                "importKloutScore" VARCHAR(50) CHARACTER SET UNICODE,
-                "timestamp" VARCHAR(50) CHARACTER SET UNICODE,
-                "oauthToken" VARCHAR(50) CHARACTER SET UNICODE,
-                "oauthSecret" VARCHAR(50) CHARACTER SET UNICODE,
-                "idApp" VARCHAR(50) CHARACTER SET UNICODE,
-                "_timestamp" TIMESTAMP
-            ) PRIMARY INDEX ("id");',
-            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
-            TeradataQuote::quoteSingleIdentifier($destinationTableName)
-        ));
-    }
-
-    private function getCmdMeta(int $adapter): Any
-    {
-        $meta = new Any();
-        $meta->pack(
-            (new TableImportFromFileCommand\TeradataTableImportMeta())
-                ->setImportAdapter($adapter)
-        );
-        return $meta;
     }
 }

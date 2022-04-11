@@ -22,6 +22,7 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportT
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileResponse;
+use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
@@ -104,14 +105,14 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         if ($importOptions->getImportType() === ImportType::INCREMENTAL) {
             throw new LogicException('Not implemented');
         }
-
+        $destinationRef = new TeradataTableReflection(
+            $db,
+            ProtobufHelper::repeatedStringToArray($destination->getPath())[0],
+            $destination->getTableName()
+        );
         try {
             /** @var TeradataTableDefinition $destinationDefinition */
-            $destinationDefinition = (new TeradataTableReflection(
-                $db,
-                ProtobufHelper::repeatedStringToArray($destination->getPath())[0],
-                $destination->getTableName()
-            ))->getTableDefinition();
+            $destinationDefinition = $destinationRef->getTableDefinition();
             $dedupColumns = ProtobufHelper::repeatedStringToArray($importOptions->getDedupColumnsNames());
             if ($importOptions->getImportType() === ImportOptions\DedupType::UPDATE_DUPLICATES
                 && count($dedupColumns) !== 0
@@ -172,12 +173,13 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
             }
         }
 
-        $response = new TableImportFromFileResponse();
+        $response = new TableImportResponse();
+        $response->setTableRowsCount($destinationRef->getRowsCount());
         $response->setImportedColumns(ProtobufHelper::arrayToRepeatedString($importResult->getImportedColumns()));
         $response->setImportedRowsCount($importResult->getImportedRowsCount());
-        $timers = new RepeatedField(GPBType::MESSAGE, TableImportFromFileResponse\Timer::class);
+        $timers = new RepeatedField(GPBType::MESSAGE, TableImportResponse\Timer::class);
         foreach ($importResult->getTimers() as $timerArr) {
-            $timer = new TableImportFromFileResponse\Timer();
+            $timer = new TableImportResponse\Timer();
             $timer->setName($timerArr['name']);
             $timer->setDuration($timerArr['durationSeconds']);
             $timers[] = $timer;

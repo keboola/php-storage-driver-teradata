@@ -11,6 +11,7 @@ use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table;
 use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand;
+use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromTableHandler;
@@ -133,14 +134,20 @@ class ImportTableFromTableTest extends BaseCase
         );
 
         $handler = new ImportTableFromTableHandler($this->sessionManager);
-        $handler(
+        /** @var TableImportResponse $response */
+        $response = $handler(
             $this->projectCredentials,
             $cmd,
             []
         );
-
+        $this->assertSame(3, $response->getImportedRowsCount());
+        $this->assertSame(
+            [], // optimized full load is not returning imported columns
+            iterator_to_array($response->getImportedColumns())
+        );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         $this->assertSame(3, $ref->getRowsCount());
+        $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
 
         // cleanup
         $qb->getDropTableCommand($tableSourceDef->getSchemaName(), $tableSourceDef->getTableName());
@@ -237,14 +244,23 @@ class ImportTableFromTableTest extends BaseCase
         );
 
         $handler = new ImportTableFromTableHandler($this->sessionManager);
-        $handler(
+        /** @var TableImportResponse $response */
+        $response = $handler(
             $this->projectCredentials,
             $cmd,
             []
         );
-
+        $this->assertSame(3, $response->getImportedRowsCount());
+        $this->assertSame(
+            [
+                'col1',
+                'col4',
+            ],
+            iterator_to_array($response->getImportedColumns())
+        );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         $this->assertSame(3, $ref->getRowsCount());
+        $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
 
         // cleanup
         $qb->getDropTableCommand($tableSourceDef->getSchemaName(), $tableSourceDef->getTableName());

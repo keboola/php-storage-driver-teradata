@@ -16,8 +16,8 @@ use Keboola\Db\ImportExport\Storage\Teradata\Table;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table as CommandDestination;
-use Keboola\StorageDriver\Command\Table\TableImportFromFileResponse;
 use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand;
+use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
@@ -92,12 +92,17 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
             }
         }
 
-        $response = new TableImportFromFileResponse();
+        $response = new TableImportResponse();
+        $response->setTableRowsCount((new TeradataTableReflection(
+            $db,
+            ProtobufHelper::repeatedStringToArray($destination->getPath())[0],
+            $destination->getTableName()
+        ))->getRowsCount());
         $response->setImportedColumns(ProtobufHelper::arrayToRepeatedString($importResult->getImportedColumns()));
         $response->setImportedRowsCount($importResult->getImportedRowsCount());
-        $timers = new RepeatedField(GPBType::MESSAGE, TableImportFromFileResponse\Timer::class);
+        $timers = new RepeatedField(GPBType::MESSAGE, TableImportResponse\Timer::class);
         foreach ($importResult->getTimers() as $timerArr) {
-            $timer = new TableImportFromFileResponse\Timer();
+            $timer = new TableImportResponse\Timer();
             $timer->setName($timerArr['name']);
             $timer->setDuration($timerArr['durationSeconds']);
             $timers[] = $timer;
