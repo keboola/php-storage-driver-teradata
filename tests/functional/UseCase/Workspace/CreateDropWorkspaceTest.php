@@ -142,16 +142,6 @@ class CreateDropWorkspaceTest extends BaseCase
             )
         );
 
-        // read only role HAS READ ACCESS to workspace
-        $this->assertEqualsArrays(
-            [TeradataAccessRight::RIGHT_RETRIEVE_OR_SELECT],
-            $this->getRoleAccessRightForDatabase(
-                $db,
-                $this->projectResponse->getProjectReadOnlyRoleName(),
-                $response->getWorkspaceObjectName()
-            )
-        );
-
         // try to create table
         $db->executeStatement(sprintf(
             'CREATE TABLE %s."testTable" ("id" INTEGER);',

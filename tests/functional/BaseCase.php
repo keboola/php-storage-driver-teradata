@@ -23,6 +23,7 @@ use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use PHPUnit\Framework\TestCase;
+use PHPUnitRetry\RetryTrait;
 
 class BaseCase extends TestCase
 {
@@ -30,6 +31,8 @@ class BaseCase extends TestCase
     protected const PROJECT_ROLE_SUFFIX = '_KBC_role';
     protected const PROJECT_READ_ONLY_ROLE_SUFFIX = '_KBC_RO';
     protected const PROJECT_PASSWORD = 'PassW0rd#';
+
+    use RetryTrait;
 
     /**
      * Set all connections to db here so they can be closed in teardown
@@ -40,10 +43,14 @@ class BaseCase extends TestCase
 
     protected TeradataSessionManager $sessionManager;
 
-    public function __construct()
+    /**
+     * @param array<mixed> $data
+     * @param int|string $dataName
+     */
+    public function __construct(?string $name = null, array $data = [], $dataName = '')
     {
-        parent::__construct();
-        $this->sessionManager = new TeradataSessionManager();
+        parent::__construct($name, $data, $dataName);
+        $this->sessionManager = new TeradataSessionManager(static::isDebug());
     }
 
     /**
@@ -105,7 +112,7 @@ class BaseCase extends TestCase
 
     protected function getConnection(GenericBackendCredentials $credentials): Connection
     {
-        return $this->sessionManager->createSession($credentials, (bool) getenv('DEBUG'));
+        return $this->sessionManager->createSession($credentials);
     }
 
     /**
@@ -451,5 +458,10 @@ class BaseCase extends TestCase
     {
         parent::tearDown();
         $this->sessionManager->close();
+    }
+
+    protected static function isDebug(): bool
+    {
+        return (bool) getenv('DEBUG');
     }
 }

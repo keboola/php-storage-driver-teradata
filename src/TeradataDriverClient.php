@@ -14,6 +14,8 @@ use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
+use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\DropWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\ResetWorkspacePasswordCommand;
@@ -29,6 +31,8 @@ use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
@@ -79,6 +83,10 @@ class TeradataDriverClient implements ClientInterface
                 return new CreateTableHandler($manager);
             case $command instanceof DropTableCommand:
                 return new DropTableHandler($manager);
+            case $command instanceof TableImportFromTableCommand:
+                return new ImportTableFromTableHandler($manager);
+            case $command instanceof TableImportFromFileCommand:
+                return new ImportTableFromFileHandler($manager);
             case $command instanceof PreviewTableCommand:
                 return new PreviewTableHandler($manager);
             case $command instanceof CreateWorkspaceCommand:

@@ -14,9 +14,16 @@ class TeradataSessionManager
      */
     private array $sessions = [];
 
-    public function createSession(GenericBackendCredentials $credentials, bool $debug = false): Connection
+    private bool $debug;
+
+    public function __construct(bool $debug = false)
     {
-        $db = ConnectionFactory::getConnection($credentials, $debug);
+        $this->debug = $debug;
+    }
+
+    public function createSession(GenericBackendCredentials $credentials): Connection
+    {
+        $db = ConnectionFactory::getConnection($credentials, $this->debug);
         $sessionId = $db->fetchOne('SELECT SESSION;');
         if (is_numeric($sessionId)) {
             $sessionId = (int) $sessionId;
