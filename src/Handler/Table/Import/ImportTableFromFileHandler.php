@@ -174,7 +174,9 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         }
 
         $response = new TableImportResponse();
-        $response->setTableRowsCount($destinationRef->getRowsCount());
+        $destinationStats = $destinationRef->getTableStats();
+        $response->setTableRowsCount($destinationStats->getRowsCount());
+        $response->setTableSizeBytes($destinationStats->getDataSizeBytes());
         $response->setImportedColumns(ProtobufHelper::arrayToRepeatedString($importResult->getImportedColumns()));
         $response->setImportedRowsCount($importResult->getImportedRowsCount());
         $timers = new RepeatedField(GPBType::MESSAGE, TableImportResponse\Timer::class);
