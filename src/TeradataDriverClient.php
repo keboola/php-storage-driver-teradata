@@ -19,6 +19,7 @@ use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand;
 use Keboola\StorageDriver\Command\Workspace\ClearWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\DropWorkspaceCommand;
+use Keboola\StorageDriver\Command\Workspace\DropWorkspaceObjectCommand;
 use Keboola\StorageDriver\Command\Workspace\ResetWorkspacePasswordCommand;
 use Keboola\StorageDriver\Contract\Driver\ClientInterface;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
@@ -38,6 +39,7 @@ use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Clear\ClearWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
+use Keboola\StorageDriver\Teradata\Handler\Workspace\DropObject\DropWorkspaceObjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\ResetPassword\ResetWorkspacePasswordHandler;
 
 class TeradataDriverClient implements ClientInterface
@@ -99,6 +101,8 @@ class TeradataDriverClient implements ClientInterface
                 return new ResetWorkspacePasswordHandler($manager);
             case $command instanceof ClearWorkspaceCommand:
                 return new ClearWorkspaceHandler($manager);
+            case $command instanceof DropWorkspaceObjectCommand:
+                return new DropWorkspaceObjectHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));
