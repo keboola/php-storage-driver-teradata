@@ -93,11 +93,14 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         }
 
         $response = new TableImportResponse();
-        $response->setTableRowsCount((new TeradataTableReflection(
+        $destinationRef = new TeradataTableReflection(
             $db,
             ProtobufHelper::repeatedStringToArray($destination->getPath())[0],
             $destination->getTableName()
-        ))->getRowsCount());
+        );
+        $destinationStats = $destinationRef->getTableStats();
+        $response->setTableRowsCount($destinationStats->getRowsCount());
+        $response->setTableSizeBytes($destinationStats->getDataSizeBytes());
         $response->setImportedColumns(ProtobufHelper::arrayToRepeatedString($importResult->getImportedColumns()));
         $response->setImportedRowsCount($importResult->getImportedRowsCount());
         $timers = new RepeatedField(GPBType::MESSAGE, TableImportResponse\Timer::class);
