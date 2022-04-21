@@ -109,6 +109,7 @@ class ClearWorkspaceTest extends BaseCase
         );
         $this->assertNull($clearResponse);
 
+        $projectDb = $this->getConnection($this->projectCredentials);
         $this->assertFalse($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
         $this->assertFalse($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
         $this->assertTrue($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));

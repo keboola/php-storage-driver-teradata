@@ -93,6 +93,7 @@ class CreateDropBucketTest extends BaseCase
             []
         );
 
+        $db = $this->getConnection($this->projectCredentials);
         $this->assertTrue($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         // should not fail and database will be deleted
@@ -103,6 +104,7 @@ class CreateDropBucketTest extends BaseCase
             $command,
             []
         );
+        $db = $this->getConnection($this->projectCredentials);
         $this->assertFalse($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         $db->close();
