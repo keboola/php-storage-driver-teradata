@@ -35,7 +35,7 @@ class CreateDropBucketTest extends BaseCase
 
     public function testCreateDropBucket(): void
     {
-        [$response, $db] = $this->createTestBucket($this->projectCredentials, $this->projectResponse);
+        [$response,] = $this->createTestBucket($this->projectCredentials, $this->projectResponse);
 
         $handler = new DropBucketHandler($this->sessionManager);
         $command = (new DropBucketCommand())
@@ -48,6 +48,7 @@ class CreateDropBucketTest extends BaseCase
             []
         );
 
+        $db = $this->getConnection($this->projectCredentials);
         $this->assertFalse($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         $db->close();
@@ -81,6 +82,7 @@ class CreateDropBucketTest extends BaseCase
                 $e->getMessage()
             );
         }
+        $db = $this->getConnection($this->projectCredentials);
         $this->assertTrue($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         // ignore errors should not fail but database is not removed

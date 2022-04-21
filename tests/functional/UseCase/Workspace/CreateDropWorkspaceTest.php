@@ -183,6 +183,7 @@ class CreateDropWorkspaceTest extends BaseCase
         );
         $this->assertNull($dropResponse);
 
+        $projectDb = $this->getConnection($this->projectCredentials);
         $this->assertFalse($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
         $this->assertFalse($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
         $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
@@ -239,6 +240,8 @@ class CreateDropWorkspaceTest extends BaseCase
             $command,
             []
         );
+
+        $projectDb = $this->getConnection($this->projectCredentials);
         $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
         $this->assertFalse($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
         $this->assertFalse($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
