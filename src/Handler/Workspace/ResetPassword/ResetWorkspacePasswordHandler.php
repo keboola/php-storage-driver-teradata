@@ -36,7 +36,7 @@ final class ResetWorkspacePasswordHandler implements DriverCommandHandlerInterfa
         assert($command instanceof ResetWorkspacePasswordCommand);
 
         // validate
-        assert(!empty($command->getWorkspaceUserName()), 'ResetWorkspacePasswordCommand.workspaceUserName is required');
+        assert($command->getWorkspaceUserName() !== '', 'ResetWorkspacePasswordCommand.workspaceUserName is required');
 
         $db = $this->manager->createSession($credentials);
 

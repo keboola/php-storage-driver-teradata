@@ -36,7 +36,7 @@ final class DropTableHandler implements DriverCommandHandlerInterface
 
         // validate
         assert($command->getPath()->count() === 1, 'DropTableCommand.path is required and size must equal 1');
-        assert(!empty($command->getTableName()), 'DropTableCommand.tableName is required');
+        assert($command->getTableName() !== '', 'DropTableCommand.tableName is required');
 
         $db = $this->manager->createSession($credentials);
 
