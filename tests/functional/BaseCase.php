@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests;
 
+use Aws\S3\S3Client;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Google\Protobuf\Any;
@@ -14,6 +15,7 @@ use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\FunctionalTests\UseCase\Table\ExportTableToFileTest;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
@@ -98,7 +100,6 @@ class BaseCase extends TestCase
         $this->dropRole($db, $workspaceRoleName);
         $db->close();
     }
-
 
     protected function getStackPrefix(): string
     {
@@ -463,5 +464,47 @@ class BaseCase extends TestCase
     protected static function isDebug(): bool
     {
         return (bool) getenv('DEBUG');
+    }
+
+    protected function getS3Client(string $key, string $secret, string $region): S3Client
+    {
+        return new S3Client([
+            'credentials' => [
+                'key' => $key,
+                'secret' => $secret,
+            ],
+            'region' => $region,
+            'version' => '2006-03-01',
+        ]);
+    }
+
+    /**
+     * @return array<int, array>|null
+     */
+    protected function listS3BucketDirFiles(S3Client $client, string $bucket, string $dir): ?array
+    {
+        $result = $client->listObjects([
+            'Bucket' => $bucket,
+            'Prefix' => $dir,
+        ]);
+        return $result->get('Contents');
+    }
+
+    protected function clearS3BucketDir(S3Client $client, string $bucket, string $dir): void
+    {
+        $objects = $this->listS3BucketDirFiles($client, $bucket, $dir);
+
+        if ($objects) {
+            $client->deleteObjects([
+                'Bucket' => $bucket,
+                'Delete' => [
+                    'Objects' => array_map(static function ($object) {
+                        return [
+                            'Key' => $object['Key'],
+                        ];
+                    }, $objects),
+                ],
+            ]);
+        }
     }
 }
