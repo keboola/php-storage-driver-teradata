@@ -35,7 +35,7 @@ final class ClearWorkspaceHandler implements DriverCommandHandlerInterface
         assert($command instanceof ClearWorkspaceCommand);
 
         // validate
-        assert(!empty($command->getWorkspaceObjectName()), 'ClearWorkspaceCommand.workspaceObjectName is required');
+        assert($command->getWorkspaceObjectName() !== '', 'ClearWorkspaceCommand.workspaceObjectName is required');
 
         $db = $this->manager->createSession($credentials);
 

@@ -56,7 +56,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
 
         // validate
         assert($command->getPath()->count() === 1, 'PreviewTableCommand.path is required and size must equal 1');
-        assert(!empty($command->getTableName()), 'PreviewTableCommand.tableName is required');
+        assert($command->getTableName() !== '', 'PreviewTableCommand.tableName is required');
         assert($command->getColumns()->count() > 0, 'PreviewTableCommand.columns is required');
 
         try {
@@ -91,7 +91,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             if ($command->hasOrderBy() && $command->getOrderBy()) {
                 /** @var PreviewTableCommand\PreviewTableOrderBy $orderBy */
                 $orderBy = $command->getOrderBy();
-                assert(!empty($orderBy->getColumnName()), 'PreviewTableCommand.orderBy.columnName is required');
+                assert($orderBy->getColumnName() !== '', 'PreviewTableCommand.orderBy.columnName is required');
                 $quotedColumnName = TeradataQuote::quoteSingleIdentifier($orderBy->getColumnName());
                 $selectTableSql .= sprintf(
                     "\nORDER BY %s %s",

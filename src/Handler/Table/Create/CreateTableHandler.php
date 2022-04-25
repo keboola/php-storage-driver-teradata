@@ -42,7 +42,7 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
 
         // validate
         assert($command->getPath()->count() === 1, 'CreateTableCommand.path is required and size must equal 1');
-        assert(!empty($command->getTableName()), 'CreateTableCommand.tableName is required');
+        assert($command->getTableName() !== '', 'CreateTableCommand.tableName is required');
         assert($command->getColumns()->count() > 0, 'CreateTableCommand.columns is required');
 
         try {
@@ -53,8 +53,8 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
             /** @var TableColumn $column */
             foreach ($command->getColumns() as $column) {
                 // validate
-                assert(!empty($column->getName()), 'TableColumn.name is required');
-                assert(!empty($column->getType()), 'TableColumn.type is required');
+                assert($column->getName() !== '', 'TableColumn.name is required');
+                assert($column->getType() !== '', 'TableColumn.type is required');
 
                 /** @var TeradataTableColumnMeta|null $columnMeta */
                 $columnMeta = MetaHelper::getMetaRestricted($column, TeradataTableColumnMeta::class);

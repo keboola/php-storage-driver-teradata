@@ -104,6 +104,7 @@ class DropWorkspaceObjectTest extends BaseCase
         );
         $this->assertNull($dropResponse);
 
+        $db = $this->getConnection($credentials);
         $this->assertTrue($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
         $this->assertTrue($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
 
@@ -120,6 +121,7 @@ class DropWorkspaceObjectTest extends BaseCase
         );
         $this->assertNull($dropResponse);
 
+        $db = $this->getConnection($credentials);
         $this->assertTrue($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
         $this->assertFalse($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
 
@@ -136,6 +138,7 @@ class DropWorkspaceObjectTest extends BaseCase
         );
         $this->assertNull($dropResponse);
 
+        $db = $this->getConnection($credentials);
         $this->assertFalse($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
         $this->assertFalse($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
 

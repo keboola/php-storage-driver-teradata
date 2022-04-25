@@ -58,8 +58,6 @@ class ClearWorkspaceTest extends BaseCase
 
         $db->close();
 
-        $projectDb = $this->getConnection($this->projectCredentials);
-
         // CLEAR with BAD OBJECT NAME
         $handler = new ClearWorkspaceHandler($this->sessionManager);
         $command = (new ClearWorkspaceCommand())
@@ -92,6 +90,7 @@ class ClearWorkspaceTest extends BaseCase
         );
         $this->assertNull($clearResponse);
 
+        $projectDb = $this->getConnection($this->projectCredentials);
         $this->assertTrue($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
         $this->assertTrue($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
         $this->assertTrue($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
@@ -110,6 +109,7 @@ class ClearWorkspaceTest extends BaseCase
         );
         $this->assertNull($clearResponse);
 
+        $projectDb = $this->getConnection($this->projectCredentials);
         $this->assertFalse($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
         $this->assertFalse($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
         $this->assertTrue($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));

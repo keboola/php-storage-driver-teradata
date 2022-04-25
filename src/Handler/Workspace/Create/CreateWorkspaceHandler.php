@@ -42,12 +42,12 @@ final class CreateWorkspaceHandler implements DriverCommandHandlerInterface
         assert($command instanceof CreateWorkspaceCommand);
 
         // validate
-        assert(!empty($command->getStackPrefix()), 'CreateWorkspaceCommand.stackPrefix is required');
-        assert(!empty($command->getWorkspaceId()), 'CreateWorkspaceCommand.workspaceId is required');
-        assert(!empty($command->getProjectUserName()), 'CreateWorkspaceCommand.projectUserName is required');
-        assert(!empty($command->getProjectRoleName()), 'CreateWorkspaceCommand.projectRoleName is required');
+        assert($command->getStackPrefix() !== '', 'CreateWorkspaceCommand.stackPrefix is required');
+        assert($command->getWorkspaceId() !== '', 'CreateWorkspaceCommand.workspaceId is required');
+        assert($command->getProjectUserName() !== '', 'CreateWorkspaceCommand.projectUserName is required');
+        assert($command->getProjectRoleName() !== '', 'CreateWorkspaceCommand.projectRoleName is required');
         assert(
-            !empty($command->getProjectReadOnlyRoleName()),
+            $command->getProjectReadOnlyRoleName() !== '',
             'CreateWorkspaceCommand.projectReadOnlyRoleName is required',
         );
 

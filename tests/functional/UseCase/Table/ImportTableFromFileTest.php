@@ -374,7 +374,7 @@ class ImportTableFromFileTest extends BaseCase
     private function createAccountsTable(Connection $db, string $bucketDatabaseName, string $destinationTableName): void
     {
         $db->executeQuery(sprintf(
-            'CREATE MULTISET TABLE %s.%s, NO FALLBACK (
+            'CREATE MULTISET TABLE %s.%s (
                 "id" VARCHAR(50) CHARACTER SET UNICODE,
                 "idTwitter" VARCHAR(50) CHARACTER SET UNICODE,
                 "name" VARCHAR(100) CHARACTER SET UNICODE,

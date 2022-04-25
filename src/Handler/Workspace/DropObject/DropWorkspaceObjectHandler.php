@@ -36,11 +36,11 @@ final class DropWorkspaceObjectHandler implements DriverCommandHandlerInterface
 
         // validate
         assert(
-            !empty($command->getWorkspaceObjectName()),
+            $command->getWorkspaceObjectName() !== '',
             'DropWorkspaceObjectCommand.workspaceObjectName is required'
         );
         assert(
-            !empty($command->getObjectNameToDrop()),
+            $command->getObjectNameToDrop() !== '',
             'DropWorkspaceObjectCommand.objectNameToDrop is required'
         );
 

@@ -35,9 +35,9 @@ final class DropWorkspaceHandler implements DriverCommandHandlerInterface
         assert($command instanceof DropWorkspaceCommand);
 
         // validate
-        assert(!empty($command->getWorkspaceUserName()), 'DropWorkspaceCommand.workspaceUserName is required');
-        assert(!empty($command->getWorkspaceRoleName()), 'DropWorkspaceCommand.workspaceRoleName is required');
-        assert(!empty($command->getWorkspaceObjectName()), 'DropWorkspaceCommand.workspaceObjectName is required');
+        assert($command->getWorkspaceUserName() !== '', 'DropWorkspaceCommand.workspaceUserName is required');
+        assert($command->getWorkspaceRoleName() !== '', 'DropWorkspaceCommand.workspaceRoleName is required');
+        assert($command->getWorkspaceObjectName() !== '', 'DropWorkspaceCommand.workspaceObjectName is required');
 
         $db = $this->manager->createSession($credentials);
 

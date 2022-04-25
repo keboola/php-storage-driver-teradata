@@ -62,7 +62,6 @@ class ResetWorkspacePasswordTest extends BaseCase
             $this->fail('Should fail');
         } catch (Throwable $e) {
             $this->assertInstanceOf(DriverException::class, $e);
-            $this->assertSame(210, $e->getCode());
             $this->assertStringContainsString(
                 '[Teradata][ODBC Teradata Driver][Teradata Database] (210) The UserId, Password or Account is invalid',
                 $e->getMessage()
