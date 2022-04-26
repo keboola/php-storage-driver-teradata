@@ -121,6 +121,10 @@ class ExportTableToFileTest extends BaseCase
                 ->setRoot((string) getenv('AWS_S3_BUCKET'))
                 ->setPath($exportDir)
         );
+        dump($this->getName(false));
+        dump($this->getName());
+        dump($cmd->getFilePath()->getRoot());
+        dump($cmd->getFilePath()->getPath());
 
         $credentials = new Any();
         $credentials->pack(
@@ -156,6 +160,125 @@ class ExportTableToFileTest extends BaseCase
         $db->close();
     }
 
+    /**
+     * @dataProvider slicedExportProvider
+     */
+    public function testExportTableToSlicedFile(bool $isCompressed, array $expectedFiles): void
+    {
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+        $sourceTableName = md5($this->getName()) . '_Test_table_export_sliced';
+        $exportDir = sprintf(
+            'export/%s/',
+            str_replace([' ', '"', '\''], ['-', '_', '_'], $this->getName())
+        );
+
+        // cleanup
+        $db = $this->getConnection($this->projectCredentials);
+        $this->dropSourceTable($bucketDatabaseName, $sourceTableName, $db);
+        $db->close();
+
+        // create table from file
+        $this->createSourceTableFromFile(
+            $db,
+            'export',
+            'big_table.csv.gz',
+            true,
+            $bucketDatabaseName,
+            $sourceTableName,
+            [
+                'FID',
+                'NAZEV',
+                'Y',
+                'X',
+                'KONTAKT',
+                'SUBKATEGORIE',
+                'KATEGORIE',
+                'Column6',
+                'Column7',
+                'Column8',
+                'Column9',
+                'GlobalID',
+            ]
+        );
+
+        // clear files
+        $s3Client = $this->getS3Client(
+            (string) getenv('AWS_ACCESS_KEY_ID'),
+            (string) getenv('AWS_SECRET_ACCESS_KEY'),
+            (string) getenv('AWS_REGION')
+        );
+        $this->clearS3BucketDir(
+            $s3Client,
+            (string) getenv('AWS_S3_BUCKET'),
+            $exportDir
+        );
+
+        // export command
+        $cmd = new TableExportToFileCommand();
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $cmd->setSource(
+            (new ImportExportShared\Table())
+                ->setPath($path)
+                ->setTableName($sourceTableName)
+
+        );
+
+        $cmd->setFileProvider(FileProvider::S3);
+
+        $cmd->setFileFormat(FileFormat::CSV);
+
+        $exportOptions = new ExportOptions();
+        $exportOptions->setIsCompressed($isCompressed);
+        $cmd->setExportOptions($exportOptions);
+
+        $exportMeta = new Any();
+        $exportMeta->pack(
+            (new TableExportToFileCommand\TeradataTableExportMeta())
+                ->setExportAdapter(TableExportToFileCommand\TeradataTableExportMeta\ExportAdapter::TPT)
+        );
+        $cmd->setMeta($exportMeta);
+
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath($exportDir)
+        );
+
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+
+        $handler = new ExportTableToFileHandler($this->sessionManager);
+        $response = $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+
+        $this->assertNull($response);
+
+        // check files
+        $files = $this->listS3BucketDirFiles(
+            $s3Client,
+            (string) getenv('AWS_S3_BUCKET'),
+            $exportDir
+        );
+        $this->assertNotNull($files);
+        self::assertFilesMatch($expectedFiles, $files);
+
+        // cleanup
+        $db = $this->getConnection($this->projectCredentials);
+        $this->dropSourceTable($bucketDatabaseName, $sourceTableName, $db);
+        $db->close();
+    }
+
     public function simpleExportProvider(): Generator
     {
         yield 'plain csv' => [
@@ -165,6 +288,23 @@ class ExportTableToFileTest extends BaseCase
         yield 'gzipped csv' => [
             true, // compression
             46, // bytes
+        ];
+    }
+
+    public function slicedExportProvider(): Generator
+    {
+        yield 'plain csv' => [
+            false, // compression
+            [
+                ['fileName' => 'F00000', 'size' => 48],
+                ['fileName' => 'F00001', 'size' => 43],
+            ]
+        ];
+        yield 'gzipped csv' => [
+            true, // compression
+            [
+                ['fileName' => 'F00000', 'size' => 0],
+            ]
         ];
     }
 
@@ -224,6 +364,129 @@ class ExportTableToFileTest extends BaseCase
         );
     }
 
+    private function createSourceTableFromFile(
+        Connection $db,
+        string $sourceFilePath,
+        string $sourceFileName,
+        bool $sourceFileIsCompressed,
+        string $destinationDatabaseName,
+        string $destinationTableName,
+        array $sourceColumns
+    ): void {
+        // create table
+        $columnsLines = [];
+        foreach ($sourceColumns as $column) {
+            $columnsLines[] = sprintf(
+                '%s VARCHAR(500) CHARACTER SET UNICODE',
+                $column
+            );
+        }
+        $db->executeQuery(
+            sprintf(
+                'CREATE MULTISET TABLE %s.%s (
+                    %s
+                );',
+                TeradataQuote::quoteSingleIdentifier($destinationDatabaseName),
+                TeradataQuote::quoteSingleIdentifier($destinationTableName),
+                implode(",\n", $columnsLines)
+            )
         );
+        $db->close();
+
+        // import data to table
+        $cmd = new TableImportFromFileCommand();
+        $cmd->setFileProvider(FileProvider::S3);
+        $cmd->setFileFormat(FileFormat::CSV);
+
+        $columns = new RepeatedField(GPBType::STRING);
+        foreach ($sourceColumns as $column) {
+            $columns[] = $column;
+        }
+        $formatOptions = new Any();
+        $formatOptions->pack(
+            (new TableImportFromFileCommand\CsvTypeOptions())
+                ->setColumnsNames($columns)
+                ->setDelimiter(CsvOptions::DEFAULT_DELIMITER)
+                ->setEnclosure(CsvOptions::DEFAULT_ENCLOSURE)
+                ->setEscapedBy(CsvOptions::DEFAULT_ESCAPED_BY)
+                ->setSourceType(TableImportFromFileCommand\CsvTypeOptions\SourceType::SINGLE_FILE)
+                ->setCompression($sourceFileIsCompressed
+                    ? TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP
+                    : TableImportFromFileCommand\CsvTypeOptions\Compression::NONE
+                )
+        );
+        $cmd->setFormatTypeOptions($formatOptions);
+
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath($sourceFilePath)
+                ->setFileName($sourceFileName)
+        );
+
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $destinationDatabaseName;
+        $cmd->setDestination(
+            (new \Keboola\StorageDriver\Command\Table\ImportExportShared\Table())
+                ->setPath($path)
+                ->setTableName($destinationTableName)
+        );
+
+        $dedupCols = new RepeatedField(GPBType::STRING);
+        $cmd->setImportOptions(
+            (new ImportExportShared\ImportOptions())
+                ->setImportType(ImportExportShared\ImportOptions\ImportType::FULL)
+                ->setDedupType(ImportExportShared\ImportOptions\DedupType::INSERT_DUPLICATES)
+                ->setDedupColumnsNames($dedupCols)
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
+                ->setNumberOfIgnoredLines(1)
+        );
+
+        $meta = new Any();
+        $meta->pack(
+            (new TableImportFromFileCommand\TeradataTableImportMeta())
+                ->setImportAdapter(TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::TPT)
+        );
+        $cmd->setMeta($meta);
+
+        $handler = new ImportTableFromFileHandler($this->sessionManager);
+        /** @var TableImportResponse $response */
+        $response = $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+    }
+
+    /**
+     * @param array<int, array> $expectedFiles
+     * @param array<int, array> $files
+     */
+    public static function assertFilesMatch(array $expectedFiles, array $files): void
+    {
+        self::assertCount(count($expectedFiles), $files);
+        foreach ($expectedFiles as $i => $expectedFile) {
+            $actualFile = $files[$i];
+            self::assertStringContainsString($expectedFile['fileName'], $actualFile['Key']);
+            $fileSize = (int) $actualFile['Size'];
+            $expectedFileSize = ((int) $expectedFile['size']) * 1024 * 1024;
+            // check that the file size is in range xMB +- 1 000 000B
+            //  - (because I cannot really say what the exact size in bytes should be)
+            if ($expectedFileSize !== 0) {
+                self::assertTrue(
+                    ($expectedFileSize - 1000000) < $fileSize && $fileSize < ($expectedFileSize + 100000),
+                    sprintf('Actual size is %s but expected is %s', $fileSize, $expectedFileSize)
+                );
+            }
+        }
     }
 }

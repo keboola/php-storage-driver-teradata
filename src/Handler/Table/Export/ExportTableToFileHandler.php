@@ -25,6 +25,9 @@ use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 
 class ExportTableToFileHandler implements DriverCommandHandlerInterface
 {
+    public const DEFAULT_BUFFER_SIZE = '5M';
+    public const DEFAULT_MAX_OBJECT_SIZE = '50M';
+
     private TeradataSessionManager $manager;
 
     public function __construct(TeradataSessionManager $manager)
@@ -132,7 +135,9 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             $credentials->getPrincipal(),
             $credentials->getSecret(),
             $credentials->getPort(),
-            $options && $options->getIsCompressed()
+            $options && $options->getIsCompressed(),
+            self::DEFAULT_BUFFER_SIZE,
+            self::DEFAULT_MAX_OBJECT_SIZE
         );
     }
 }
