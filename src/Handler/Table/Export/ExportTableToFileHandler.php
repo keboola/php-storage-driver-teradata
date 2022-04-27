@@ -66,7 +66,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             $command->getFileFormat() === FileFormat::CSV,
             'Only CSV is supported TableExportToFileCommand.fileFormat.'
         );
-        assert($command->hasFilePath() === true, 'TableExportToFileCommand.filePath is required.');
+        assert($command->getFilePath() !== null, 'TableExportToFileCommand.filePath is required.');
 
         $any = $command->getFileCredentials();
         assert($any !== null, 'TableExportToFileCommand.fileCredentials is required.');
@@ -81,7 +81,10 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             $command->getExportOptions()
         );
 
-        $commandMeta = MetaHelper::getMetaFromCommand($command, TableExportToFileCommand\TeradataTableExportMeta::class);
+        $commandMeta = MetaHelper::getMetaFromCommand(
+            $command,
+            TableExportToFileCommand\TeradataTableExportMeta::class
+        );
         assert(
             $commandMeta instanceof TableExportToFileCommand\TeradataTableExportMeta,
             'TableExportToFileCommand.meta is required to be TeradataTableExportMeta.'

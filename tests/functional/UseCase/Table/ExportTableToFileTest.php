@@ -9,14 +9,7 @@ use Generator;
 use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
-use Keboola\Csv\CsvFile;
 use Keboola\CsvOptions\CsvOptions;
-use Keboola\Db\ImportExport\Backend\Teradata\TeradataImportOptions;
-use Keboola\Db\ImportExport\ImportOptions;
-use Keboola\Db\ImportExport\ImportOptions\DedupType;
-use Keboola\Db\ImportExport\ImportOptions\ImportType;
-use Keboola\Db\ImportExport\Storage\S3\SourceFile;
-use Keboola\Db\ImportExport\Storage\Teradata\Table;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
@@ -26,7 +19,6 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
-use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Table\Export\ExportTableToFileHandler;
@@ -64,7 +56,7 @@ class ExportTableToFileTest extends BaseCase
     /**
      * @dataProvider simpleExportProvider
      */
-    public function testExportTableToFile($isCompressed, $exportSize): void
+    public function testExportTableToFile(bool $isCompressed, int $exportSize): void
     {
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $sourceTableName = md5($this->getName()) . '_Test_table_export';
@@ -98,7 +90,6 @@ class ExportTableToFileTest extends BaseCase
             (new ImportExportShared\Table())
                 ->setPath($path)
                 ->setTableName($sourceTableName)
-
         );
 
         $cmd->setFileProvider(FileProvider::S3);
@@ -121,10 +112,6 @@ class ExportTableToFileTest extends BaseCase
                 ->setRoot((string) getenv('AWS_S3_BUCKET'))
                 ->setPath($exportDir)
         );
-        dump($this->getName(false));
-        dump($this->getName());
-        dump($cmd->getFilePath()->getRoot());
-        dump($cmd->getFilePath()->getPath());
 
         $credentials = new Any();
         $credentials->pack(
@@ -145,12 +132,13 @@ class ExportTableToFileTest extends BaseCase
         $this->assertNull($response);
 
         // check files
+        /** @var array<int, array<string, mixed>> $files */
         $files = $this->listS3BucketDirFiles(
             $s3Client,
             (string) getenv('AWS_S3_BUCKET'),
             $exportDir
         );
-        dump($files);
+        $this->assertNotNull($files);
         $this->assertCount(1, $files);
         $this->assertEquals($exportSize, $files[0]['Size']);
 
@@ -162,6 +150,7 @@ class ExportTableToFileTest extends BaseCase
 
     /**
      * @dataProvider slicedExportProvider
+     * @param array<int, array<string, mixed>> $expectedFiles
      */
     public function testExportTableToSlicedFile(bool $isCompressed, array $expectedFiles): void
     {
@@ -222,7 +211,6 @@ class ExportTableToFileTest extends BaseCase
             (new ImportExportShared\Table())
                 ->setPath($path)
                 ->setTableName($sourceTableName)
-
         );
 
         $cmd->setFileProvider(FileProvider::S3);
@@ -298,13 +286,13 @@ class ExportTableToFileTest extends BaseCase
             [
                 ['fileName' => 'F00000', 'size' => 48],
                 ['fileName' => 'F00001', 'size' => 43],
-            ]
+            ],
         ];
         yield 'gzipped csv' => [
             true, // compression
             [
                 ['fileName' => 'F00000', 'size' => 0],
-            ]
+            ],
         ];
     }
 
@@ -364,6 +352,9 @@ class ExportTableToFileTest extends BaseCase
         );
     }
 
+    /**
+     * @param string[] $sourceColumns
+     */
     private function createSourceTableFromFile(
         Connection $db,
         string $sourceFilePath,
@@ -412,8 +403,7 @@ class ExportTableToFileTest extends BaseCase
                 ->setSourceType(TableImportFromFileCommand\CsvTypeOptions\SourceType::SINGLE_FILE)
                 ->setCompression($sourceFileIsCompressed
                     ? TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP
-                    : TableImportFromFileCommand\CsvTypeOptions\Compression::NONE
-                )
+                    : TableImportFromFileCommand\CsvTypeOptions\Compression::NONE)
         );
         $cmd->setFormatTypeOptions($formatOptions);
 
@@ -436,7 +426,7 @@ class ExportTableToFileTest extends BaseCase
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $destinationDatabaseName;
         $cmd->setDestination(
-            (new \Keboola\StorageDriver\Command\Table\ImportExportShared\Table())
+            (new ImportExportShared\Table())
                 ->setPath($path)
                 ->setTableName($destinationTableName)
         );
@@ -459,8 +449,7 @@ class ExportTableToFileTest extends BaseCase
         $cmd->setMeta($meta);
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        /** @var TableImportResponse $response */
-        $response = $handler(
+        $handler(
             $this->projectCredentials,
             $cmd,
             []
@@ -468,15 +457,17 @@ class ExportTableToFileTest extends BaseCase
     }
 
     /**
-     * @param array<int, array> $expectedFiles
-     * @param array<int, array> $files
+     * @param array<int, array<string, mixed>> $expectedFiles
+     * @param array<int, array<string, mixed>> $files
      */
     public static function assertFilesMatch(array $expectedFiles, array $files): void
     {
         self::assertCount(count($expectedFiles), $files);
+        /** @var array{fileName: string, size: int} $expectedFile */
         foreach ($expectedFiles as $i => $expectedFile) {
+            /** @var array{Key: string, Size: string} $actualFile */
             $actualFile = $files[$i];
-            self::assertStringContainsString($expectedFile['fileName'], $actualFile['Key']);
+            self::assertStringContainsString((string) $expectedFile['fileName'], (string) $actualFile['Key']);
             $fileSize = (int) $actualFile['Size'];
             $expectedFileSize = ((int) $expectedFile['size']) * 1024 * 1024;
             // check that the file size is in range xMB +- 1 000 000B

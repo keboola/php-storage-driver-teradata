@@ -479,7 +479,7 @@ class BaseCase extends TestCase
     }
 
     /**
-     * @return array<int, array>|null
+     * @return array<int, array<string, mixed>>
      */
     protected function listS3BucketDirFiles(S3Client $client, string $bucket, string $dir): ?array
     {
@@ -487,7 +487,9 @@ class BaseCase extends TestCase
             'Bucket' => $bucket,
             'Prefix' => $dir,
         ]);
-        return $result->get('Contents');
+        /** @var array<int, array<string, mixed>> $contents */
+        $contents = $result->get('Contents');
+        return $contents;
     }
 
     protected function clearS3BucketDir(S3Client $client, string $bucket, string $dir): void
