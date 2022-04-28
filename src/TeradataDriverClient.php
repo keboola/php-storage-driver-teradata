@@ -14,6 +14,7 @@ use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand;
 use Keboola\StorageDriver\Command\Workspace\ClearWorkspaceCommand;
@@ -33,6 +34,7 @@ use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Export\ExportTableToFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
@@ -93,6 +95,8 @@ class TeradataDriverClient implements ClientInterface
                 return new ImportTableFromFileHandler($manager);
             case $command instanceof PreviewTableCommand:
                 return new PreviewTableHandler($manager);
+            case $command instanceof TableExportToFileCommand:
+                return new ExportTableToFileHandler($manager);
             case $command instanceof CreateWorkspaceCommand:
                 return new CreateWorkspaceHandler($manager);
             case $command instanceof DropWorkspaceCommand:
