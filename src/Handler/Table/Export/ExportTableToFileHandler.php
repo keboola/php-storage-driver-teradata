@@ -85,10 +85,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             $command,
             TableExportToFileCommand\TeradataTableExportMeta::class
         );
-        assert(
-            $commandMeta instanceof TableExportToFileCommand\TeradataTableExportMeta,
-            'TableExportToFileCommand.meta is required to be TeradataTableExportMeta.'
-        );
+        assert($commandMeta !== null, 'TableExportToFileCommand.meta is required.');
 
         // run
         $db = $this->manager->createSession($credentials);

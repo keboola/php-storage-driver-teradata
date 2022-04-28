@@ -158,7 +158,7 @@ class ExportTableToFileTest extends BaseCase
         $sourceTableName = md5($this->getName()) . '_Test_table_export_sliced';
         $exportDir = sprintf(
             'export/%s/',
-            str_replace([' ', '"', '\''], ['-', '_', '_'], $this->getName())
+            md5($this->getName())
         );
 
         // cleanup
