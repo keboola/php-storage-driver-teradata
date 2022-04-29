@@ -224,9 +224,6 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         $adapter = TeradataImportOptions::CSV_ADAPTER_TPT;
         if ($meta !== null) {
             switch ($meta->getImportAdapter()) {
-                case TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::SPT:
-                    $adapter = TeradataImportOptions::CSV_ADAPTER_SPT;
-                    break;
                 case TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::TPT:
                     $adapter = TeradataImportOptions::CSV_ADAPTER_TPT;
                     break;
