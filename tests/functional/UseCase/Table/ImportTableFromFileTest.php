@@ -63,9 +63,6 @@ class ImportTableFromFileTest extends BaseCase
         yield 'TPT' => [
             TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::TPT,
         ];
-        yield 'SPT' => [
-            TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::SPT,
-        ];
     }
 
     /**
