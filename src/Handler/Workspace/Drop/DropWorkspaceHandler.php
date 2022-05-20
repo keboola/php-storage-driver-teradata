@@ -48,6 +48,12 @@ final class DropWorkspaceHandler implements DriverCommandHandlerInterface
             ));
         }
 
+        // abort existing sessions
+        $db->executeStatement(sprintf(
+            "SELECT SYSLIB.AbortSessions (-1, %s, 0, 'Y', 'Y');",
+            TeradataQuote::quote($command->getWorkspaceUserName())
+        ));
+
         $db->executeStatement(sprintf(
             'DROP USER %s;',
             TeradataQuote::quoteSingleIdentifier($command->getWorkspaceUserName())

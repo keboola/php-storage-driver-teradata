@@ -167,7 +167,8 @@ class CreateDropWorkspaceTest extends BaseCase
             TeradataQuote::quoteSingleIdentifier($response->getWorkspaceObjectName())
         ));
 
-        $db->close();
+        // dont close connection it should be ended in handler
+        //$db->close();
 
         // DROP
         $handler = new DropWorkspaceHandler($this->sessionManager);
