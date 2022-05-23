@@ -21,6 +21,7 @@ use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromTableHand
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
+use Keboola\TableBackendUtils\Schema\Teradata\TeradataSchemaReflection;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
@@ -101,6 +102,10 @@ class ImportTableTest extends BaseCase
         );
         $sql = $qb->getCreateTableCommandFromDefinition($tableDestDef);
         $wsConn->executeStatement($sql);
+
+        $dbRef = new TeradataSchemaReflection($wsConn, $tableSourceDef->getSchemaName());
+        $this->assertSame([$sourceTableName], $dbRef->getTablesNames());
+
         // ws user can read directly from source in storage
         $ref = new TeradataTableReflection($wsConn, $tableSourceDef->getSchemaName(), $tableSourceDef->getTableName());
         $this->assertSame(3, $ref->getRowsCount());
