@@ -148,6 +148,9 @@ class CreateDropWorkspaceTest extends BaseCase
             TeradataQuote::quoteSingleIdentifier($response->getWorkspaceObjectName())
         ));
 
+        // try to create table in default database
+        $db->executeStatement('CREATE TABLE "testTable2" ("id" INTEGER);');
+
         // try to create view
         $db->executeStatement(sprintf(
             'CREATE VIEW %s."testView" AS '
@@ -155,17 +158,22 @@ class CreateDropWorkspaceTest extends BaseCase
             TeradataQuote::quoteSingleIdentifier($response->getWorkspaceObjectName()),
             TeradataQuote::quoteSingleIdentifier($response->getWorkspaceObjectName())
         ));
+        // try to create view  in default database
+        $db->executeStatement('CREATE VIEW "testView2" AS SELECT "id" FROM "testTable2";');
+
         // try to drop view
         $db->executeStatement(sprintf(
             'DROP VIEW %s."testView";',
             TeradataQuote::quoteSingleIdentifier($response->getWorkspaceObjectName())
         ));
+        $db->executeStatement('DROP VIEW "testView2";');
 
         // try to drop table
         $db->executeStatement(sprintf(
             'DROP TABLE %s."testTable";',
             TeradataQuote::quoteSingleIdentifier($response->getWorkspaceObjectName())
         ));
+        $db->executeStatement('DROP TABLE "testTable2";');
 
         // dont close connection it should be ended in handler
         //$db->close();
