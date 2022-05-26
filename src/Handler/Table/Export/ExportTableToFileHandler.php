@@ -17,11 +17,14 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
+use Keboola\StorageDriver\Command\Table\TableExportToFileResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
+use Keboola\StorageDriver\Teradata\Handler\Table\TableReflectionResponseTransformer;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
+use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
 class ExportTableToFileHandler implements DriverCommandHandlerInterface
 {
@@ -90,8 +93,9 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         // run
         $db = $this->manager->createSession($credentials);
 
+        $database = ProtobufHelper::repeatedStringToArray($source->getPath())[0];
         $sourceRef = new Table(
-            ProtobufHelper::repeatedStringToArray($source->getPath())[0],
+            $database,
             $source->getTableName()
         );
 
@@ -103,8 +107,15 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             $exportOptions
         );
 
-        $db->close();
-        return null;
+        return (new TableExportToFileResponse())
+            ->setTableInfo(TableReflectionResponseTransformer::transformTableReflectionToResponse(
+                $database,
+                new TeradataTableReflection(
+                    $db,
+                    $database,
+                    $source->getTableName()
+                )
+            ));
     }
 
     private function getDestinationFile(

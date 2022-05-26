@@ -11,6 +11,7 @@ use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Info\TableReflection;
 use Keboola\StorageDriver\Command\Table\ImportExportShared;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
@@ -18,9 +19,11 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
+use Keboola\StorageDriver\Command\Table\TableExportToFileResponse;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Export\ExportTableToFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
@@ -129,7 +132,24 @@ class ExportTableToFileTest extends BaseCase
             []
         );
 
-        $this->assertNull($response);
+        $this->assertInstanceOf(TableExportToFileResponse::class, $response);
+
+        $exportedTableInfo = $response->getTableInfo();
+        $this->assertNotNull($exportedTableInfo);
+
+        $this->assertSame($sourceTableName, $exportedTableInfo->getTableName());
+        $this->assertSame([$bucketDatabaseName], ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPath()));
+        $this->assertSame(
+            $sourceTableDef->getPrimaryKeysNames(),
+            ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPrimaryKeysNames())
+        );
+        /** @var TableReflection\TableColumn[] $columns */
+        $columns = iterator_to_array($exportedTableInfo->getColumns()->getIterator());
+        $columnsNames = array_map(
+            static fn(TableReflection\TableColumn $col) => $col->getName(),
+            $columns
+        );
+        $this->assertSame($sourceTableDef->getColumnsNames(), $columnsNames);
 
         // check files
         /** @var array<int, array<string, mixed>> $files */
@@ -250,7 +270,7 @@ class ExportTableToFileTest extends BaseCase
             []
         );
 
-        $this->assertNull($response);
+        $this->assertInstanceOf(TableExportToFileResponse::class, $response);
 
         // check files
         $files = $this->listS3BucketDirFiles(
