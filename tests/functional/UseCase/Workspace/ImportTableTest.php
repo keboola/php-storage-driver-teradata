@@ -68,7 +68,10 @@ class ImportTableTest extends BaseCase
 
     public function testImportTableToWorkspace(): void
     {
-        $sourceTableName = $this->createTableInBucket();
+        $sourceTableName = $this->createTestTable(
+            $this->projectCredentials,
+            $this->bucketResponse->getCreateBucketObjectName()
+        );
 
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -163,51 +166,5 @@ class ImportTableTest extends BaseCase
         $qb->getDropTableCommand($tableSourceDef->getSchemaName(), $tableSourceDef->getTableName());
         $qb->getDropTableCommand($tableDestDef->getSchemaName(), $tableDestDef->getTableName());
         $db->close();
-    }
-
-    private function createTableInBucket(): string
-    {
-        $tableName = md5($this->getName()) . '_Test_table';
-        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
-
-        // CREATE TABLE
-        $handler = new CreateTableHandler($this->sessionManager);
-
-        $metaIsLatinEnabled = new Any();
-        $metaIsLatinEnabled->pack(
-            (new CreateTableCommand\TableColumn\TeradataTableColumnMeta())->setIsLatin(true)
-        );
-
-        $path = new RepeatedField(GPBType::STRING);
-        $path[] = $bucketDatabaseName;
-        $columns = new RepeatedField(GPBType::MESSAGE, CreateTableCommand\TableColumn::class);
-        $columns[] = (new CreateTableCommand\TableColumn())
-            ->setName('id')
-            ->setType(Teradata::TYPE_INTEGER);
-        $columns[] = (new CreateTableCommand\TableColumn())
-            ->setName('name')
-            ->setType(Teradata::TYPE_VARCHAR)
-            ->setLength('50')
-            ->setNullable(true)
-            ->setDefault("'Some Default'");
-        $columns[] = (new CreateTableCommand\TableColumn())
-            ->setName('large')
-            ->setType(Teradata::TYPE_VARCHAR)
-            ->setLength('10000')
-            ->setMeta($metaIsLatinEnabled);
-        $primaryKeysNames = new RepeatedField(GPBType::STRING);
-        $primaryKeysNames[] = 'id';
-        $command = (new CreateTableCommand())
-            ->setPath($path)
-            ->setTableName($tableName)
-            ->setColumns($columns)
-            ->setPrimaryKeysNames($primaryKeysNames);
-
-        $handler(
-            $this->projectCredentials,
-            $command,
-            []
-        );
-        return $tableName;
     }
 }

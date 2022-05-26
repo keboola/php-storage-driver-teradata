@@ -8,10 +8,14 @@ use Aws\S3\S3Client;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
 use Google\Protobuf\Any;
+use Google\Protobuf\Internal\GPBType;
+use Google\Protobuf\Internal\RepeatedField;
+use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
+use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -20,6 +24,7 @@ use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
@@ -453,6 +458,56 @@ class BaseCase extends TestCase
             ->setSecret($response->getWorkspacePassword())
             ->setPort($projectCredentials->getPort());
         return [$credentials, $response];
+    }
+
+    protected function createTestTable(
+        GenericBackendCredentials $credentials,
+        string $database,
+        ?string $tableName = null
+    ): string {
+        if ($tableName === null) {
+            $tableName = md5($this->getName()) . '_Test_table';
+        }
+
+        // CREATE TABLE
+        $handler = new CreateTableHandler($this->sessionManager);
+
+        $metaIsLatinEnabled = new Any();
+        $metaIsLatinEnabled->pack(
+            (new CreateTableCommand\TableColumn\TeradataTableColumnMeta())->setIsLatin(true)
+        );
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $database;
+        $columns = new RepeatedField(GPBType::MESSAGE, CreateTableCommand\TableColumn::class);
+        $columns[] = (new CreateTableCommand\TableColumn())
+            ->setName('id')
+            ->setType(Teradata::TYPE_INTEGER);
+        $columns[] = (new CreateTableCommand\TableColumn())
+            ->setName('name')
+            ->setType(Teradata::TYPE_VARCHAR)
+            ->setLength('50')
+            ->setNullable(true)
+            ->setDefault("'Some Default'");
+        $columns[] = (new CreateTableCommand\TableColumn())
+            ->setName('large')
+            ->setType(Teradata::TYPE_VARCHAR)
+            ->setLength('10000')
+            ->setMeta($metaIsLatinEnabled);
+        $primaryKeysNames = new RepeatedField(GPBType::STRING);
+        $primaryKeysNames[] = 'id';
+        $command = (new CreateTableCommand())
+            ->setPath($path)
+            ->setTableName($tableName)
+            ->setColumns($columns)
+            ->setPrimaryKeysNames($primaryKeysNames);
+
+        $handler(
+            $credentials,
+            $command,
+            []
+        );
+        return $tableName;
     }
 
     protected function tearDown(): void
