@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Info;
 
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
-use Keboola\StorageDriver\Command\Info\DatabaseReflection;
-use Keboola\StorageDriver\Command\Info\InternalObject;
+use Keboola\StorageDriver\Command\Info\DatabaseInfo;
+use Keboola\StorageDriver\Command\Info\ObjectInfo;
 use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
 use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
 use Keboola\StorageDriver\Command\Info\ObjectType;
-use Keboola\StorageDriver\Command\Info\SchemaReflection;
-use Keboola\StorageDriver\Command\Info\TableReflection\TableColumn;
+use Keboola\StorageDriver\Command\Info\SchemaInfo;
+use Keboola\StorageDriver\Command\Info\TableInfo\TableColumn;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -95,12 +95,12 @@ class ObjectInfoTest extends BaseCase
         );
         $this->assertInstanceOf(ObjectInfoResponse::class, $response);
         $this->assertSame(ObjectType::DATABASE, $response->getObjectType());
-        $this->assertTrue($response->hasDatabaseReflection());
-        $this->assertFalse($response->hasSchemaReflection());
-        $this->assertFalse($response->hasTableReflection());
-        $this->assertFalse($response->hasViewReflection());
-        $this->assertNotNull($response->getDatabaseReflection());
-        $this->assertDatabase($response, $response->getDatabaseReflection());
+        $this->assertTrue($response->hasDatabaseInfo());
+        $this->assertFalse($response->hasSchemaInfo());
+        $this->assertFalse($response->hasTableInfo());
+        $this->assertFalse($response->hasViewInfo());
+        $this->assertNotNull($response->getDatabaseInfo());
+        $this->assertDatabase($response, $response->getDatabaseInfo());
         // expect schema on same object
         $command->setExpectedObjectType(ObjectType::SCHEMA);
         $command->setPath(ProtobufHelper::arrayToRepeatedString([$this->projectResponse->getProjectUserName()]));
@@ -111,12 +111,12 @@ class ObjectInfoTest extends BaseCase
         );
         $this->assertInstanceOf(ObjectInfoResponse::class, $response);
         $this->assertSame(ObjectType::SCHEMA, $response->getObjectType());
-        $this->assertFalse($response->hasDatabaseReflection());
-        $this->assertTrue($response->hasSchemaReflection());
-        $this->assertFalse($response->hasTableReflection());
-        $this->assertFalse($response->hasViewReflection());
-        $this->assertNotNull($response->getSchemaReflection());
-        $this->assertDatabase($response, $response->getSchemaReflection());
+        $this->assertFalse($response->hasDatabaseInfo());
+        $this->assertTrue($response->hasSchemaInfo());
+        $this->assertFalse($response->hasTableInfo());
+        $this->assertFalse($response->hasViewInfo());
+        $this->assertNotNull($response->getSchemaInfo());
+        $this->assertDatabase($response, $response->getSchemaInfo());
     }
 
     public function testInfoSchema(): void
@@ -136,13 +136,13 @@ class ObjectInfoTest extends BaseCase
             [$this->bucketResponse->getCreateBucketObjectName()],
             ProtobufHelper::repeatedStringToArray($response->getPath())
         );
-        $this->assertFalse($response->hasDatabaseReflection());
-        $this->assertTrue($response->hasSchemaReflection());
-        $this->assertFalse($response->hasTableReflection());
-        $this->assertFalse($response->hasViewReflection());
-        $this->assertNotNull($response->getSchemaReflection());
-        /** @var Traversable<InternalObject> $objects */
-        $objects = $response->getSchemaReflection()->getObjects()->getIterator();
+        $this->assertFalse($response->hasDatabaseInfo());
+        $this->assertTrue($response->hasSchemaInfo());
+        $this->assertFalse($response->hasTableInfo());
+        $this->assertFalse($response->hasViewInfo());
+        $this->assertNotNull($response->getSchemaInfo());
+        /** @var Traversable<ObjectInfo> $objects */
+        $objects = $response->getSchemaInfo()->getObjects()->getIterator();
         $table = $this->getObjectByNameAndType(
             $objects,
             'bucket_table1'
@@ -178,12 +178,12 @@ class ObjectInfoTest extends BaseCase
             ],
             ProtobufHelper::repeatedStringToArray($response->getPath())
         );
-        $this->assertFalse($response->hasDatabaseReflection());
-        $this->assertFalse($response->hasSchemaReflection());
-        $this->assertTrue($response->hasTableReflection());
-        $this->assertFalse($response->hasViewReflection());
+        $this->assertFalse($response->hasDatabaseInfo());
+        $this->assertFalse($response->hasSchemaInfo());
+        $this->assertTrue($response->hasTableInfo());
+        $this->assertFalse($response->hasViewInfo());
 
-        $tableInfo = $response->getTableReflection();
+        $tableInfo = $response->getTableInfo();
         $this->assertNotNull($tableInfo);
         $this->assertSame('bucket_table1', $tableInfo->getTableName());
         $this->assertSame(
@@ -226,17 +226,17 @@ class ObjectInfoTest extends BaseCase
             ],
             ProtobufHelper::repeatedStringToArray($response->getPath())
         );
-        $this->assertFalse($response->hasDatabaseReflection());
-        $this->assertFalse($response->hasSchemaReflection());
-        $this->assertFalse($response->hasTableReflection());
-        $this->assertTrue($response->hasViewReflection());
+        $this->assertFalse($response->hasDatabaseInfo());
+        $this->assertFalse($response->hasSchemaInfo());
+        $this->assertFalse($response->hasTableInfo());
+        $this->assertTrue($response->hasViewInfo());
 
         // todo: test view props
         //$tableInfo = $response->getViewReflection();
     }
 
-    /** @param Traversable<InternalObject> $objects */
-    private function getObjectByNameAndType(Traversable $objects, string $expectedName): InternalObject
+    /** @param Traversable<ObjectInfo> $objects */
+    private function getObjectByNameAndType(Traversable $objects, string $expectedName): ObjectInfo
     {
         foreach ($objects as $objectInfo) {
             if ($objectInfo->getObjectName() === $expectedName) {
@@ -247,7 +247,7 @@ class ObjectInfoTest extends BaseCase
     }
 
     /**
-     * @param SchemaReflection|DatabaseReflection $infoObject
+     * @param SchemaInfo|DatabaseInfo $infoObject
      */
     private function assertDatabase(ObjectInfoResponse $response, $infoObject): void
     {
@@ -255,7 +255,7 @@ class ObjectInfoTest extends BaseCase
             [$this->projectResponse->getProjectUserName()],
             ProtobufHelper::repeatedStringToArray($response->getPath())
         );
-        /** @var Traversable<InternalObject> $objects */
+        /** @var Traversable<ObjectInfo> $objects */
         $objects = $infoObject->getObjects()->getIterator();
         $bucketObject = $this->getObjectByNameAndType(
             $objects,

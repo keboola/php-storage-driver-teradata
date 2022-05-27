@@ -10,13 +10,13 @@ use Generator;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\Message;
 use Google\Protobuf\Internal\RepeatedField;
-use Keboola\StorageDriver\Command\Info\DatabaseReflection;
-use Keboola\StorageDriver\Command\Info\InternalObject;
+use Keboola\StorageDriver\Command\Info\DatabaseInfo;
+use Keboola\StorageDriver\Command\Info\ObjectInfo;
 use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
 use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
 use Keboola\StorageDriver\Command\Info\ObjectType;
-use Keboola\StorageDriver\Command\Info\SchemaReflection;
-use Keboola\StorageDriver\Command\Info\ViewReflection;
+use Keboola\StorageDriver\Command\Info\SchemaInfo;
+use Keboola\StorageDriver\Command\Info\ViewInfo;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\Exception\Command\ObjectNotFoundException;
@@ -27,7 +27,6 @@ use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Keboola\TableBackendUtils\Schema\Teradata\TeradataSchemaReflection;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
-use Keboola\TableBackendUtils\View\Teradata\TeradataViewReflection;
 
 final class ObjectInfoHandler implements DriverCommandHandlerInterface
 {
@@ -75,7 +74,7 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
     }
 
     /**
-     * @return Generator<int, InternalObject>
+     * @return Generator<int, ObjectInfo>
      */
     private function getChildSchemas(Connection $db, string $databaseName): Generator
     {
@@ -85,27 +84,27 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
             TeradataQuote::quote($databaseName)
         ));
         foreach ($childSchemas as $child) {
-            yield (new InternalObject())
+            yield (new ObjectInfo())
                 ->setObjectType(ObjectType::SCHEMA)
                 ->setObjectName($child);
         }
     }
 
     /**
-     * @return Generator<int, InternalObject>
+     * @return Generator<int, ObjectInfo>
      */
     private function getChildObjectsForSchema(Connection $db, string $databaseName): Generator
     {
         $ref = new TeradataSchemaReflection($db, $databaseName);
         $tables = $ref->getTablesNames();
         foreach ($tables as $table) {
-            yield (new InternalObject())
+            yield (new ObjectInfo())
                 ->setObjectType(ObjectType::TABLE)
                 ->setObjectName($table);
         }
         $views = $ref->getViewsNames();
         foreach ($views as $view) {
-            yield (new InternalObject())
+            yield (new ObjectInfo())
                 ->setObjectType(ObjectType::VIEW)
                 ->setObjectName($view);
         }
@@ -118,16 +117,16 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
     private function getDatabaseResponse(array $path, Connection $db, ObjectInfoResponse $response): ObjectInfoResponse
     {
         assert(count($path) === 1, 'Error path must have exactly one element.');
-        $objects = new RepeatedField(GPBType::MESSAGE, InternalObject::class);
+        $objects = new RepeatedField(GPBType::MESSAGE, ObjectInfo::class);
         foreach ($this->getChildObjectsForSchema($db, $path[0]) as $object) {
             $objects[] = $object;
         }
         $this->assertDatabaseExists($objects, $db, $path[0]);
 
-        $infoObject = new DatabaseReflection();
+        $infoObject = new DatabaseInfo();
         $infoObject->setObjects($objects);
 
-        $response->setDatabaseReflection($infoObject);
+        $response->setDatabaseInfo($infoObject);
 
         return $response;
     }
@@ -138,14 +137,14 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
     private function getSchemaResponse(array $path, Connection $db, ObjectInfoResponse $response): ObjectInfoResponse
     {
         assert(count($path) === 1, 'Error path must have exactly one element.');
-        $infoObject = new SchemaReflection();
-        $objects = new RepeatedField(GPBType::MESSAGE, InternalObject::class);
+        $infoObject = new SchemaInfo();
+        $objects = new RepeatedField(GPBType::MESSAGE, ObjectInfo::class);
         foreach ($this->getChildObjectsForSchema($db, $path[0]) as $object) {
             $objects[] = $object;
         }
         $this->assertDatabaseExists($objects, $db, $path[0]);
         $infoObject->setObjects($objects);
-        $response->setSchemaReflection($infoObject);
+        $response->setSchemaInfo($infoObject);
         return $response;
     }
 
@@ -156,7 +155,7 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
     {
         assert(count($path) === 2, 'Error path must have exactly two elements.');
         try {
-            $response->setTableReflection(TableReflectionResponseTransformer::transformTableReflectionToResponse(
+            $response->setTableInfo(TableReflectionResponseTransformer::transformTableReflectionToResponse(
                 $path[0],
                 new TeradataTableReflection(
                     $db,
@@ -179,9 +178,9 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
     private function getViewResponse(array $path, ObjectInfoResponse $response): ObjectInfoResponse
     {
         assert(count($path) === 2, 'Error path must have exactly two elements.');
-        $infoObject = new ViewReflection();
+        $infoObject = new ViewInfo();
         // todo: set view props
-        $response->setViewReflection($infoObject);
+        $response->setViewInfo($infoObject);
         return $response;
     }
 

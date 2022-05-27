@@ -11,7 +11,7 @@ use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
-use Keboola\StorageDriver\Command\Info\TableReflection;
+use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
@@ -143,10 +143,10 @@ class ExportTableToFileTest extends BaseCase
             $sourceTableDef->getPrimaryKeysNames(),
             ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPrimaryKeysNames())
         );
-        /** @var TableReflection\TableColumn[] $columns */
+        /** @var TableInfo\TableColumn[] $columns */
         $columns = iterator_to_array($exportedTableInfo->getColumns()->getIterator());
         $columnsNames = array_map(
-            static fn(TableReflection\TableColumn $col) => $col->getName(),
+            static fn(TableInfo\TableColumn $col) => $col->getName(),
             $columns
         );
         $this->assertSame($sourceTableDef->getColumnsNames(), $columnsNames);
