@@ -9,6 +9,7 @@ use Keboola\StorageDriver\Command\Backend\InitBackendCommand;
 use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
+use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
@@ -30,6 +31,7 @@ use Keboola\StorageDriver\Teradata\Handler\Backend\Init\InitBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Backend\Remove\RemoveBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
@@ -107,6 +109,8 @@ class TeradataDriverClient implements ClientInterface
                 return new ClearWorkspaceHandler($manager);
             case $command instanceof DropWorkspaceObjectCommand:
                 return new DropWorkspaceObjectHandler($manager);
+            case $command instanceof ObjectInfoCommand:
+                return new ObjectInfoHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));
