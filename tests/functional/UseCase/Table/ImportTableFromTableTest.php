@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Table;
 
+use DateTime;
+use Doctrine\DBAL\Connection;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\Teradata;
@@ -47,6 +49,10 @@ class ImportTableFromTableTest extends BaseCase
         $this->cleanTestProject();
     }
 
+    /**
+     * Full load to workspace simulation
+     * This is input mapping, no timestamp is updated
+     */
     public function testImportTableFromTableFullLoadNoDedup(): void
     {
         $sourceTableName = md5($this->getName()) . '_Test_table';
@@ -155,7 +161,11 @@ class ImportTableFromTableTest extends BaseCase
         $db->close();
     }
 
-    public function testImportTableFromTableFullLoad(): void
+    /**
+     * Full load to storage from workspace
+     * This is output mapping, timestamp is updated
+     */
+    public function testImportTableFromTableFullLoadWithTimestamp(): void
     {
         $sourceTableName = md5($this->getName()) . '_Test_table';
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
@@ -262,12 +272,18 @@ class ImportTableFromTableTest extends BaseCase
         $this->assertSame(3, $ref->getRowsCount());
         $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
 
+        $this->assertTimestamp($db, $bucketDatabaseName, $destinationTableName);
+
         // cleanup
         $qb->getDropTableCommand($tableSourceDef->getSchemaName(), $tableSourceDef->getTableName());
         $qb->getDropTableCommand($tableDestDef->getSchemaName(), $tableDestDef->getTableName());
         $db->close();
     }
 
+    /**
+     * Incremental load to storage from workspace
+     * This is output mapping, timestamp is updated
+     */
     public function testImportTableFromTableIncrementalLoad(): void
     {
         $sourceTableName = md5($this->getName()) . '_Test_table';
@@ -388,6 +404,7 @@ class ImportTableFromTableTest extends BaseCase
             //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
             // 1 row unique from source, 3 rows deduped from source and destination
             //$this->assertSame(4, $ref->getRowsCount());
+            //$this->assertTimestamp($db, $bucketDatabaseName, $destinationTableName);
             // @todo test updated values
         } catch (LogicException $e) {
             $this->assertSame('Not implemented', $e->getMessage());
@@ -397,5 +414,27 @@ class ImportTableFromTableTest extends BaseCase
         $qb->getDropTableCommand($tableSourceDef->getSchemaName(), $tableSourceDef->getTableName());
         $qb->getDropTableCommand($tableDestDef->getSchemaName(), $tableDestDef->getTableName());
         $db->close();
+    }
+
+    private function assertTimestamp(
+        Connection $db,
+        string $database,
+        string $tableName
+    ): void {
+        /** @var array<int, string> $timestamps */
+        $timestamps = $db->fetchFirstColumn(sprintf(
+            'SELECT _timestamp FROM %s.%s',
+            TeradataQuote::quoteSingleIdentifier($database),
+            TeradataQuote::quoteSingleIdentifier($tableName)
+        ));
+
+        foreach ($timestamps as $timestamp) {
+            $this->assertNotEmpty($timestamp);
+            $this->assertEqualsWithDelta(
+                new DateTime('now'),
+                new DateTime($timestamp),
+                60 // set to 1 minute, it's important that timestamp is there
+            );
+        }
     }
 }

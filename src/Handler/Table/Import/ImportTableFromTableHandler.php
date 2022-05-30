@@ -187,7 +187,8 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         }
 
         $isFullImport = $options->getImportType() === ImportType::FULL;
-        if ($isFullImport && $options->getDedupType() === ImportOptions\DedupType::INSERT_DUPLICATES) {
+        $insertOnlyDuplicates = $options->getDedupType() === ImportOptions\DedupType::INSERT_DUPLICATES;
+        if ($isFullImport && $insertOnlyDuplicates && !$importOptions->useTimestamp()) {
             // when full load is performed with no deduplication only copy data using ToStage class
             // this will skip moving data to stage table
             // this is used on full load into workspace where data are deduplicated already
