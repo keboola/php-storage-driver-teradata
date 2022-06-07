@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Table;
 
+use Aws\S3\S3Client;
 use Doctrine\DBAL\Connection;
 use Generator;
 use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
+use http\Message\Body;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Info\TableInfo;
@@ -287,6 +289,128 @@ class ExportTableToFileTest extends BaseCase
         $db->close();
     }
 
+    public function testExportTableToFileLimitColumns(): void
+    {
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+        $sourceTableName = md5($this->getName()) . '_Test_table_export';
+        $exportDir = sprintf(
+            'export/%s/',
+            str_replace([' ', '"', '\''], ['-', '_', '_'], $this->getName())
+        );
+
+        // create table
+        $db = $this->getConnection($this->projectCredentials);
+        $sourceTableDef = $this->createSourceTable($bucketDatabaseName, $sourceTableName, $db);
+
+        // clear files
+        $s3Client = $this->getS3Client(
+            (string) getenv('AWS_ACCESS_KEY_ID'),
+            (string) getenv('AWS_SECRET_ACCESS_KEY'),
+            (string) getenv('AWS_REGION')
+        );
+        $this->clearS3BucketDir(
+            $s3Client,
+            (string) getenv('AWS_S3_BUCKET'),
+            $exportDir
+        );
+
+        // export command
+        $cmd = new TableExportToFileCommand();
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $cmd->setSource(
+            (new ImportExportShared\Table())
+                ->setPath($path)
+                ->setTableName($sourceTableName)
+        );
+        $cmd->setFileProvider(FileProvider::S3);
+        $cmd->setFileFormat(FileFormat::CSV);
+
+        $columnsToExport = new RepeatedField(GPBType::STRING);
+        $columnsToExport[] = 'col1';
+        $columnsToExport[] = 'col2';
+        // we did skip col3
+
+        $exportOptions = new ExportOptions();
+        $exportOptions->setIsCompressed(false);
+        $exportOptions->setColumnsToExport($columnsToExport);
+        $cmd->setExportOptions($exportOptions);
+
+        $exportMeta = new Any();
+        $exportMeta->pack(
+            (new TableExportToFileCommand\TeradataTableExportMeta())
+                ->setExportAdapter(TableExportToFileCommand\TeradataTableExportMeta\ExportAdapter::TPT)
+        );
+        $cmd->setMeta($exportMeta);
+
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath($exportDir)
+        );
+
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+
+        $handler = new ExportTableToFileHandler($this->sessionManager);
+        $response = $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+
+        $this->assertInstanceOf(TableExportToFileResponse::class, $response);
+
+        $exportedTableInfo = $response->getTableInfo();
+        $this->assertNotNull($exportedTableInfo);
+
+        $this->assertSame($sourceTableName, $exportedTableInfo->getTableName());
+        $this->assertSame([$bucketDatabaseName], ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPath()));
+        $this->assertSame(
+            $sourceTableDef->getPrimaryKeysNames(),
+            ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPrimaryKeysNames())
+        );
+        /** @var TableInfo\TableColumn[] $columns */
+        $columns = iterator_to_array($exportedTableInfo->getColumns()->getIterator());
+        $columnsNames = array_map(
+            static fn(TableInfo\TableColumn $col) => $col->getName(),
+            $columns
+        );
+        $this->assertSame($sourceTableDef->getColumnsNames(), $columnsNames);
+
+        // check files
+        /** @var array<int, array{Key: string}> $files */
+        $files = $this->listS3BucketDirFiles(
+            $s3Client,
+            (string) getenv('AWS_S3_BUCKET'),
+            $exportDir
+        );
+        $this->assertNotNull($files);
+        $this->assertCount(1, $files);
+
+        $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
+        $this->assertEqualsArrays(
+            [
+                ['1', '2'],
+                ['2', '3'],
+                ['3', '3'],
+            ],
+            $csvData
+        );
+
+        // cleanup
+        $db = $this->getConnection($this->projectCredentials);
+        $this->dropSourceTable($sourceTableDef->getSchemaName(), $sourceTableDef->getTableName(), $db);
+        $db->close();
+    }
+
     public function simpleExportProvider(): Generator
     {
         yield 'plain csv' => [
@@ -499,5 +623,21 @@ class ExportTableToFileTest extends BaseCase
                 );
             }
         }
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private function getObjectAsCsvArray(S3Client $s3Client, string $key): array
+    {
+        /** @var array{Body: resource} $file */
+        $file = $s3Client->getObject([
+            'Bucket' => (string) getenv('AWS_S3_BUCKET'),
+            'Key' => $key,
+        ]);
+
+        $csvData = array_map('str_getcsv', explode(PHP_EOL, (string) $file['Body']));
+        array_pop($csvData);
+        return $csvData;
     }
 }

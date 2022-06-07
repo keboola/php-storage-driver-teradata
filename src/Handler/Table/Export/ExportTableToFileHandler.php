@@ -79,9 +79,13 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             'TableExportToFileCommand.fileCredentials is required to be S3Credentials.'
         );
 
+        $requestExportOptions = $command->getExportOptions();
+        $columnsToExport = $requestExportOptions && $requestExportOptions->getColumnsToExport() !== []
+            ? ProtobufHelper::repeatedStringToArray($requestExportOptions->getColumnsToExport())
+            : [];
         $exportOptions = $this->createOptions(
             $credentials,
-            $command->getExportOptions()
+            $requestExportOptions
         );
 
         $commandMeta = MetaHelper::getMetaFromCommand(
@@ -96,7 +100,8 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         $database = ProtobufHelper::repeatedStringToArray($source->getPath())[0];
         $sourceRef = new Table(
             $database,
-            $source->getTableName()
+            $source->getTableName(),
+            $columnsToExport
         );
 
         $destinationRef = $this->getDestinationFile($command->getFilePath(), $fileCredentials);
