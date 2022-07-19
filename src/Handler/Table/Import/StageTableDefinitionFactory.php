@@ -13,8 +13,8 @@ use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 
 final class StageTableDefinitionFactory
 {
-    private const VARCHAR_MAX = 32000;
-    private const VARCHAR_MAX_TPT = 10666;
+    private const VARCHAR_MAX = '32000';
+    private const VARCHAR_MAX_TPT = '10666';
 
     /**
      * @param ColumnMapping[] $columnsMapping
