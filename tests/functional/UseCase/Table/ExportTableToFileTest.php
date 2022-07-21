@@ -398,10 +398,11 @@ class ExportTableToFileTest extends BaseCase
         $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
         $this->assertEqualsArrays(
             [
-                ['1', '2'],
-                ['2', '3'],
-                ['3', '3'],
+                ['   1', '   2'],
+                ['   2', '   3'],
+                ['   3', '   3'],
             ],
+            // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
             $csvData
         );
 
