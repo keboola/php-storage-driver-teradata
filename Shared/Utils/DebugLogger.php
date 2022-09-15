@@ -2,17 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Keboola\StorageDriver\Teradata;
+namespace Keboola\StorageDriver\Shared\Utils;
 
 use Psr\Log\AbstractLogger;
 
 class DebugLogger extends AbstractLogger
 {
-    /**
-     * @inheritDoc
-     * @param string $level
-     */
-    public function log($level, $message, array $context = [])
+    public function log($level, $message, array $context = array()): void
     {
         error_log(
             sprintf(
