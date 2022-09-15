@@ -16,3 +16,7 @@ message DriverRequest {
 message DriverResponse {
   google.protobuf.Any response = 1;
 }
+
+message TerminateSessionCommand {
+  string sessionId = 1;
+}
