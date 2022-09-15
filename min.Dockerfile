@@ -42,7 +42,7 @@ RUN curl -sSLf \
         https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions && \
     chmod +x /usr/local/bin/install-php-extensions
 
-RUN install-php-extensions sockets grpc odbc
+RUN install-php-extensions sockets grpc odbc bcmath
 
 ## Composer - deps always cached unless changed
 # First copy only composer files
