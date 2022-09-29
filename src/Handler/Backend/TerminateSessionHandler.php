@@ -38,5 +38,7 @@ final class TerminateSessionHandler implements DriverCommandHandlerInterface
             "SELECT SYSLIB.AbortSessions (-1, '*', %s, 'Y', 'Y');",
             $command->getSessionId()
         ));
+
+        return null;
     }
 }

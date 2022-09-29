@@ -7,6 +7,7 @@ namespace Keboola\StorageDriver\Teradata\Temporal;
 use Google\Protobuf\Any;
 use Keboola\StorageDriver\Command\Common\DriverRequest;
 use Keboola\StorageDriver\Command\Common\DriverResponse;
+use Keboola\StorageDriver\Driver\DriverCommandActivityInterface;
 use Keboola\StorageDriver\Shared\Utils\StdErrLogger;
 use Keboola\StorageDriver\Shared\Utils\TemporalSignalLogger;
 use Keboola\StorageDriver\Teradata\TeradataDriverClient;
@@ -24,10 +25,11 @@ class DriverCommandActivity implements DriverCommandActivityInterface
     public function executeCommand(DriverRequest $req): DriverResponse
     {
         $info = Activity::getInfo();
+        assert($info->workflowExecution !== null);
         $this->log("workflowId=" . $info->workflowExecution->getID());
         $this->log("runId=" . $info->workflowExecution->getRunID());
         $this->log("activityId=" . $info->id);
-        $this->log("activityDeadline=" . $info->deadline);
+        $this->log("activityDeadline=" . $info->deadline->format(\DateTimeInterface::ATOM));
 
         $workflowClient = \Temporal\Client\WorkflowClient::create(
             \Temporal\Client\GRPC\ServiceClient::create('localhost:7233')
@@ -59,6 +61,9 @@ class DriverCommandActivity implements DriverCommandActivityInterface
         return $driverResponse;
     }
 
+    /**
+     * @param string ...$arg
+     */
     private function log(string $message, ...$arg): void
     {
         $this->logger->debug(sprintf($message, ...$arg));
