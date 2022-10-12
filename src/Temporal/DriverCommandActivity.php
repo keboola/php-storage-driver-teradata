@@ -11,7 +11,10 @@ use Keboola\StorageDriver\Driver\DriverCommandActivityInterface;
 use Keboola\StorageDriver\Shared\Utils\StdErrLogger;
 use Keboola\StorageDriver\Shared\Utils\TemporalSignalLogger;
 use Keboola\StorageDriver\Teradata\TeradataDriverClient;
+use React\EventLoop\Loop;
 use Temporal\Activity;
+use function React\Async\await;
+use function React\Async\coroutine;
 
 class DriverCommandActivity implements DriverCommandActivityInterface
 {
@@ -38,18 +41,29 @@ class DriverCommandActivity implements DriverCommandActivityInterface
             $info->workflowExecution->getID()
         );
 
-        $res = (new TeradataDriverClient(
-            true,
-            static function (string $sessionId) use ($workflow) {
-                $workflow->signal('setSessionId', $sessionId);
-            },
-            new TemporalSignalLogger($workflow)
-        ))->runCommand(
-            $req->getCredentials()->unpack(),
-            $req->getCommand()->unpack(),
-            iterator_to_array($req->getFeatures()),
+        var_export('start heartbeat');
 
-        );
+        Loop::addPeriodicTimer(0.01, function (): void {
+            Activity::heartbeat('running');
+        });
+
+        var_export('run cmd ' . $info->workflowExecution->getID());
+        $promise = coroutine(function () use ($req, $workflow) {
+            yield (new TeradataDriverClient(
+                true,
+                static function (string $sessionId) use ($workflow) {
+                    $workflow->signal('setSessionId', $sessionId);
+                },
+                new TemporalSignalLogger($workflow)
+            ))->runCommand(
+                $req->getCredentials()->unpack(),
+                $req->getCommand()->unpack(),
+                iterator_to_array($req->getFeatures()),
+            );
+        });
+
+        $res = await($promise);
+        var_export('run cmd done' . $info->workflowExecution->getID());
 
         $driverResponse = new DriverResponse();
         if ($res !== null) {
@@ -57,7 +71,6 @@ class DriverCommandActivity implements DriverCommandActivityInterface
             $anyResponse->pack($res);
             $driverResponse->setResponse($anyResponse);
         }
-
         return $driverResponse;
     }
 

@@ -4,7 +4,7 @@ ARG AWS_ACCESS_KEY_ID
 RUN /usr/bin/aws s3 cp s3://keboola-drivers/teradata/tdodbc1710-17.10.00.17-1.x86_64.deb /tmp/teradata/tdodbc.deb
 RUN /usr/bin/aws s3 cp s3://keboola-drivers/teradata/utils/TeradataToolsAndUtilitiesBase__ubuntu_x8664.17.10.15.00.tar.gz  /tmp/teradata/tdutils.tar.gz
 
-FROM php:7.4-cli-buster
+FROM php:8.1-cli-buster
 
 ARG COMPOSER_FLAGS="--prefer-dist --no-interaction"
 ARG DEBIAN_FRONTEND=noninteractive
@@ -93,16 +93,16 @@ RUN cd /tmp/teradata \
     && rm -rf /tmp/teradata
 
 
-RUN install-php-extensions sockets grpc
+RUN install-php-extensions sockets grpc bcmath
 
 ## Composer - deps always cached unless changed
 # First copy only composer files
 COPY composer.* /code/
 # Download dependencies, but don't run scripts or init autoloaders as the app is missing
-RUN composer install $COMPOSER_FLAGS --no-scripts --no-autoloader
+RUN composer install $COMPOSER_FLAGS --no-scripts --no-autoloader --ignore-platform-reqs
 # copy rest of the app
 COPY . /code/
 # run normal composer - all deps are cached already
-RUN composer install $COMPOSER_FLAGS
+RUN composer install $COMPOSER_FLAGS --ignore-platform-reqs
 
 CMD ["php", "/code/src/run.php"]
