@@ -93,7 +93,7 @@ RUN cd /tmp/teradata \
     && rm -rf /tmp/teradata
 
 
-RUN install-php-extensions sockets grpc bcmath
+RUN install-php-extensions sockets grpc bcmath pcntl
 
 ## Composer - deps always cached unless changed
 # First copy only composer files

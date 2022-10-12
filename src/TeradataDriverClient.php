@@ -48,8 +48,6 @@ use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\DropObject\DropWorkspaceObjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\ResetPassword\ResetWorkspacePasswordHandler;
 use Psr\Log\LoggerInterface;
-use React\Promise\Promise;
-use React\Promise\PromiseInterface;
 
 class TeradataDriverClient implements ClientInterface
 {
@@ -77,7 +75,7 @@ class TeradataDriverClient implements ClientInterface
         Message $credentials,
         Message $command,
         array $features
-    ): PromiseInterface {
+    ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         $manager = new TeradataSessionManager(
             $this->debug,
@@ -85,29 +83,18 @@ class TeradataDriverClient implements ClientInterface
             $this->debugLogger
         );
         $handler = $this->getHandler($command, $manager);
+        try {
+            sleep(8);
+            $response = $handler(
+                $credentials,
+                $command,
+                $features
+            );
+        } finally {
+            $manager->close();
+        }
 
-        $resolver = function (callable $resolve, callable $reject) use (
-            $handler,
-            $credentials,
-            $command,
-            $features,
-            $manager
-        ) {
-            try{
-                sleep(8);
-                $resolve(fn() => $handler(
-                    $credentials,
-                    $command,
-                    $features
-                ));
-            } catch (\Throwable $e) {
-                $reject($e);
-            } finally {
-                $manager->close();
-            }
-        };
-
-        return new Promise($resolver);
+        return $response;
     }
 
     private function getHandler(Message $command, TeradataSessionManager $manager): DriverCommandHandlerInterface
