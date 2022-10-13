@@ -5,20 +5,15 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\Teradata\Temporal;
 
 use Google\Protobuf\Any;
-use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Common\DriverRequest;
 use Keboola\StorageDriver\Command\Common\DriverResponse;
 use Keboola\StorageDriver\Driver\DriverCommandActivityInterface;
 use Keboola\StorageDriver\Shared\Utils\StdErrLogger;
-use Keboola\StorageDriver\Shared\Utils\TemporalSignalLogger;
-use Keboola\StorageDriver\Teradata\AsyncTask;
-use Keboola\StorageDriver\Teradata\TeradataDriverClient;
-use React\EventLoop\Loop;
-use Spatie\Async\Pool;
-use Spatie\Async\Process\ParallelProcess;
-use Spatie\Async\Runtime\ParentRuntime;
+use Spiral\Goridge\RPC\RPC;
 use Temporal\Activity;
 use Temporal\Internal\Activity\ActivityContext;
+use function React\Async\async;
+use function React\Async\await;
 
 class DriverCommandActivity implements DriverCommandActivityInterface
 {
@@ -35,39 +30,62 @@ class DriverCommandActivity implements DriverCommandActivityInterface
         /** @var ActivityContext $ctx */
         $ctx = Activity::getCurrentContext();
         assert($info->workflowExecution !== null);
-        $this->log("workflowId=" . $info->workflowExecution->getID());
+        $workflowId = $info->workflowExecution->getID();
+        $this->log("workflowId=" . $workflowId);
         $this->log("runId=" . $info->workflowExecution->getRunID());
         $this->log("activityId=" . $info->id);
         $this->log("activityDeadline=" . $info->deadline->format(\DateTimeInterface::ATOM));
 
-        $heartbeat = Loop::addPeriodicTimer(0.1, function () use (&$ctx): void {
-            $ctx->heartbeat('running');
-        });
-
-        $pool = Pool::create();
-        $pool->autoload(__DIR__ . '/../../service/driver/thread.php');
-        $process = ParentRuntime::createProcess(
-            new AsyncTask($req, $info->workflowExecution->getID())
+        $rpc = RPC::fromGlobals();
+        $manager = new \Spiral\RoadRunner\Services\Manager($rpc);
+        $result = $manager->create(
+            $workflowId,
+            'php /code/service/driver/driver.php ' . $workflowId,
+            1, 0, false,
+            [
+                'ACTIVITY_INPUT' => $req->serializeToJsonString(),
+                'WORKFLOW_ID' => $workflowId,
+            ]
         );
-        $driver = $pool->add($process)
-            ->then(function (?Message $res) use ($heartbeat) {
-                //Loop::cancelTimer($heartbeat);
-                return $res;
-            })->catch(function (\Throwable $e) use ($heartbeat) {
-                //Loop::cancelTimer($heartbeat);
-                throw $e;
-            });
-        Loop::run();
-        $pool->wait();
+        if (!$result) {
+            throw new \Spiral\RoadRunner\Services\Exception\ServiceException('Service creation failed.');
+        }
 
-        $res = $driver->getOutput();
+        $factory = new \Spiral\RoadRunner\KeyValue\Factory($rpc);
+        $storage = $factory->select('driver');
+        $promise = async(function () use (&$ctx, &$manager, $workflowId): int {
+            async(function () use (&$ctx): void {
+                while (true) {
+                    $this->log('beat');
+                    $ctx->heartbeat('running');
+                    await(\React\Promise\Timer\sleep(1));
+                }
+            })();
+            await(async(function () use ($workflowId, &$manager): void {
+                while (true) {
+                    $services = $manager->list();
+                    $this->log('waiting '.implode(',',$services));
+                    if (!array_key_exists($workflowId, $services)) {
+                        break;
+                    }
+                    await(\React\Promise\Timer\sleep(1));
+                }
+            })());
+
+            return 1;
+        })();
+
+        await($promise);
+        $result = $storage->get($workflowId);
+
         $driverResponse = new DriverResponse();
-        if ($res !== null) {
+        if ($result !== null) {
             $anyResponse = new Any();
-            $anyResponse->pack($res);
+            $anyResponse->pack($result);
             $driverResponse->setResponse($anyResponse);
         }
-        Loop::stop();
+
+        $storage->delete($workflowId);
         return $driverResponse;
     }
 

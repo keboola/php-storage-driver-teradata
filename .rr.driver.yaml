@@ -3,13 +3,20 @@ version: "2.7"
 rpc:
   listen: tcp://127.0.0.1:6001
 
+service: {}
+
+kv:
+  driver:
+    driver: memory
+    config: {}
+
 server:
-  command: "php -d zend_extension=xdebug.so ./service/driver/worker.php"
+  command: "php /code/service/driver/worker.php"
 
 temporal:
   address: "127.0.0.1:7233"
   activities:
-    num_workers: 4
+    num_workers: 2
 
 logs:
   level: debug

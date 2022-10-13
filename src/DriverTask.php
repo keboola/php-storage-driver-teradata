@@ -6,18 +6,19 @@ namespace Keboola\StorageDriver\Teradata;
 
 use Keboola\StorageDriver\Command\Common\DriverRequest;
 use Keboola\StorageDriver\Shared\Utils\TemporalSignalLogger;
-use Spatie\Async\Task;
 
-class AsyncTask extends Task
+class DriverTask
 {
-    public function __construct(
-        private DriverRequest $req,
-        private string $workflowId,
-    ) {
-    }
+    private DriverRequest $req;
 
-    public function configure()
-    {
+    private string $workflowId;
+
+    public function __construct(
+        DriverRequest $req,
+        string $workflowId
+    ) {
+        $this->workflowId = $workflowId;
+        $this->req = $req;
     }
 
     public function run(): ?\Google\Protobuf\Internal\Message
