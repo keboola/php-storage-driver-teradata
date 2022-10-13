@@ -21,7 +21,7 @@ set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
 });
 
-$storage = $factory->select('storage-driver');
+$storage = $factory->select('storageDriver');
 
 /** @var array<string, string> $env */
 $env = \array_merge($_ENV, $_SERVER);

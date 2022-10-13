@@ -6,7 +6,7 @@ rpc:
 service: {}
 
 kv:
-  driver:
+  storage-driver:
     driver: memory
     config: {}
 

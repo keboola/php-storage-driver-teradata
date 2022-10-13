@@ -35,6 +35,14 @@ class DriverCommandActivity implements DriverCommandActivityInterface
         $this->log("runId=" . $info->workflowExecution->getRunID());
         $this->log("activityId=" . $info->id);
         $this->log("activityDeadline=" . $info->deadline->format(\DateTimeInterface::ATOM));
+        async(function () use (&$ctx): void {
+            while (true) {
+                $this->log('beat');
+                $ctx->heartbeat('running');
+                await(\React\Promise\Timer\sleep(1));
+            }
+        })();
+        await(\React\Promise\Timer\sleep(10));
 
         $rpc = RPC::fromGlobals();
         $manager = new \Spiral\RoadRunner\Services\Manager($rpc);
@@ -52,31 +60,26 @@ class DriverCommandActivity implements DriverCommandActivityInterface
         }
 
         $factory = new \Spiral\RoadRunner\KeyValue\Factory($rpc);
-        $storage = $factory->select('driver');
-        $promise = async(function () use (&$ctx, &$manager, $workflowId): int {
-            async(function () use (&$ctx): void {
-                while (true) {
-                    $this->log('beat');
-                    $ctx->heartbeat('running');
-                    await(\React\Promise\Timer\sleep(1));
+        $storage = $factory->select('storage-driver');
+        $promise = async(function () use ($workflowId, &$storage, &$manager): void {
+            while (true) {
+                $val = $storage->get($workflowId);
+                if (is_string($val) && $val !== '') {
+                    break;
                 }
-            })();
-            await(async(function () use ($workflowId, &$manager): void {
-                while (true) {
-                    $services = $manager->list();
-                    $this->log('waiting '.implode(',',$services));
-                    if (!array_key_exists($workflowId, $services)) {
-                        break;
-                    }
-                    await(\React\Promise\Timer\sleep(1));
-                }
-            })());
-
-            return 1;
+                $this->log('waiting ' . implode(',', $manager->list()));
+                await(\React\Promise\Timer\sleep(1));
+            }
         })();
 
         await($promise);
+        var_export('done ' . $workflowId);
         $result = $storage->get($workflowId);
+        $result = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
+        if (array_key_exists('exception', $result)) {
+            throw new \Exception(json_encode($result));
+        }
+        $result = $result['response'] ?? null;
 
         $driverResponse = new DriverResponse();
         if ($result !== null) {
