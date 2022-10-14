@@ -8,21 +8,27 @@ use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Logging\Middleware;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Shared\Utils\DebugLogger;
 use Keboola\TableBackendUtils\Connection\Teradata\TeradataConnection;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
-use Psr\Log\LogLevel;
+use Psr\Log\LoggerInterface;
 
 class ConnectionFactory
 {
-    public static function getConnection(GenericBackendCredentials $credentials, bool $debug = false): Connection
-    {
+    public static function getConnection(
+        GenericBackendCredentials $credentials,
+        bool $debug = false,
+        ?LoggerInterface $debugLogger = null
+    ): Connection {
         $cfg = new Configuration();
         if ($debug === true) {
-            $cfg->setMiddlewares([new Middleware(new DebugLogger())]);
-            error_log(
+            if ($debugLogger === null) {
+                $debugLogger = new DebugLogger();
+            }
+            $cfg->setMiddlewares([new Middleware($debugLogger)]);
+            $debugLogger->debug(
                 sprintf(
-                    '%s: Logging as user: "%s"',
-                    strtoupper(LogLevel::INFO),
+                    'Logging as user: "%s"',
                     $credentials->getPrincipal()
                 )
             );

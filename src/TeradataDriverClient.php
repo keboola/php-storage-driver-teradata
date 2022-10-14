@@ -9,6 +9,7 @@ use Keboola\StorageDriver\Command\Backend\InitBackendCommand;
 use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
+use Keboola\StorageDriver\Command\Common\TerminateSessionCommand;
 use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
@@ -29,6 +30,7 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\Exception\CommandNotSupportedException;
 use Keboola\StorageDriver\Teradata\Handler\Backend\Init\InitBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Backend\Remove\RemoveBackendHandler;
+use Keboola\StorageDriver\Teradata\Handler\Backend\TerminateSessionHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
@@ -45,9 +47,27 @@ use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandl
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\DropObject\DropWorkspaceObjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\ResetPassword\ResetWorkspacePasswordHandler;
+use Psr\Log\LoggerInterface;
 
 class TeradataDriverClient implements ClientInterface
 {
+    /** @var callable|null */
+    private $sessionCallback;
+
+    private ?LoggerInterface $debugLogger;
+
+    private bool $debug;
+
+    public function __construct(
+        bool $debug = false,
+        ?callable $sessionCallback = null,
+        ?LoggerInterface $debugLogger = null
+    ) {
+        $this->sessionCallback = $sessionCallback;
+        $this->debugLogger = $debugLogger;
+        $this->debug = $debug;
+    }
+
     /**
      * @inheritDoc
      */
@@ -57,9 +77,14 @@ class TeradataDriverClient implements ClientInterface
         array $features
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
-        $manager = new TeradataSessionManager();
+        $manager = new TeradataSessionManager(
+            $this->debug,
+            $this->sessionCallback,
+            $this->debugLogger
+        );
         $handler = $this->getHandler($command, $manager);
         try {
+            sleep(8);
             $response = $handler(
                 $credentials,
                 $command,
@@ -111,6 +136,8 @@ class TeradataDriverClient implements ClientInterface
                 return new DropWorkspaceObjectHandler($manager);
             case $command instanceof ObjectInfoCommand:
                 return new ObjectInfoHandler($manager);
+            case $command instanceof TerminateSessionCommand:
+                return new TerminateSessionHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));

@@ -4,7 +4,7 @@ ARG AWS_ACCESS_KEY_ID
 RUN /usr/bin/aws s3 cp s3://keboola-drivers/teradata/tdodbc1710-17.10.00.17-1.x86_64.deb /tmp/teradata/tdodbc.deb
 RUN /usr/bin/aws s3 cp s3://keboola-drivers/teradata/utils/TeradataToolsAndUtilitiesBase__ubuntu_x8664.17.10.15.00.tar.gz  /tmp/teradata/tdutils.tar.gz
 
-FROM php:7.4-cli-buster
+FROM php:8.1-cli-buster
 
 ARG COMPOSER_FLAGS="--prefer-dist --no-interaction"
 ARG DEBIAN_FRONTEND=noninteractive
@@ -36,12 +36,30 @@ ENV LC_ALL=en_US.UTF-8
 RUN mkdir -p /tmp/protoc && \
     curl -sSLf \
     -o /tmp/protoc/protoc.zip \
-    https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0-rc1/protoc-3.20.0-rc-1-linux-x86_64.zip && \
+    https://github.com/protocolbuffers/protobuf/releases/download/v3.20.2/protoc-3.20.2-linux-x86_64.zip && \
     unzip /tmp/protoc/protoc.zip -d /tmp/protoc && \
     mv /tmp/protoc/bin/protoc /usr/local/bin && \
     mv /tmp/protoc/include/google /usr/local/include && \
     chmod +x /usr/local/bin/protoc && \
     rm -rf /tmp/protoc
+
+RUN mkdir -p /tmp/grpc && \
+    curl -sSLf \
+    -o /tmp/grpc/grpc.tar.gz \
+    https://github.com/roadrunner-server/roadrunner/releases/download/v2.11.4/protoc-gen-php-grpc-2.11.4-linux-amd64.tar.gz && \
+    tar -xf /tmp/grpc/grpc.tar.gz -C /tmp/grpc/ --strip-components 1 && \
+    mv /tmp/grpc/protoc-gen-php-grpc /usr/local/bin && \
+    chmod +x /usr/local/bin/protoc-gen-php-grpc && \
+    rm -rf /tmp/grpc
+
+RUN mkdir -p /tmp/rr && \
+    curl -sSLf \
+    -o /tmp/rr/rr.tar.gz \
+    https://github.com/roadrunner-server/roadrunner/releases/download/v2.11.4/roadrunner-2.11.4-linux-amd64.tar.gz && \
+    tar -xf /tmp/rr/rr.tar.gz -C /tmp/rr/ --strip-components 1 && \
+    mv /tmp/rr/rr /usr/local/bin && \
+    chmod +x /usr/local/bin/rr && \
+    rm -rf /tmp/rr
 
 RUN curl -sSLf \
         -o /usr/local/bin/install-php-extensions \
@@ -74,14 +92,17 @@ RUN cd /tmp/teradata \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/teradata
 
+
+RUN install-php-extensions sockets grpc bcmath
+
 ## Composer - deps always cached unless changed
 # First copy only composer files
 COPY composer.* /code/
 # Download dependencies, but don't run scripts or init autoloaders as the app is missing
-RUN composer install $COMPOSER_FLAGS --no-scripts --no-autoloader
+RUN composer install $COMPOSER_FLAGS --no-scripts --no-autoloader --ignore-platform-reqs
 # copy rest of the app
 COPY . /code/
 # run normal composer - all deps are cached already
-RUN composer install $COMPOSER_FLAGS
+RUN composer install $COMPOSER_FLAGS --ignore-platform-reqs
 
 CMD ["php", "/code/src/run.php"]

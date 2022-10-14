@@ -1,0 +1,27 @@
+version: "2.7"
+
+rpc:
+  listen: tcp://127.0.0.1:6001
+
+service: {}
+
+kv:
+  storage-driver:
+    driver: memory
+    config: {}
+
+server:
+  on_init:
+    command: "sleep 10"
+  command: "php /code/service/driver/worker.php"
+#  relay: socket
+#  relay_timeout: 5s
+
+temporal:
+  address: "127.0.0.1:7233"
+  activities:
+    num_workers: 2
+
+logs:
+  level: debug
+  mode: development
