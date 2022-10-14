@@ -1,6 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
+use Keboola\StorageDriver\Command\Common\DriverRequest;
+use Keboola\StorageDriver\Controller\Retry;
+use Keboola\StorageDriver\Teradata\DriverTask;
 use Spiral\RoadRunner\Environment;
+use function Keboola\StorageDriver\Controller\retry;
 
 require __DIR__ . '/../../vendor/autoload.php';
 
@@ -26,11 +32,11 @@ $storage = $factory->select('storage-driver');
 /** @var array<string, string> $env */
 $env = \array_merge($_ENV, $_SERVER);
 
-$req = new \Keboola\StorageDriver\Command\Common\DriverRequest();
+$req = new DriverRequest();
 $req->mergeFromJsonString($env['ACTIVITY_INPUT']);
 $workflowId = $env['WORKFLOW_ID'];
 
-$task = new \Keboola\StorageDriver\Teradata\DriverTask(
+$task = new DriverTask(
     $req,
     $workflowId
 );
@@ -38,12 +44,12 @@ $task = new \Keboola\StorageDriver\Teradata\DriverTask(
 try {
     $res = $task->run();
     if ($res !== null) {
-        $storage->set($workflowId, json_encode(['response' => $res->serializeToJsonString()], JSON_THROW_ON_ERROR));
+        Retry::retryUniform(fn()=>$storage->set($workflowId, json_encode(['response' => $res->serializeToJsonString()], JSON_THROW_ON_ERROR)));
     } else {
-        $storage->set($workflowId, '{}');
+        Retry::retryUniform(fn()=>$storage->set($workflowId, '{}'));
     }
 } catch (\Throwable $e) {
-    $storage->set($workflowId, json_encode(['exception' => $e], JSON_THROW_ON_ERROR));
+    Retry::retryUniform(fn()=>$storage->set($workflowId, json_encode(['exception' => $e], JSON_THROW_ON_ERROR)));
 }
 
 exit(0);

@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 require __DIR__ . '/../../vendor/autoload.php';
 
-set_error_handler(function($errno, $errstr, $errfile, $errline ) {
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
 });
 
@@ -24,7 +26,7 @@ $worker = $factory->newWorker(
 );
 
 $worker->registerActivityImplementations(
-    new \Keboola\StorageDriver\Teradata\Temporal\DriverCommandActivity()
+    new \Keboola\StorageDriver\Controller\DriverCommandActivity()
 );
 
 // start primary loop

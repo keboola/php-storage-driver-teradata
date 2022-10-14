@@ -11,7 +11,11 @@ kv:
     config: {}
 
 server:
+  on_init:
+    command: "sleep 10"
   command: "php /code/service/driver/worker.php"
+#  relay: socket
+#  relay_timeout: 5s
 
 temporal:
   address: "127.0.0.1:7233"
