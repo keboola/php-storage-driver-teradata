@@ -16,7 +16,7 @@
         "keboola/db-import-export": "^1.1",
         "google/protobuf": "^3.21",
         "keboola/php-file-storage-utils": "^0.2.5",
-        "keboola/storage-driver-common": "^0.2.0"
+        "keboola/storage-driver-common": "^1.0.0"
     },
     "require-dev": {
         "phpunit/phpunit": "9.2.*",
