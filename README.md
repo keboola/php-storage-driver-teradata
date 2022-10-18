@@ -3,7 +3,7 @@
 Keboola high level storage backend driver for Teradata
 
 ## Setup Teradata
-
+test
 ```SQL
 -- set session database of your choice
 SET SESSION DATABASE <your root database>;
