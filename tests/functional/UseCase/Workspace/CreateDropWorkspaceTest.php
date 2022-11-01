@@ -56,7 +56,7 @@ class CreateDropWorkspaceTest extends BaseCase
 
         // test defaults
         $this->assertSame(
-            strtoupper($response->getWorkspaceRoleName()),
+            'ALL',
             $db->fetchOne('SELECT ROLE;')
         );
         $this->assertSame(

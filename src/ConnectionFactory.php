@@ -45,6 +45,9 @@ class ConnectionFactory
             ));
         }
 
+        // apply roles permission to the logged user
+        $connection->executeStatement('SET ROLE ALL;');
+
         return $connection;
     }
 }

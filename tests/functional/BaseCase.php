@@ -50,6 +50,9 @@ class BaseCase extends TestCase
 
     protected TeradataSessionManager $sessionManager;
 
+    // to distinguish projects if you need more projects in one test case
+    protected string $projectSuffix = '';
+
     /**
      * @param array<mixed> $data
      * @param int|string $dataName
@@ -113,7 +116,7 @@ class BaseCase extends TestCase
 
     protected function getProjectId(): string
     {
-        return md5($this->getName());
+        return md5($this->getName() . $this->projectSuffix);
     }
 
     protected function getConnection(GenericBackendCredentials $credentials): Connection
