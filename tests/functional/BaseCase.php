@@ -196,12 +196,14 @@ class BaseCase extends TestCase
      */
     protected function isUserExists(Connection $connection, string $name): bool
     {
-        try {
-            $connection->executeStatement(sprintf('HELP USER %s', TeradataQuote::quoteSingleIdentifier($name)));
-            return true;
-        } catch (Exception $e) {
-            return false;
-        }
+        $data = $connection->fetchAllAssociative(
+            sprintf(
+                "SELECT * FROM DBC.DatabasesV t WHERE t.DatabaseName = %s AND t.DBKind = 'U'",
+                TeradataQuote::quote($name)
+            )
+        );
+
+        return count($data) > 0;
     }
 
     /**
@@ -209,12 +211,14 @@ class BaseCase extends TestCase
      */
     protected function isDatabaseExists(Connection $connection, string $name): bool
     {
-        try {
-            $connection->executeStatement(sprintf('HELP DATABASE %s', TeradataQuote::quoteSingleIdentifier($name)));
-            return true;
-        } catch (Exception $e) {
-            return false;
-        }
+        $data = $connection->fetchAllAssociative(
+            sprintf(
+                "SELECT * FROM DBC.DatabasesV t WHERE t.DatabaseName = %s AND t.DBKind = 'D'",
+                TeradataQuote::quote($name)
+            )
+        );
+
+        return count($data) > 0;
     }
 
     /**
