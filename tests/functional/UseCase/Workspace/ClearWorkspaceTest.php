@@ -93,7 +93,8 @@ class ClearWorkspaceTest extends BaseCase
         $projectDb = $this->getConnection($this->projectCredentials);
         $this->assertTrue($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
         $this->assertTrue($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
-        $this->assertTrue($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        // object is user, not DB
+        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
         $this->assertTrue($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
         $this->assertTrue($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
 
@@ -112,7 +113,8 @@ class ClearWorkspaceTest extends BaseCase
         $projectDb = $this->getConnection($this->projectCredentials);
         $this->assertFalse($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
         $this->assertFalse($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
-        $this->assertTrue($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        // object is user, not DB
+        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
         $this->assertTrue($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
         $this->assertTrue($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
 

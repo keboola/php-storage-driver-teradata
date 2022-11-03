@@ -50,13 +50,14 @@ class CreateDropWorkspaceTest extends BaseCase
         // check objects created
         $this->assertTrue($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
         $this->assertTrue($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
-        $this->assertTrue($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        // object is User, not DB
+        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
 
         $db = $this->getConnection($credentials);
 
         // test defaults
         $this->assertSame(
-            strtoupper($response->getWorkspaceRoleName()),
+            'ALL',
             $db->fetchOne('SELECT ROLE;')
         );
         $this->assertSame(
@@ -238,7 +239,7 @@ class CreateDropWorkspaceTest extends BaseCase
                 $e->getMessage()
             );
         }
-        $this->assertTrue($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
         $this->assertTrue($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
         $this->assertTrue($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
 
