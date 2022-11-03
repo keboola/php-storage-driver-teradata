@@ -84,12 +84,6 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($newProjectReadOnlyRoleName)
         ));
 
-        // grant project read only role to project role with admin option so project can grant it to workspace role
-        $db->executeStatement(sprintf(
-            'GRANT %s TO %s WITH ADMIN OPTION;',
-            TeradataQuote::quoteSingleIdentifier($newProjectReadOnlyRoleName),
-            TeradataQuote::quoteSingleIdentifier($newProjectRoleName)
-        ));
 
         // grant project role to root user (@todo should we create also role for our root user and grant to it?)
         $db->executeStatement(sprintf(
@@ -110,6 +104,16 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($newProjectUsername),
             TeradataQuote::quoteSingleIdentifier($newProjectRoleName)
         ));
+        /* GRANT project RO role to project USER with admin option so project can GRANT it to workspace USER
+         * we cannot GRANT it to project/ws ROLE, because TD has limit of nesting to 1
+         * ROLE1 -> ROLE2 is ok, but adding ROLE2 -> ROLE3 fails
+         */
+        $db->executeStatement(sprintf(
+            'GRANT %s TO %s WITH ADMIN OPTION;',
+            TeradataQuote::quoteSingleIdentifier($newProjectReadOnlyRoleName),
+            TeradataQuote::quoteSingleIdentifier($newProjectUsername)
+        ));
+
 
         // grant create/drop user to project user
         // project user than can crete workspace

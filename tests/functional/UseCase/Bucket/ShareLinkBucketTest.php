@@ -4,21 +4,23 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Bucket;
 
+use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\Link\LinkBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Share\ShareBucketHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
 class ShareLinkBucketTest extends BaseCase
 {
-    protected GenericBackendCredentials $project1Credentials;
-    protected CreateProjectResponse $project1Response;
+    protected GenericBackendCredentials $sourceProjectCredentials;
+    protected CreateProjectResponse $sourceProjectResponse;
 
-    protected GenericBackendCredentials $project2Credentials;
-    protected CreateProjectResponse $project2Response;
+    protected GenericBackendCredentials $targetProjectCredentials;
+    protected CreateProjectResponse $targetProjectResponse;
 
     protected function setUp(): void
     {
@@ -31,12 +33,12 @@ class ShareLinkBucketTest extends BaseCase
         [$credentials2, $response2] = $this->createTestProject();
 
         // project1 shares bucket
-        $this->project1Credentials = $credentials1;
-        $this->project1Response = $response1;
+        $this->sourceProjectCredentials = $credentials1;
+        $this->sourceProjectResponse = $response1;
 
         // project2 checks the access
-        $this->project2Credentials = $credentials2;
-        $this->project2Response = $response2;
+        $this->targetProjectCredentials = $credentials2;
+        $this->targetProjectResponse = $response2;
     }
 
     protected function tearDown(): void
@@ -48,39 +50,39 @@ class ShareLinkBucketTest extends BaseCase
         $this->cleanTestProject();
     }
 
-    public function testShareBucket(): void
+    public function testShareAndLinkBucket(): void
     {
-        [$bucketResponse, $projectConnection] = $this->createTestBucket(
-            $this->project1Credentials,
-            $this->project1Response
+        [$bucketResponse, $sourceProjectConnection] = $this->createTestBucket(
+            $this->sourceProjectCredentials,
+            $this->sourceProjectResponse
         );
 
         $bucketDatabaseName = $bucketResponse->getCreateBucketObjectName();
 
         // $projectConnection doesnt have set bucket DB yet
-        $projectConnection->executeStatement(sprintf(
+        $sourceProjectConnection->executeStatement(sprintf(
             'SET SESSION DATABASE %s;',
             TeradataQuote::quoteSingleIdentifier($bucketDatabaseName)
         ));
         $shareRoleName = $bucketDatabaseName . '_SHARE';
         // cleaning of the share role
-        $this->dropRole($projectConnection, $shareRoleName);
+        $this->dropRole($sourceProjectConnection, $shareRoleName);
 
-        $projectConnection->executeQuery('CREATE TABLE TESTTABLE_BEFORE (ID INT)');
-        $projectConnection->executeQuery('INSERT INTO TESTTABLE_BEFORE (1)');
+        $sourceProjectConnection->executeQuery('CREATE TABLE TESTTABLE_BEFORE (ID INT)');
+        $sourceProjectConnection->executeQuery('INSERT INTO TESTTABLE_BEFORE (1)');
 
-        $project2Connection = $this->getConnection($this->project2Credentials);
+        $targetProjectConnection = $this->getConnection($this->targetProjectCredentials);
 
         // check that the Project2 cannot access the table yet
         try {
-            $project2Connection->fetchAllAssociative(
+            $targetProjectConnection->fetchAllAssociative(
                 sprintf(
                     'SELECT * FROM %s.%s',
                     TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
                     TeradataQuote::quoteSingleIdentifier('TESTTABLE_BEFORE')
                 )
             );
-            $this->fail('role is not graneted yet');
+            $this->fail('Should fail. Bucket is not linked yet');
         } catch (Throwable $e) {
             $this->assertStringContainsString('The user does not have SELECT access to', $e->getMessage());
         }
@@ -89,37 +91,42 @@ class ShareLinkBucketTest extends BaseCase
         $handler = new ShareBucketHandler($this->sessionManager);
         $command = (new ShareBucketCommand())
             ->setBucketObjectName($bucketDatabaseName)
-            ->setProjectReadOnlyRoleName($this->project1Response->getProjectReadOnlyRoleName())
+            ->setProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName())
             ->setBucketShareRoleName($shareRoleName);
 
         $handler(
-            $this->project1Credentials,
+            $this->sourceProjectCredentials,
             $command,
             []
         );
 
-        // let's simulate bucket link -> grant SHARE_ROLE to project2 user and try to access the DB.
-        $project1Connection = $this->getConnection($this->project1Credentials);
-        $project1Connection->executeQuery(
-            sprintf(
-                'GRANT %s TO %s',
-                TeradataQuote::quoteSingleIdentifier($shareRoleName),
-                TeradataQuote::quoteSingleIdentifier($this->project2Credentials->getPrincipal())
-            )
+        // link the bucket
+        $handler = new LinkBucketHandler($this->sessionManager);
+        $command = (new LinkBucketCommand())
+            ->setBucketObjectName($bucketDatabaseName)
+            ->setSourceShareRoleName($shareRoleName)
+            ->setProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName());
+
+        // soure project has to link it
+        $handler(
+            $this->sourceProjectCredentials,
+            $command,
+            []
         );
 
         // check that there is no need to re-share or whatever
-        $projectConnection->executeQuery('CREATE TABLE TESTTABLE_AFTER (ID INT)');
-        $projectConnection->executeQuery('INSERT INTO TESTTABLE_AFTER (1)');
+        $sourceProjectConnection->executeQuery('CREATE TABLE TESTTABLE_AFTER (ID INT)');
+        $sourceProjectConnection->executeQuery('INSERT INTO TESTTABLE_AFTER (1)');
 
-        $dataBefore = $project2Connection->fetchAllAssociative(
+        $dataBefore = $targetProjectConnection->fetchAllAssociative(
             sprintf(
                 'SELECT * FROM %s.%s',
                 TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
                 TeradataQuote::quoteSingleIdentifier('TESTTABLE_BEFORE')
             )
         );
-        $dataAfter = $project2Connection->fetchAllAssociative(
+
+        $dataAfter = $targetProjectConnection->fetchAllAssociative(
             sprintf(
                 'SELECT * FROM %s.%s',
                 TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
