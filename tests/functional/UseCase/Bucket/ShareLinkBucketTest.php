@@ -6,11 +6,15 @@ namespace Keboola\StorageDriver\FunctionalTests\UseCase\Bucket;
 
 use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\UnlinkBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Link\LinkBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Share\ShareBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\UnLink\UnLinkBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\UnShare\UnShareBucketHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
@@ -107,7 +111,7 @@ class ShareLinkBucketTest extends BaseCase
             ->setSourceShareRoleName($shareRoleName)
             ->setProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName());
 
-        // soure project has to link it
+        // it is sourceProject who does the grants -> that's why the sourceProjectCredentials
         $handler(
             $this->sourceProjectCredentials,
             $command,
@@ -136,5 +140,155 @@ class ShareLinkBucketTest extends BaseCase
 
         $this->assertEquals([['ID' => '1']], $dataAfter);
         $this->assertEquals($dataBefore, $dataAfter);
+
+        // unlink and check that target project cannot access it anymore
+        $unlinkHandler = new UnLinkBucketHandler($this->sessionManager);
+        $command = (new UnLinkBucketCommand())
+            ->setBucketObjectName($bucketDatabaseName)
+            ->setProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName())
+            ->setSourceShareRoleName($shareRoleName);
+
+        $unlinkHandler(
+            $this->sourceProjectCredentials,
+            $command,
+            []
+        );
+
+        // check that the Project2 cannot access the table anymore
+        try {
+            $targetProjectConnection->fetchAllAssociative(
+                sprintf(
+                    'SELECT * FROM %s.%s',
+                    TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+                    TeradataQuote::quoteSingleIdentifier('TESTTABLE_BEFORE')
+                )
+            );
+            $this->fail('Should fail. Bucket has been unlinked');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('The user does not have SELECT access to', $e->getMessage());
+        }
+    }
+
+    public function testShareUnshare(): void
+    {
+        [$bucketResponse, $sourceProjectConnection] = $this->createTestBucket(
+            $this->sourceProjectCredentials,
+            $this->sourceProjectResponse
+        );
+
+        $bucketDatabaseName = $bucketResponse->getCreateBucketObjectName();
+
+        // $projectConnection doesnt have set bucket DB yet
+        $sourceProjectConnection->executeStatement(sprintf(
+            'SET SESSION DATABASE %s;',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName)
+        ));
+        $shareRoleName = $bucketDatabaseName . '_SHARE';
+        // cleaning of the share role
+        $this->dropRole($sourceProjectConnection, $shareRoleName);
+
+        $handler = new ShareBucketHandler($this->sessionManager);
+        $command = (new ShareBucketCommand())
+            ->setBucketObjectName($bucketDatabaseName)
+            ->setProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName())
+            ->setBucketShareRoleName($shareRoleName);
+
+        $handler(
+            $this->sourceProjectCredentials,
+            $command,
+            []
+        );
+
+        $this->assertTrue($this->isRoleExists($sourceProjectConnection, $shareRoleName));
+
+        $handler = new UnShareBucketHandler($this->sessionManager);
+        $command = (new UnShareBucketCommand())
+            ->setBucketObjectName($bucketDatabaseName)
+            ->setBucketShareRoleName($shareRoleName);
+
+        $handler(
+            $this->sourceProjectCredentials,
+            $command,
+            []
+        );
+
+        $this->assertFalse($this->isRoleExists($sourceProjectConnection, $shareRoleName));
+    }
+
+    public function testShareUnshareLinkedBucket(): void
+    {
+        [$bucketResponse, $sourceProjectConnection] = $this->createTestBucket(
+            $this->sourceProjectCredentials,
+            $this->sourceProjectResponse
+        );
+
+        $bucketDatabaseName = $bucketResponse->getCreateBucketObjectName();
+
+        // $projectConnection doesnt have set bucket DB yet
+        $sourceProjectConnection->executeStatement(sprintf(
+            'SET SESSION DATABASE %s;',
+            TeradataQuote::quoteSingleIdentifier($bucketDatabaseName)
+        ));
+        $shareRoleName = $bucketDatabaseName . '_SHARE';
+        // cleaning of the share role
+        $this->dropRole($sourceProjectConnection, $shareRoleName);
+
+        $handler = new ShareBucketHandler($this->sessionManager);
+        $command = (new ShareBucketCommand())
+            ->setBucketObjectName($bucketDatabaseName)
+            ->setProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName())
+            ->setBucketShareRoleName($shareRoleName);
+
+        $handler(
+            $this->sourceProjectCredentials,
+            $command,
+            []
+        );
+
+        // check that there is no need to re-share or whatever
+        $sourceProjectConnection->executeQuery('CREATE TABLE TESTTABLE_AFTER (ID INT)');
+        $sourceProjectConnection->executeQuery('INSERT INTO TESTTABLE_AFTER (1)');
+
+        $this->assertTrue($this->isRoleExists($sourceProjectConnection, $shareRoleName));
+
+        $handler = new LinkBucketHandler($this->sessionManager);
+        $command = (new LinkBucketCommand())
+            ->setBucketObjectName($bucketDatabaseName)
+            ->setSourceShareRoleName($shareRoleName)
+            ->setProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName());
+
+        $handler(
+            $this->sourceProjectCredentials,
+            $command,
+            []
+        );
+
+        $handler = new UnShareBucketHandler($this->sessionManager);
+        $command = (new UnShareBucketCommand())
+            ->setBucketObjectName($bucketDatabaseName)
+            ->setBucketShareRoleName($shareRoleName);
+
+        $handler(
+            $this->sourceProjectCredentials,
+            $command,
+            []
+        );
+
+        $this->assertFalse($this->isRoleExists($sourceProjectConnection, $shareRoleName));
+
+        $targetProjectConnection = $this->getConnection($this->targetProjectCredentials);
+        // check that the Project2 cannot access the table anymore
+        try {
+            $targetProjectConnection->fetchAllAssociative(
+                sprintf(
+                    'SELECT * FROM %s.%s',
+                    TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+                    TeradataQuote::quoteSingleIdentifier('TESTTABLE_AFTER')
+                )
+            );
+            $this->fail('Should fail. Bucket has been unshared');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('The user does not have SELECT access to', $e->getMessage());
+        }
     }
 }
