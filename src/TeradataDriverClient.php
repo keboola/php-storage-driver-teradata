@@ -10,7 +10,7 @@ use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
-use Keboola\StorageDriver\Command\Bucket\UnShareBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\UnlinkBucketCommand;
 use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
@@ -97,11 +97,11 @@ class TeradataDriverClient implements ClientInterface
                 return new DropBucketHandler($manager);
             case $command instanceof ShareBucketCommand:
                 return new ShareBucketHandler($manager);
-            case $command instanceof UnShareBucketCommand:
+            case $command instanceof UnshareBucketCommand:
                 return new UnShareBucketHandler($manager);
             case $command instanceof LinkBucketCommand:
                 return new LinkBucketHandler($manager);
-            case $command instanceof UnLinkBucketCommand:
+            case $command instanceof UnlinkBucketCommand:
                 return new UnLinkBucketHandler($manager);
             case $command instanceof CreateTableCommand:
                 return new CreateTableHandler($manager);
