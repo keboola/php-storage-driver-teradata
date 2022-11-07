@@ -9,6 +9,10 @@ use Keboola\StorageDriver\Command\Backend\InitBackendCommand;
 use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\UnlinkBucketCommand;
 use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
@@ -31,6 +35,10 @@ use Keboola\StorageDriver\Teradata\Handler\Backend\Init\InitBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Backend\Remove\RemoveBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\Share\ShareBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\UnShare\UnShareBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\Link\LinkBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\UnLink\UnLinkBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
@@ -87,6 +95,14 @@ class TeradataDriverClient implements ClientInterface
                 return new CreateBucketHandler($manager);
             case $command instanceof DropBucketCommand:
                 return new DropBucketHandler($manager);
+            case $command instanceof ShareBucketCommand:
+                return new ShareBucketHandler($manager);
+            case $command instanceof UnshareBucketCommand:
+                return new UnShareBucketHandler($manager);
+            case $command instanceof LinkBucketCommand:
+                return new LinkBucketHandler($manager);
+            case $command instanceof UnlinkBucketCommand:
+                return new UnLinkBucketHandler($manager);
             case $command instanceof CreateTableCommand:
                 return new CreateTableHandler($manager);
             case $command instanceof DropTableCommand:
