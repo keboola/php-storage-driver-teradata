@@ -110,11 +110,11 @@ final class CreateWorkspaceHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($newWsUserName)
         ));
 
-        // grant read only role to ws role
+        // grant read only role to ws user directly because of role nesting
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',
             TeradataQuote::quoteSingleIdentifier($command->getProjectReadOnlyRoleName()),
-            TeradataQuote::quoteSingleIdentifier($newWsRoleName)
+            TeradataQuote::quoteSingleIdentifier($newWsUserName)
         ));
 
         $db->close();
