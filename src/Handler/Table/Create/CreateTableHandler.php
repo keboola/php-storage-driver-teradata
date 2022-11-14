@@ -13,10 +13,12 @@ use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\Handler\Table\TableReflectionResponseTransformer;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
+use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
 final class CreateTableHandler implements DriverCommandHandlerInterface
 {
@@ -83,11 +85,18 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
 
             // create table
             $db->executeStatement($createTableSql);
+
+            $ref = new TeradataTableReflection(
+                $db,
+                $databaseName,
+                $command->getTableName()
+            );
         } finally {
             if (isset($db)) {
                 $db->close();
             }
         }
-        return null;
+
+        return TableReflectionResponseTransformer::transformTableReflectionToResponse($databaseName, $ref);
     }
 }

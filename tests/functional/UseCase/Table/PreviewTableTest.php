@@ -470,12 +470,11 @@ class PreviewTableTest extends BaseCase
             ->setColumns($columns)
             ->setPrimaryKeysNames($primaryKeysNames);
 
-        $createTableResponse = $createTableHandler(
+        $createTableHandler(
             $this->projectCredentials,
             $createTableCommand,
             []
         );
-        $this->assertNull($createTableResponse);
     }
 
     /**
