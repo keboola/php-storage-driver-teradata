@@ -6,6 +6,8 @@ namespace Keboola\StorageDriver\Teradata\Handler\Table\Create;
 
 use Google\Protobuf\Internal\Message;
 use Keboola\Datatype\Definition\Teradata;
+use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
+use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand\TableColumn;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand\TableColumn\TeradataTableColumnMeta;
@@ -86,17 +88,23 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
             // create table
             $db->executeStatement($createTableSql);
 
-            $ref = new TeradataTableReflection(
-                $db,
-                $databaseName,
-                $command->getTableName()
-            );
+            $response = (new ObjectInfoResponse())
+                ->setPath($command->getPath())
+                ->setObjectType(ObjectType::TABLE)
+                ->setTableInfo(TableReflectionResponseTransformer::transformTableReflectionToResponse(
+                    $databaseName,
+                    new TeradataTableReflection(
+                        $db,
+                        $databaseName,
+                        $command->getTableName()
+                    )
+                ));
         } finally {
             if (isset($db)) {
                 $db->close();
             }
         }
 
-        return TableReflectionResponseTransformer::transformTableReflectionToResponse($databaseName, $ref);
+        return $response;
     }
 }

@@ -9,6 +9,8 @@ use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
+use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
@@ -81,17 +83,20 @@ class CreateDropTableTest extends BaseCase
             ->setColumns($columns)
             ->setPrimaryKeysNames($primaryKeysNames);
 
-        /** @var TableInfo $response */
+        /** @var ObjectInfoResponse $response */
         $response = $handler(
             $this->projectCredentials,
             $command,
             []
         );
 
+        $this->assertInstanceOf(ObjectInfoResponse::class, $response);
+        $this->assertSame(ObjectType::TABLE, $response->getObjectType());
+        $this->assertNotNull($response->getTableInfo());
+
         // CHECK TABLE
         // check columns
-        /** @var TeradataColumn[] $columns */
-        $columns = $response->getColumns();
+        $columns = $response->getTableInfo()->getColumns();
         $this->assertCount(3, $columns);
 
         // check column ID
