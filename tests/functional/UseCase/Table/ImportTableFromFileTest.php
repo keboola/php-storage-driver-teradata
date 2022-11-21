@@ -130,21 +130,15 @@ class ImportTableFromFileTest extends BaseCase
         $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        try {
             $handler(
                 $this->projectCredentials,
                 $cmd,
                 []
             );
-            $this->fail('Should fail incremental import is not implemented');
-            //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
+            $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
             // 2 not unique rows from destination + 1 unique row from source
             // + 1 row which is dedup of two duplicates in source and one from destination
-            //$this->assertSame(4, $ref->getRowsCount());
-            // @todo test updated values
-        } catch (LogicException $e) {
-            $this->assertSame('Not implemented', $e->getMessage());
-        }
+            $this->assertSame(4, $ref->getRowsCount());
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -183,7 +177,8 @@ class ImportTableFromFileTest extends BaseCase
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
                 TeradataQuote::quoteSingleIdentifier($destinationTableName),
-                implode(',', $i)
+                // values has to be casted to varchar otherwise it would be casted with spaces 4 -> '   4'
+                implode(',', array_map(fn($ix) => TeradataQuote::quote($ix), $i))
             ));
         }
         return $tableDestDef;

@@ -10,6 +10,7 @@ use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\Db\ImportExport\Backend\Teradata\TeradataImportOptions;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\FullImporter;
+use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\IncrementalImporter;
 use Keboola\Db\ImportExport\Backend\Teradata\ToStage\ToStageImporter;
 use Keboola\Db\ImportExport\Storage\S3\SourceFile;
 use Keboola\FileStorage\Path\RelativePath;
@@ -21,7 +22,6 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
-use Keboola\StorageDriver\Command\Table\TableImportFromFileResponse;
 use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -31,7 +31,6 @@ use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
-use LogicException;
 use Throwable;
 
 class ImportTableFromFileHandler implements DriverCommandHandlerInterface
@@ -102,9 +101,6 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         $stagingTable = null;
         $db = $this->manager->createSession($credentials);
 
-        if ($importOptions->getImportType() === ImportType::INCREMENTAL) {
-            throw new LogicException('Not implemented');
-        }
         $destinationRef = new TeradataTableReflection(
             $db,
             ProtobufHelper::repeatedStringToArray($destination->getPath())[0],
@@ -114,19 +110,19 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
             /** @var TeradataTableDefinition $destinationDefinition */
             $destinationDefinition = $destinationRef->getTableDefinition();
             $dedupColumns = ProtobufHelper::repeatedStringToArray($importOptions->getDedupColumnsNames());
-            if ($importOptions->getImportType() === ImportOptions\DedupType::UPDATE_DUPLICATES
-                && count($dedupColumns) !== 0
-            ) {
-                // @todo dudupColumns should be pasted to destination table as primary keys to work
-                // this should change in import export lib
-                //$destinationDefinition = new TeradataTableDefinition(
-                //    $destinationDefinition->getSchemaName(),
-                //    $destination->getTableName(),
-                //    $destinationDefinition->isTemporary(),
-                //    $destinationDefinition->getColumnsDefinitions(),
-                //    $dedupColumns,
-                //);
-                throw new LogicException('Deduplication is not implemented.');
+
+
+            if ($importOptions->getImportType() === ImportType::INCREMENTAL && count($dedupColumns) !== 0) {
+                if ($importOptions->getDedupType() === ImportOptions\DedupType::INSERT_DUPLICATES) {
+                    $dedupColumns = [];
+                }
+                $destinationDefinition = new TeradataTableDefinition(
+                    $destinationDefinition->getSchemaName(),
+                    $destination->getTableName(),
+                    $destinationDefinition->isTemporary(),
+                    $destinationDefinition->getColumnsDefinitions(),
+                    $dedupColumns
+                );
             }
             // prepare staging table definition
             $stagingTable = StageTableDefinitionFactory::createStagingTableDefinitionForTPT(
@@ -146,10 +142,7 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
                 $teradataImportOptions
             );
             // import data to destination
-            $toFinalTableImporter = new FullImporter($db);
-            //if ($importOptions->getImportType() === ImportType::INCREMENTAL) {
-            //    //$toFinalTableImporter = new IncrementalImporter($db);
-            //}
+            $toFinalTableImporter = $importOptions->getImportType() === ImportType::INCREMENTAL ? new IncrementalImporter($db) : new FullImporter($db);
             $importResult = $toFinalTableImporter->importToTable(
                 $stagingTable,
                 $destinationDefinition,
@@ -220,20 +213,8 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         ImportOptions $options,
         GenericBackendCredentials $credentials,
         ?TableImportFromFileCommand\TeradataTableImportMeta $meta
-    ): TeradataImportOptions {
-        $adapter = TeradataImportOptions::CSV_ADAPTER_TPT;
-        if ($meta !== null) {
-            switch ($meta->getImportAdapter()) {
-                case TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::TPT:
-                    $adapter = TeradataImportOptions::CSV_ADAPTER_TPT;
-                    break;
-                default:
-                    throw new LogicException(sprintf(
-                        'Unknown CSV import adapter "%s"',
-                        $meta->getImportAdapter()
-                    ));
-            }
-        }
+    ): TeradataImportOptions
+    {
         return new TeradataImportOptions(
             $credentials->getHost(),
             $credentials->getPrincipal(),
@@ -242,8 +223,7 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
             ProtobufHelper::repeatedStringToArray($options->getConvertEmptyValuesToNullOnColumns()),
             $options->getImportType() === ImportType::INCREMENTAL,
             $options->getTimestampColumn() === '_timestamp',
-            $options->getNumberOfIgnoredLines(),
-            $adapter
+            $options->getNumberOfIgnoredLines()
         );
     }
 }
