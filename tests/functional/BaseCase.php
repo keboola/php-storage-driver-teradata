@@ -111,12 +111,12 @@ class BaseCase extends TestCase
 
     protected function getStackPrefix(): string
     {
-        return md5(get_class($this));
+        return md5(getenv('BUILD_PREFIX') . get_class($this));
     }
 
     protected function getProjectId(): string
     {
-        return md5($this->getName() . $this->projectSuffix);
+        return md5($this->getName() . $this->getStackPrefix() . $this->projectSuffix);
     }
 
     protected function getConnection(GenericBackendCredentials $credentials): Connection
