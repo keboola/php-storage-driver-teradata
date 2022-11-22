@@ -9,6 +9,7 @@ use Doctrine\DBAL\Connection;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\Teradata;
+use Keboola\Db\ImportExport\Backend\Snowflake\Helper\DateTimeHelper;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table;
@@ -23,7 +24,6 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
-use LogicException;
 
 class ImportTableFromTableTest extends BaseCase
 {
@@ -314,7 +314,7 @@ class ImportTableFromTableTest extends BaseCase
             $tableSourceDef->getSchemaName(),
             $tableSourceDef->getTableName(),
             $tableSourceDef->getColumnsDefinitions(),
-            [], //<-- dont create primary keys allow duplicates
+            [] //<-- dont create primary keys allow duplicates
         );
         $db->executeStatement($sql);
         foreach ([['1', '1', '3'], ['2', '2', '2'], ['2', '2', '2'], ['3', '2', '3'], ['4', '4', '4']] as $i) {
@@ -322,7 +322,7 @@ class ImportTableFromTableTest extends BaseCase
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
                 TeradataQuote::quoteSingleIdentifier($sourceTableName),
-                implode(',', $i)
+                implode(',', array_map(fn($ix) => TeradataQuote::quote($ix), $i))
             ));
         }
 
@@ -350,12 +350,13 @@ class ImportTableFromTableTest extends BaseCase
             $tableDestDef->getPrimaryKeysNames(),
         );
         $db->executeStatement($sql);
-        foreach ([['1', '1', '1'], ['2', '2', '2'], ['3', '3', '3']] as $i) {
+        $timestamp = DateTimeHelper::getNowFormatted();
+        foreach ([['1', '1', $timestamp], ['2', '2', $timestamp], ['3', '3', $timestamp]] as $i) {
             $db->executeStatement(sprintf(
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
                 TeradataQuote::quoteSingleIdentifier($destinationTableName),
-                implode(',', $i)
+                implode(',', array_map(fn($ix) => TeradataQuote::quote($ix), $i))
             ));
         }
 
@@ -386,7 +387,7 @@ class ImportTableFromTableTest extends BaseCase
         $cmd->setImportOptions(
             (new ImportOptions())
                 ->setImportType(ImportOptions\ImportType::INCREMENTAL)
-                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setDedupType(ImportOptions\DedupType::INSERT_DUPLICATES)
                 ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
@@ -394,21 +395,15 @@ class ImportTableFromTableTest extends BaseCase
 
         $handler = new ImportTableFromTableHandler($this->sessionManager);
 
-        try {
-            $handler(
-                $this->projectCredentials,
-                $cmd,
-                []
-            );
-            $this->fail('Should fail incremental import is not implemented');
-            //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-            // 1 row unique from source, 3 rows deduped from source and destination
-            //$this->assertSame(4, $ref->getRowsCount());
-            //$this->assertTimestamp($db, $bucketDatabaseName, $destinationTableName);
-            // @todo test updated values
-        } catch (LogicException $e) {
-            $this->assertSame('Not implemented', $e->getMessage());
-        }
+        $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+        $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
+        // 1 row unique from source, 3 rows deduped from source and destination
+        $this->assertSame(4, $ref->getRowsCount());
+        $this->assertTimestamp($db, $bucketDatabaseName, $destinationTableName);
 
         // cleanup
         $qb->getDropTableCommand($tableSourceDef->getSchemaName(), $tableSourceDef->getTableName());

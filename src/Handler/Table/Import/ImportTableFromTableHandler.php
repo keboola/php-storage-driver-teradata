@@ -11,6 +11,7 @@ use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Db\Import\Result;
 use Keboola\Db\ImportExport\Backend\Teradata\TeradataImportOptions;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\FullImporter;
+use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\IncrementalImporter;
 use Keboola\Db\ImportExport\Backend\Teradata\ToStage\ToStageImporter;
 use Keboola\Db\ImportExport\Storage\Teradata\Table;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
@@ -25,7 +26,6 @@ use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
-use LogicException;
 use Throwable;
 
 class ImportTableFromTableHandler implements DriverCommandHandlerInterface
@@ -173,17 +173,18 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
             $destination->getTableName()
         ))->getTableDefinition();
         $dedupColumns = ProtobufHelper::repeatedStringToArray($options->getDedupColumnsNames());
-        if ($options->getImportType() === ImportOptions\DedupType::UPDATE_DUPLICATES && count($dedupColumns) !== 0) {
-            // @todo dudupColumns should be pasted to destination table as primary keys to work
-            // this should change in import export lib
-            //$destinationDefinition = new TeradataTableDefinition(
-            //    $destinationRef->getSchemaName(),
-            //    $destinationRef->getTableName(),
-            //    $destinationRef->isTemporary(),
-            //    $destinationRef->getColumnsDefinitions(),
-            //    $dedupColumns,
-            //);
-            throw new LogicException('Deduplication is not implemented.');
+
+        if ($options->getImportType() === ImportType::INCREMENTAL && count($dedupColumns) !== 0) {
+            if ($options->getDedupType() === ImportOptions\DedupType::INSERT_DUPLICATES) {
+                $dedupColumns = [];
+            }
+            $destinationDefinition = new TeradataTableDefinition(
+                $destinationDefinition->getSchemaName(),
+                $destination->getTableName(),
+                $destinationDefinition->isTemporary(),
+                $destinationDefinition->getColumnsDefinitions(),
+                $dedupColumns
+            );
         }
 
         $isFullImport = $options->getImportType() === ImportType::FULL;
@@ -201,7 +202,7 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
             return [null, $importState->getResult()];
         }
 
-        $stagingTable = $this->createStateTable($destinationDefinition, $sourceMapping, $db);
+        $stagingTable = $this->createStagingTable($destinationDefinition, $sourceMapping, $db);
         // load to staging table
         $toStageImporter = new ToStageImporter($db);
         $importState = $toStageImporter->importToStagingTable(
@@ -210,11 +211,7 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
             $importOptions
         );
         // import data to destination
-        $toFinalTableImporter = new FullImporter($db);
-        if ($importOptions->isIncremental()) {
-            throw new LogicException('Not implemented');
-            //$toFinalTableImporter = new IncrementalImporter($db);
-        }
+        $toFinalTableImporter = $importOptions->isIncremental() ? new IncrementalImporter($db) : new FullImporter($db);
         $importResult = $toFinalTableImporter->importToTable(
             $stagingTable,
             $destinationDefinition,
@@ -224,7 +221,7 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         return [$stagingTable, $importResult];
     }
 
-    private function createStateTable(
+    private function createStagingTable(
         TeradataTableDefinition $destinationDefinition,
         TableImportFromTableCommand\SourceTableMapping $sourceMapping,
         Connection $db
