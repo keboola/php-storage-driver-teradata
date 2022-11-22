@@ -95,7 +95,9 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         assert($filePath !== null);
         $source = $this->getSourceFile($filePath, $fileCredentials, $csvOptions, $formatOptions);
         $meta = MetaHelper::getMetaFromCommand($command, TableImportFromFileCommand\TeradataTableImportMeta::class);
-        assert($meta instanceof TableImportFromFileCommand\TeradataTableImportMeta);
+        if (!is_null($meta)) {
+            assert($meta instanceof TableImportFromFileCommand\TeradataTableImportMeta);
+        }
         $teradataImportOptions = $this->createOptions($importOptions, $credentials, $meta);
 
         $stagingTable = null;
@@ -112,10 +114,8 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
             $dedupColumns = ProtobufHelper::repeatedStringToArray($importOptions->getDedupColumnsNames());
 
 
-            if ($importOptions->getImportType() === ImportType::INCREMENTAL && count($dedupColumns) !== 0) {
-                if ($importOptions->getDedupType() === ImportOptions\DedupType::INSERT_DUPLICATES) {
-                    $dedupColumns = [];
-                }
+            if ($importOptions->getDedupType() === ImportOptions\DedupType::UPDATE_DUPLICATES && count($dedupColumns) !== 0) {
+                // create new definition with dedupColumns to do DEDUP
                 $destinationDefinition = new TeradataTableDefinition(
                     $destinationDefinition->getSchemaName(),
                     $destination->getTableName(),
