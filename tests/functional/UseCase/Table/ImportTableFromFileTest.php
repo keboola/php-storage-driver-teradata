@@ -54,21 +54,8 @@ class ImportTableFromFileTest extends BaseCase
         parent::tearDown();
         $this->cleanTestProject();
     }
-
-    /**
-     * @return Generator<string,array{int}>
-     */
-    public function importAdapterProvider(): Generator
-    {
-        yield 'TPT' => [
-            TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::TPT,
-        ];
-    }
-
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableIncrementalLoad(int $importAdapter): void
+    
+    public function testImportTableFromTableIncrementalLoad(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -127,7 +114,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
+//        $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
             $handler(
@@ -184,20 +171,7 @@ class ImportTableFromFileTest extends BaseCase
         return $tableDestDef;
     }
 
-    private function getCmdMeta(int $adapter): Any
-    {
-        $meta = new Any();
-        $meta->pack(
-            (new TableImportFromFileCommand\TeradataTableImportMeta())
-                ->setImportAdapter($adapter)
-        );
-        return $meta;
-    }
-
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableFullLoadWithDeduplication(int $importAdapter): void
+    public function testImportTableFromTableFullLoadWithDeduplication(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -280,10 +254,7 @@ class ImportTableFromFileTest extends BaseCase
         $db->close();
     }
 
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableFullLoadWithoutDeduplication(int $importAdapter): void
+    public function testImportTableFromTableFullLoadWithoutDeduplication(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -341,7 +312,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
+        
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         /** @var TableImportResponse $response */
@@ -391,23 +362,18 @@ class ImportTableFromFileTest extends BaseCase
      */
     public function importCompressionProvider(): Generator
     {
-        foreach ($this->importAdapterProvider() as $name => $adapter) {
-            yield 'NO Compression ' . $name => [
-                $adapter[0],
+            yield 'NO Compression ' => [
                 TableImportFromFileCommand\CsvTypeOptions\Compression::NONE,
             ];
-            yield 'GZIP ' . $name => [
-                $adapter[0],
+            yield 'GZIP ' => [
                 TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP,
             ];
-        }
     }
 
     /**
      * @dataProvider importCompressionProvider
      */
     public function testImportTableFromTableFullLoadSlicedWithoutDeduplication(
-        int $importAdapter,
         int $compression
     ): void {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
@@ -491,7 +457,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
+        
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         /** @var TableImportResponse $response */
@@ -529,10 +495,7 @@ class ImportTableFromFileTest extends BaseCase
         $db->close();
     }
 
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableIncrementalSlicedWithDeduplication(int $importAdapter): void
+    public function testImportTableFromTableIncrementalSlicedWithDeduplication(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -612,7 +575,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
+        
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         try {
@@ -635,10 +598,7 @@ class ImportTableFromFileTest extends BaseCase
         $db->close();
     }
 
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableIncrementalSlicedCompressedWithDeduplication(int $importAdapter): void
+    public function testImportTableFromTableIncrementalSlicedCompressedWithDeduplication(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -718,7 +678,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
+        
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         try {
