@@ -119,10 +119,8 @@ class ImportTableFromFileTest extends BaseCase
             $cmd,
             []
         );
-        $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // 2 not unique rows from destination + 1 unique row from source
         // + 1 row which is dedup of two duplicates in source and one from destination
-        $this->assertSame(4, $ref->getRowsCount());
         $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['1', '2', '3', '5'], 'col1');
 
         // cleanup
@@ -162,8 +160,7 @@ class ImportTableFromFileTest extends BaseCase
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
                 TeradataQuote::quoteSingleIdentifier($destinationTableName),
-                // values has to be casted to varchar otherwise it would be casted with spaces 4 -> '   4'
-                implode(',', array_map(fn($ix) => TeradataQuote::quote($ix), $i))
+                implode(',', $i)
             ));
         }
         return $tableDestDef;
@@ -328,7 +325,6 @@ class ImportTableFromFileTest extends BaseCase
         $this->assertSame(['col1', 'col2', 'col3'], iterator_to_array($response->getImportedColumns()));
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // nothing from destination and 3 rows from source
-        $this->assertSame(3, $ref->getRowsCount());
         $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
         $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['1', '1', '5'], 'col1');
 
@@ -487,9 +483,7 @@ class ImportTableFromFileTest extends BaseCase
             ],
             iterator_to_array($response->getImportedColumns())
         );
-        $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // 0 (id=10 was overwritten by fullload) from destination and 3 rows from source
-        $this->assertSame(3, $ref->getRowsCount());
         $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['15', '18', '60']);
 
         // cleanup
@@ -586,11 +580,8 @@ class ImportTableFromFileTest extends BaseCase
             $cmd,
             []
         );
-        $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // 1 row from destination (10) + 1 row from destination updated (15) + 1 row from first slice (18)
         // + 1 row from second slice (60)
-        $this->assertSame(4, $ref->getRowsCount());
-
         $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['10', '15', '18', '60']);
 
         // cleanup
@@ -687,10 +678,7 @@ class ImportTableFromFileTest extends BaseCase
             $cmd,
             []
         );
-        $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // 1 row from destination + 1 row from destination updated + 1 row from first slice, 1 row from the second one
-        $this->assertSame(4, $ref->getRowsCount());
-
         $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['10', '15', '18', '60']);
         // cleanup
         $qb = new TeradataTableQueryBuilder();

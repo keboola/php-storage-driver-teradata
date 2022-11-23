@@ -322,7 +322,7 @@ class ImportTableFromTableTest extends BaseCase
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
                 TeradataQuote::quoteSingleIdentifier($sourceTableName),
-                implode(',', array_map(fn($ix) => TeradataQuote::quote($ix), $i))
+                implode(',', $i)
             ));
         }
 
@@ -350,13 +350,13 @@ class ImportTableFromTableTest extends BaseCase
             $tableDestDef->getPrimaryKeysNames(),
         );
         $db->executeStatement($sql);
-        $timestamp = DateTimeHelper::getNowFormatted();
+        $timestamp = TeradataQuote::quote(DateTimeHelper::getNowFormatted());
         foreach ([['1', '1', $timestamp], ['2', '2', $timestamp], ['3', '3', $timestamp]] as $i) {
             $db->executeStatement(sprintf(
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
                 TeradataQuote::quoteSingleIdentifier($destinationTableName),
-                implode(',', array_map(fn($ix) => TeradataQuote::quote($ix), $i))
+                implode(',', $i),
             ));
         }
 
