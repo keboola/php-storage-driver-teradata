@@ -21,13 +21,17 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
 {
     // TODO move somewhere else
-    public const OPERATOR_VALUE = [
+    public const OPERATOR_SINGLE_VALUE = [
         TableWhereFilter\Operator::eq => '=',
-        TableWhereFilter\Operator::ne => '!=',
+        TableWhereFilter\Operator::ne => '<>',
         TableWhereFilter\Operator::gt => '>',
         TableWhereFilter\Operator::ge => '>=',
         TableWhereFilter\Operator::lt => '<',
         TableWhereFilter\Operator::le => '<=',
+    ];
+    public const OPERATOR_MULTI_VALUE = [
+        TableWhereFilter\Operator::eq => 'IN',
+        TableWhereFilter\Operator::ne => 'NOT IN',
     ];
 
     private Connection $connection;
@@ -197,7 +201,7 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
                 sprintf(
                     '%s %s %s',
                     $columnSql,
-                    self::OPERATOR_VALUE[$filter->getOperator()],
+                    self::OPERATOR_SINGLE_VALUE[$filter->getOperator()],
                     $query->createNamedParameter($value)
                 ),
                 sprintf(
@@ -213,7 +217,7 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
             sprintf(
                 '%s %s %s',
                 $columnSql,
-                self::OPERATOR_VALUE[$filter->getOperator()],
+                self::OPERATOR_SINGLE_VALUE[$filter->getOperator()],
                 $query->createNamedParameter($value)
             )
         );
@@ -241,7 +245,7 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
                 sprintf(
                     '%s %s (%s)',
                     $columnSql,
-                    self::OPERATOR_VALUE[$filter->getOperator()],
+                    self::OPERATOR_MULTI_VALUE[$filter->getOperator()],
                     implode(',', $quotedValues)
                 ),
                 sprintf(
@@ -259,7 +263,7 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
                 sprintf(
                     '%s %s (%s)',
                     $columnSql,
-                    self::OPERATOR_VALUE[$filter->getOperator()],
+                    self::OPERATOR_MULTI_VALUE[$filter->getOperator()],
                     implode(',', $quotedValues)
                 ),
                 sprintf(
@@ -274,7 +278,7 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
             sprintf(
                 '%s %s (%s)',
                 $columnSql,
-                self::OPERATOR_VALUE[$filter->getOperator()],
+                self::OPERATOR_MULTI_VALUE[$filter->getOperator()],
                 implode(',', $quotedValues)
             )
         );
