@@ -1,72 +1,81 @@
 <?php
 
-declare(strict_types=1);
-
-namespace Keboola\Package\StorageBackend\ImportExport\QueryBuilder;
+namespace Keboola\StorageDriver\Teradata;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Query\QueryException;
-use Keboola\Db\ImportExport\Storage\Exasol\SelectSource;
+use Google\Protobuf\Internal\RepeatedField;
+use Keboola\Db\ImportExport\Storage\Teradata\SelectSource;
 use Keboola\Db\ImportExport\Storage\SqlSourceInterface;
-use Keboola\Package\Bridge\StorageBackend\ImportExport\QueryBuilder\MetadataColumns;
-use Keboola\Package\StorageBackend\ColumnConverter\ExasolColumnConverter;
-use Keboola\Package\StorageBackend\ImportExport\ExportWhereFilter;
-use Keboola\TableBackendUtils\Escaping\Exasol\ExasolQuote;
-use Storage_Service_BucketBackend_TableExportOptions as TableExportOptions;
+use Keboola\StorageDriver\Command\Info\TableInfo;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
+use Keboola\StorageDriver\Shared\Driver\TableFilterQueryBuilderException;
+use Keboola\StorageDriver\Shared\Driver\TableFilterQueryBuilderInterface;
+use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\TableBackendUtils\Column\Teradata\TeradataColumnConverter;
+use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
-/**
- * There is a issue with Doctrine with binding string arrays
- * Prepare will throw array string conversion errors as doctrine will pass it as `[["PRG","VAN"]]`
- * to overcome this array values are passed and escaped manually this could possibly lead to SQL injection
- */
-final class ExasolExportQueryBuilder implements ExportQueryBuilderInterface
+class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
 {
-    private MetadataColumns $metadataColumns;
+    // TODO move somewhere else
+    public const OPERATOR_VALUE = [
+        TableWhereFilter\Operator::eq => '=',
+        TableWhereFilter\Operator::ne => '!=',
+        TableWhereFilter\Operator::gt => '>',
+        TableWhereFilter\Operator::ge => '>=',
+        TableWhereFilter\Operator::lt => '<',
+        TableWhereFilter\Operator::le => '<=',
+    ];
 
     private Connection $connection;
-
-    private ExasolColumnConverter $columnConverter;
+    private TableInfo $tableInfo;
+    private TeradataColumnConverter $columnConverter;
 
     public function __construct(
         Connection $connection,
-        MetadataColumns $metadataColumns,
-        ExasolColumnConverter $columnConverter
+        TableInfo $tableInfo,
+        TeradataColumnConverter $columnConverter
     ) {
-        $this->metadataColumns = $metadataColumns;
         $this->connection = $connection;
+        $this->tableInfo = $tableInfo;
         $this->columnConverter = $columnConverter;
     }
 
     /**
-     * @return SelectSource
+     * @inheritDoc
      */
-    public function buildQueryFromOptions(
-        TableExportOptions $options,
-        string $schemaName,
-        int $bucketId
+    public function buildQueryFromCommnand(
+        PreviewTableCommand $options,
+        string $schemaName
     ): SqlSourceInterface {
         $this->assertFilterCombination($options);
+
         $query = new QueryBuilder($this->connection);
+
         $this->processChangedConditions($options, $query);
+
         try {
-            if ($options->getFulltextSearchKey() !== null) {
+            if ($options->getFulltextSearch() !== '') {
                 $this->buildFulltextFilters(
                     $query,
-                    $options->getFulltextSearchKey(),
-                    $this->metadataColumns->getColumnNamesForTableInBucket($bucketId, $options->getTableName())
+                    $options->getFulltextSearch(),
+                    ProtobufHelper::repeatedStringToArray($this->tableInfo->getColumns()),
                 );
             } else {
-                $this->processWhereFilters($options, $query);
+                $this->processWhereFilters($options->getWhereFilters(), $query);
             }
-            $this->processOrderStatement($options, $query);
+
+            $this->processOrderStatement($options->getOrderBy(), $query);
         } catch (QueryException $e) {
-            throw new ExportQueryBuilderException(
+            throw new TablefilterQueryBuilderException(
                 $e->getMessage(),
-                ExportQueryBuilderException::STRING_CODE_TABLE_VALIDATION,
                 $e
             );
         }
+
         $this->processSelectStatement($options, $query);
         $this->processLimitStatement($options, $query);
         $this->processFromStatement($options, $query, $schemaName);
@@ -80,30 +89,37 @@ final class ExasolExportQueryBuilder implements ExportQueryBuilderInterface
             $sql,
             $query->getParameters(),
             $types,
-            $options->getColumns()
+            ProtobufHelper::repeatedStringToArray($options->getColumns()),
         );
     }
 
-    private function assertFilterCombination(TableExportOptions $options): void
+    private function assertFilterCombination(PreviewTableCommand $options): void
     {
-        if ($options->getFulltextSearchKey() && count($options->getWhereFilters())) {
-            throw new ExportQueryBuilderException(
+        if ($options->getFulltextSearch() !== '' && $options->getWhereFilters()->count()) {
+            throw new TableFilterQueryBuilderException(
                 'Cannot use fulltextSearch and whereFilters at the same time',
-                ExportQueryBuilderException::STRING_CODE_TABLE_VALIDATION
             );
         }
     }
 
-    private function processChangedConditions(TableExportOptions $options, QueryBuilder $query): void
+    private function processChangedConditions(PreviewTableCommand $options, QueryBuilder $query): void
     {
-        if ($options->getChangedSince() !== null) {
+        if ($options->getChangeSince() !== '') {
             $query->andWhere('"_timestamp" >= :changedSince');
-            $query->setParameter('changedSince', (new \DateTime('@' . $options->getChangedSince(), new \DateTimeZone('UTC')))->format('Y-m-d H:i:s'));
+            $query->setParameter(
+                'changedSince',
+                (new \DateTime('@' . $options->getChangeSince(), new \DateTimeZone('UTC')))
+                    ->format('Y-m-d H:i:s')
+            );
         }
 
-        if ($options->getChangedUntil() !== null) {
+        if ($options->getChangeUntil() !== '') {
             $query->andWhere('"_timestamp" < :changedUntil');
-            $query->setParameter('changedUntil', (new \DateTime('@' . $options->getChangedUntil(), new \DateTimeZone('UTC')))->format('Y-m-d H:i:s'));
+            $query->setParameter(
+                'changedUntil',
+                (new \DateTime('@' . $options->getChangeUntil(), new \DateTimeZone('UTC')))
+                    ->format('Y-m-d H:i:s')
+            );
         }
     }
 
@@ -116,14 +132,22 @@ final class ExasolExportQueryBuilder implements ExportQueryBuilderInterface
         array $columns
     ): void {
         foreach ($columns as $column) {
-            $query->orWhere($query->expr()->like(ExasolQuote::quoteSingleIdentifier($column), $query->expr()->literal("%{$fulltextSearchKey}%")));
+            $query->orWhere(
+                $query->expr()->like(
+                    TeradataQuote::quoteSingleIdentifier($column),
+                    $query->expr()->literal("%{$fulltextSearchKey}%")
+                )
+            );
         }
     }
 
-    private function processWhereFilters(TableExportOptions $options, QueryBuilder $query): void
+    /**
+     * @param RepeatedField|TableWhereFilter[] $filters
+     */
+    private function processWhereFilters(RepeatedField $filters, QueryBuilder $query): void
     {
-        foreach ($options->getWhereFilters() as $whereFilter) {
-            $values = $whereFilter->getValues();
+        foreach ($filters as $whereFilter) {
+            $values = ProtobufHelper::repeatedStringToArray($whereFilter->getValues());
             if (count($values) === 1) {
                 $this->processSimpleValue($whereFilter, reset($values), $query);
             } else {
@@ -132,18 +156,17 @@ final class ExasolExportQueryBuilder implements ExportQueryBuilderInterface
         }
     }
 
-    private function processSimpleValue(ExportWhereFilter $filter, string $value, QueryBuilder $query): void
+    private function processSimpleValue(TableWhereFilter $filter, string $value, QueryBuilder $query): void
     {
         if ($value === '') {
             $isAllowedOperator = in_array($filter->getOperator(), [
-                ExportWhereFilter::OPERATOR_EQ,
-                ExportWhereFilter::OPERATOR_NE,
+                TableWhereFilter\Operator::eq,
+                TableWhereFilter\Operator::ne,
             ], true);
 
             if (!$isAllowedOperator) {
-                throw new ExportQueryBuilderException(
-                    'Exasol where filter on empty strings can be used only with "ne, eq" operators.',
-                    ExportQueryBuilderException::STRING_CODE_TABLE_VALIDATION
+                throw new TableFilterQueryBuilderException(
+                    'Teradata where filter on empty strings can be used only with "ne, eq" operators.',
                 );
             }
 
@@ -151,34 +174,35 @@ final class ExasolExportQueryBuilder implements ExportQueryBuilderInterface
             $query->andWhere(
                 sprintf(
                     '%s %s',
-                    ExasolQuote::quoteSingleIdentifier($filter->getColumn()),
-                    $filter->getOperator() === ExportWhereFilter::OPERATOR_EQ ? 'IS NULL' : 'IS NOT NULL'
+                    TeradataQuote::quoteSingleIdentifier($filter->getColumnsName()),
+                    $filter->getOperator() === TableWhereFilter\Operator::eq ? 'IS NULL' : 'IS NOT NULL'
                 )
             );
             return;
         }
 
-        if ($filter->getDataType() !== null) {
-            $columnSql = $this->columnConverter->convertColumnByDataType(
-                $filter->getColumn(),
-                $filter->getDataType()
-            );
-        } else {
-            $columnSql = ExasolQuote::quoteSingleIdentifier($filter->getColumn());
-        }
+        // TODO filter.dataType - cannot be null, is always set
+        //if ($filter->getDataType() !== null) {
+        //    $columnSql = $this->columnConverter->convertColumnByDataType(
+        //        $filter->getColumnsName(),
+        //        $filter->getDataType()
+        //    );
+        //} else {
+            $columnSql = TeradataQuote::quoteSingleIdentifier($filter->getColumnsName());
+        //}
 
-        if ($filter->getOperator() === ExportWhereFilter::OPERATOR_NE) {
+        if ($filter->getOperator() === TableWhereFilter\Operator::ne) {
             // if not equals add IS NULL condition
             $query->andWhere($query->expr()->or(
                 sprintf(
                     '%s %s %s',
                     $columnSql,
-                    ExportWhereFilter::OPERATOR_MAP_SINGLE_VALUE[$filter->getOperator()],
+                    self::OPERATOR_VALUE[$filter->getOperator()],
                     $query->createNamedParameter($value)
                 ),
                 sprintf(
                     '%s IS NULL',
-                    ExasolQuote::quoteSingleIdentifier($filter->getColumn())
+                    TeradataQuote::quoteSingleIdentifier($filter->getColumnsName())
                 )
             ));
             return;
@@ -189,7 +213,7 @@ final class ExasolExportQueryBuilder implements ExportQueryBuilderInterface
             sprintf(
                 '%s %s %s',
                 $columnSql,
-                ExportWhereFilter::OPERATOR_MAP_SINGLE_VALUE[$filter->getOperator()],
+                self::OPERATOR_VALUE[$filter->getOperator()],
                 $query->createNamedParameter($value)
             )
         );
@@ -198,94 +222,101 @@ final class ExasolExportQueryBuilder implements ExportQueryBuilderInterface
     /**
      * @param array<mixed> $values
      */
-    private function processMultipleValue(ExportWhereFilter $filter, array $values, QueryBuilder $query): void
+    private function processMultipleValue(TableWhereFilter $filter, array $values, QueryBuilder $query): void
     {
-        if ($filter->getDataType() !== null) {
-            $columnSql = $this->columnConverter->convertColumnByDataType(
-                $filter->getColumn(),
-                $filter->getDataType()
-            );
-        } else {
-            $columnSql = ExasolQuote::quoteSingleIdentifier($filter->getColumn());
-        }
+        // TODO filter.dataType - cannot be null, is always set
+        //if ($filter->getDataType() !== null) {
+        //    $columnSql = $this->columnConverter->convertColumnByDataType(
+        //        $filter->getColumnsName(),
+        //        $filter->getDataType()
+        //    );
+        //} else {
+            $columnSql = TeradataQuote::quoteSingleIdentifier($filter->getColumnsName());
+        //}
 
-        $quotedValues = array_map(static fn(string $value) => ExasolQuote::quote($value), $values);
+        $quotedValues = array_map(static fn(string $value) => TeradataQuote::quote($value), $values);
         if (in_array('', $values, true)) {
             // if empty string is in data we need to compare null
             $query->andWhere($query->expr()->or(
                 sprintf(
                     '%s %s (%s)',
                     $columnSql,
-                    ExportWhereFilter::OPERATOR_MAP_MULTI_VALUE[$filter->getOperator()],
+                    self::OPERATOR_VALUE[$filter->getOperator()],
                     implode(',', $quotedValues)
                 ),
                 sprintf(
                     '%s %s',
-                    ExasolQuote::quoteSingleIdentifier($filter->getColumn()),
-                    $filter->getOperator() === ExportWhereFilter::OPERATOR_EQ ? 'IS NULL' : 'IS NOT NULL'
+                    TeradataQuote::quoteSingleIdentifier($filter->getColumnsName()),
+                    $filter->getOperator() === TableWhereFilter\Operator::eq ? 'IS NULL' : 'IS NOT NULL'
                 )
             ));
             return;
         }
 
-        if ($filter->getOperator() === ExportWhereFilter::OPERATOR_NE) {
+        if ($filter->getOperator() === TableWhereFilter\Operator::ne) {
             // on not equals we also need to check if value is null
             $query->andWhere($query->expr()->or(
                 sprintf(
                     '%s %s (%s)',
                     $columnSql,
-                    ExportWhereFilter::OPERATOR_MAP_MULTI_VALUE[$filter->getOperator()],
+                    self::OPERATOR_VALUE[$filter->getOperator()],
                     implode(',', $quotedValues)
                 ),
                 sprintf(
                     '%s IS NULL',
-                    ExasolQuote::quoteSingleIdentifier($filter->getColumn())
+                    TeradataQuote::quoteSingleIdentifier($filter->getColumn())
                 )
             ));
             return;
         }
-        $quotedValues = array_map(static fn(string $value) => ExasolQuote::quote($value), $values);
+        $quotedValues = array_map(static fn(string $value) => TeradataQuote::quote($value), $values);
         $query->andWhere(
             sprintf(
                 '%s %s (%s)',
                 $columnSql,
-                ExportWhereFilter::OPERATOR_MAP_MULTI_VALUE[$filter->getOperator()],
+                self::OPERATOR_VALUE[$filter->getOperator()],
                 implode(',', $quotedValues)
             )
         );
     }
 
-    private function processOrderStatement(TableExportOptions $options, QueryBuilder $query): void
+    private function processOrderStatement(?PreviewTableOrderBy $sort, QueryBuilder $query): void
     {
-        foreach ($options->getOrderByStatements() as $sort) {
-            if ($sort->getDataType() !== null) {
-                $query->addOrderBy(
-                    $this->columnConverter->convertColumnByDataType($sort->getColumn(), $sort->getDataType()),
-                    $sort->getOrder()
-                );
-            } else {
-                $query->addOrderBy(ExasolQuote::quoteSingleIdentifier($sort->getColumn()), $sort->getOrder());
-            }
+        if ($sort === null) {
+            return;
         }
+
+        // TODO orderBy.dataType - cannot be null, is always set
+        /*if ($sort->getDataType() !== null) {
+            $query->addOrderBy(
+                $this->columnConverter->convertColumnByDataType($sort->getColumnName(), $sort->getDataType()),
+                $sort->getOrder()
+            );
+            return;
+        }*/
+        $query->addOrderBy(
+            TeradataQuote::quoteSingleIdentifier($sort->getColumnName()),
+            PreviewTableOrderBy\Order::name($sort->getOrder())
+        );
     }
 
-    private function processSelectStatement(TableExportOptions $options, QueryBuilder $query): void
+    private function processSelectStatement(PreviewTableCommand $options, QueryBuilder $query): void
     {
         foreach ($options->getColumns() as $column) {
-            $selectColumnExpresion = ExasolQuote::quoteSingleIdentifier($column);
+            $selectColumnExpresion = TeradataQuote::quoteSingleIdentifier($column);
 
-            if ($options->shouldTruncateLargeColumns()) {
-                $this->processSelectWithLargeColumnTruncation($query, $selectColumnExpresion, $options, $column);
-            } else {
-                $query->addSelect($selectColumnExpresion);
-            }
+            // TODO truncate - preview does not contains export format
+            //if ($options->shouldTruncateLargeColumns()) {
+            //    $this->processSelectWithLargeColumnTruncation($query, $selectColumnExpresion, $column);
+            //    return;
+            //}
+            $query->addSelect($selectColumnExpresion);
         }
     }
 
     private function processSelectWithLargeColumnTruncation(
         QueryBuilder $query,
         string $selectColumnExpresion,
-        TableExportOptions $options,
         string $column
     ): void {
         //casted value
@@ -293,35 +324,35 @@ final class ExasolExportQueryBuilder implements ExportQueryBuilderInterface
             sprintf(
                 'CAST(SUBSTRING(%s, 0, %d) as VARCHAR(%d)) AS %s',
                 $selectColumnExpresion,
-                $options->getCastSize(),
-                $options->getCastSize(),
-                ExasolQuote::quoteSingleIdentifier($column)
+                self::DEFAULT_CAST_SIZE,
+                self::DEFAULT_CAST_SIZE,
+                TeradataQuote::quoteSingleIdentifier($column)
             )
         );
         //flag if is casted
         $query->addSelect(
             sprintf(
                 '(IF LENGTH(%s) > %s THEN 1 ELSE 0 ENDIF) AS %s',
-                ExasolQuote::quoteSingleIdentifier($column),
-                $options->getCastSize(),
-                ExasolQuote::quoteSingleIdentifier(uniqid($column))
+                TeradataQuote::quoteSingleIdentifier($column),
+                self::DEFAULT_CAST_SIZE,
+                TeradataQuote::quoteSingleIdentifier(uniqid($column))
             )
         );
     }
 
-    private function processLimitStatement(TableExportOptions $options, QueryBuilder $query): void
+    private function processLimitStatement(PreviewTableCommand $options, QueryBuilder $query): void
     {
-        if ($options->getLimit() !== null) {
-            $query->setMaxResults((int) $options->getLimit());
+        if ($options->getLimit() !== 0) {
+            $query->setMaxResults($options->getLimit());
         }
     }
 
-    private function processFromStatement(TableExportOptions $options, QueryBuilder $query, string $schemaName): void
+    private function processFromStatement(PreviewTableCommand $options, QueryBuilder $query, string $schemaName): void
     {
         $query->from(sprintf(
             '%s.%s',
-            ExasolQuote::quoteSingleIdentifier($schemaName),
-            ExasolQuote::quoteSingleIdentifier($options->getTableName())
+            TeradataQuote::quoteSingleIdentifier($schemaName),
+            TeradataQuote::quoteSingleIdentifier($options->getTableName())
         ));
     }
 }
