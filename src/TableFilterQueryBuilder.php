@@ -9,6 +9,7 @@ use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Db\ImportExport\Storage\Teradata\SelectSource;
 use Keboola\Db\ImportExport\Storage\SqlSourceInterface;
 use Keboola\StorageDriver\Command\Info\TableInfo;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
@@ -191,15 +192,14 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
             return;
         }
 
-        // TODO filter.dataType - cannot be null, is always set
-        //if ($filter->getDataType() !== null) {
-        //    $columnSql = $this->columnConverter->convertColumnByDataType(
-        //        $filter->getColumnsName(),
-        //        $filter->getDataType()
-        //    );
-        //} else {
+        if ($filter->getDataType() !== DataType::STRING) {
+            $columnSql = $this->columnConverter->convertColumnByDataType(
+                $filter->getColumnsName(),
+                $filter->getDataType()
+            );
+        } else {
             $columnSql = TeradataQuote::quoteSingleIdentifier($filter->getColumnsName());
-        //}
+        }
 
         if ($filter->getOperator() === TableWhereFilter\Operator::ne) {
             // if not equals add IS NULL condition
@@ -234,15 +234,14 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
      */
     private function processMultipleValue(TableWhereFilter $filter, array $values, QueryBuilder $query): void
     {
-        // TODO filter.dataType - cannot be null, is always set
-        //if ($filter->getDataType() !== null) {
-        //    $columnSql = $this->columnConverter->convertColumnByDataType(
-        //        $filter->getColumnsName(),
-        //        $filter->getDataType()
-        //    );
-        //} else {
+        if ($filter->getDataType() !== DataType::STRING) {
+            $columnSql = $this->columnConverter->convertColumnByDataType(
+                $filter->getColumnsName(),
+                $filter->getDataType()
+            );
+        } else {
             $columnSql = TeradataQuote::quoteSingleIdentifier($filter->getColumnsName());
-        //}
+        }
 
         $quotedValues = array_map(static fn(string $value) => TeradataQuote::quote($value), $values);
         if (in_array('', $values, true)) {
@@ -296,14 +295,13 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
             return;
         }
 
-        // TODO orderBy.dataType - cannot be null, is always set
-        /*if ($sort->getDataType() !== null) {
+        if ($sort->getDataType() !== DataType::STRING) {
             $query->addOrderBy(
                 $this->columnConverter->convertColumnByDataType($sort->getColumnName(), $sort->getDataType()),
-                $sort->getOrder()
+                PreviewTableOrderBy\Order::name($sort->getOrder())
             );
             return;
-        }*/
+        }
         $query->addOrderBy(
             TeradataQuote::quoteSingleIdentifier($sort->getColumnName()),
             PreviewTableOrderBy\Order::name($sort->getOrder())
