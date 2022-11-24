@@ -63,10 +63,14 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
 
         try {
             if ($options->getFulltextSearch() !== '') {
+                $tableInfoColumns = array_map(
+                    static fn(TableInfo\TableColumn $column) => $column->getName(),
+                    iterator_to_array($this->tableInfo->getColumns())
+                );
                 $this->buildFulltextFilters(
                     $query,
                     $options->getFulltextSearch(),
-                    ProtobufHelper::repeatedStringToArray($this->tableInfo->getColumns()),
+                    $tableInfoColumns,
                 );
             } else {
                 $this->processWhereFilters($options->getWhereFilters(), $query);
@@ -135,11 +139,13 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
         string $fulltextSearchKey,
         array $columns
     ): void {
+        $platform = $this->connection->getDatabasePlatform();
+        assert($platform !== null);
         foreach ($columns as $column) {
             $query->orWhere(
                 $query->expr()->like(
                     TeradataQuote::quoteSingleIdentifier($column),
-                    $query->expr()->literal("%{$fulltextSearchKey}%")
+                    $platform->quoteStringLiteral("%{$fulltextSearchKey}%")
                 )
             );
         }
@@ -268,7 +274,7 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
                 ),
                 sprintf(
                     '%s IS NULL',
-                    TeradataQuote::quoteSingleIdentifier($filter->getColumn())
+                    TeradataQuote::quoteSingleIdentifier($filter->getColumnsName())
                 )
             ));
             return;
