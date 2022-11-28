@@ -10,6 +10,10 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\NullValue;
 use Google\Protobuf\Value;
 use Keboola\Datatype\Definition\Teradata;
+use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
+use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
+use Keboola\StorageDriver\Command\Info\ObjectType;
+use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
@@ -17,8 +21,9 @@ use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
+use Keboola\StorageDriver\Teradata\TableFilterQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
-use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 class PreviewTableHandler implements DriverCommandHandlerInterface
 {
@@ -26,6 +31,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
     //   (ale je tam zaroven podminka, ze exportni format musi byt JSON)
     public const STRING_MAX_LENGTH = 50;
 
+    public const DEFAULT_LIMIT = 10;
     public const MAX_LIMIT = 1000;
 
     public const ALLOWED_DATA_TYPES = [
@@ -35,10 +41,14 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
     ];
 
     private TeradataSessionManager $manager;
+    private TableFilterQueryBuilderFactory $queryBuilderFactory;
 
-    public function __construct(TeradataSessionManager $manager)
-    {
+    public function __construct(
+        TeradataSessionManager $manager,
+        TableFilterQueryBuilderFactory $queryBuilderFactory
+    ) {
         $this->manager = $manager;
+        $this->queryBuilderFactory = $queryBuilderFactory;
     }
 
     /**
@@ -64,44 +74,30 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             /** @var string $databaseName */
             $databaseName = $command->getPath()[0];
 
-            // build sql
+            // validate
             $columns = ProtobufHelper::repeatedStringToArray($command->getColumns());
             assert($columns === array_unique($columns), 'PreviewTableCommand.columns has non unique names');
-            $columnsSql = implode(', ', array_map([TeradataQuote::class, 'quoteSingleIdentifier'], $columns));
-
-            $limitSql = sprintf(
-                'TOP %d',
-                ($command->getLimit() > 0 && $command->getLimit() < self::MAX_LIMIT)
-                    ? $command->getLimit()
-                    : self::MAX_LIMIT
-            );
-
-            // TODO changeSince, changeUntil
-            // TODO fulltextSearch
-            // TODO whereFilters
-            // TODO truncated: rewrite to SQL
-            $selectTableSql = sprintf(
-                "SELECT %s %s\nFROM %s.%s",
-                $limitSql,
-                $columnsSql,
-                TeradataQuote::quoteSingleIdentifier($databaseName),
-                TeradataQuote::quoteSingleIdentifier($command->getTableName())
-            );
-
+            // TODO add default limit 10 -> overit cislo
+            // TODO change max limit to 100 -> overit cislo
+            if ($command->getLimit() > 0 && $command->getLimit() < self::MAX_LIMIT) {
+                $command->setLimit(self::MAX_LIMIT);
+            }
             if ($command->hasOrderBy() && $command->getOrderBy()) {
                 /** @var PreviewTableCommand\PreviewTableOrderBy $orderBy */
                 $orderBy = $command->getOrderBy();
                 assert($orderBy->getColumnName() !== '', 'PreviewTableCommand.orderBy.columnName is required');
-                $quotedColumnName = TeradataQuote::quoteSingleIdentifier($orderBy->getColumnName());
-                $selectTableSql .= sprintf(
-                    "\nORDER BY %s %s",
-                    $this->applyDataType($quotedColumnName, $orderBy->getDataType()),
-                    $orderBy->getOrder() === PreviewTableCommand\PreviewTableOrderBy\Order::DESC ? 'DESC' : 'ASC'
-                );
             }
 
+            // build sql
+            $tableInfo = $this->getTableInfoResponseIfNeeded($credentials, $command, $databaseName);
+            $queryBuilder = $this->queryBuilderFactory->create($db, $tableInfo);
+            $selectSource = $queryBuilder->buildQueryFromCommnand($command, $databaseName);
             // select table
-            $result = $db->executeQuery($selectTableSql);
+            $result = $db->executeQuery(
+                $selectSource->getQuery(),
+                $selectSource->getQueryBindings(),
+                $selectSource->getDataTypes(),
+            );
 
             // set response
             $response = new PreviewTableResponse();
@@ -174,5 +170,32 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             $columnName,
             self::ALLOWED_DATA_TYPES[$dataType]
         );
+    }
+
+    /**
+     * fulltext search need table info data
+     */
+    private function getTableInfoResponseIfNeeded(
+        GenericBackendCredentials $credentials,
+        PreviewTableCommand $command,
+        string $databaseName
+    ): ?TableInfo {
+        if ($command->getFulltextSearch() !== '') {
+            $objectInfoHandler = (new ObjectInfoHandler($this->manager));
+            $tableInfoCommand = (new ObjectInfoCommand())
+                ->setExpectedObjectType(ObjectType::TABLE)
+                ->setPath(ProtobufHelper::arrayToRepeatedString([
+                    $databaseName,
+                    $command->getTableName()
+                ]));
+            /** @var ObjectInfoResponse $response */
+            $response = $objectInfoHandler($credentials, $tableInfoCommand, []);
+
+            assert($response instanceof ObjectInfoResponse);
+            assert($response->getObjectType() === ObjectType::TABLE);
+
+            return $response->getTableInfo();
+        }
+        return null;
     }
 }

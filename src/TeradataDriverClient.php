@@ -66,7 +66,8 @@ class TeradataDriverClient implements ClientInterface
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         $manager = new TeradataSessionManager();
-        $handler = $this->getHandler($command, $manager);
+        $queryBuilderFactory = new TableFilterQueryBuilderFactory();
+        $handler = $this->getHandler($command, $manager, $queryBuilderFactory);
         try {
             $response = $handler(
                 $credentials,
@@ -80,8 +81,11 @@ class TeradataDriverClient implements ClientInterface
         return $response;
     }
 
-    private function getHandler(Message $command, TeradataSessionManager $manager): DriverCommandHandlerInterface
-    {
+    private function getHandler(
+        Message $command,
+        TeradataSessionManager $manager,
+        ?TableFilterQueryBuilderFactory $queryBuilderFactory = null
+    ): DriverCommandHandlerInterface {
         switch (true) {
             case $command instanceof InitBackendCommand:
                 return new InitBackendHandler($manager);
@@ -112,7 +116,7 @@ class TeradataDriverClient implements ClientInterface
             case $command instanceof TableImportFromFileCommand:
                 return new ImportTableFromFileHandler($manager);
             case $command instanceof PreviewTableCommand:
-                return new PreviewTableHandler($manager);
+                return new PreviewTableHandler($manager, $queryBuilderFactory);
             case $command instanceof TableExportToFileCommand:
                 return new ExportTableToFileHandler($manager);
             case $command instanceof CreateWorkspaceCommand:

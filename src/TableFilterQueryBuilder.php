@@ -18,6 +18,7 @@ use Keboola\StorageDriver\Shared\Driver\TableFilterQueryBuilderInterface;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumnConverter;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
+use LogicException;
 
 class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
 {
@@ -36,12 +37,12 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
     ];
 
     private Connection $connection;
-    private TableInfo $tableInfo;
+    private ?TableInfo $tableInfo;
     private TeradataColumnConverter $columnConverter;
 
     public function __construct(
         Connection $connection,
-        TableInfo $tableInfo,
+        ?TableInfo $tableInfo,
         TeradataColumnConverter $columnConverter
     ) {
         $this->connection = $connection;
@@ -51,6 +52,7 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
 
     /**
      * @inheritDoc
+     * @return SelectSource
      */
     public function buildQueryFromCommnand(
         PreviewTableCommand $options,
@@ -64,6 +66,9 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
 
         try {
             if ($options->getFulltextSearch() !== '') {
+                if ($this->tableInfo === null) {
+                    throw new LogicException('tableInfo variable has to be set to use fulltextSearch');
+                }
                 $tableInfoColumns = array_map(
                     static fn(TableInfo\TableColumn $column) => $column->getName(),
                     iterator_to_array($this->tableInfo->getColumns())

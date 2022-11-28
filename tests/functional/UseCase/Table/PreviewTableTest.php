@@ -23,6 +23,7 @@ use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
+use Keboola\StorageDriver\Teradata\TableFilterQueryBuilderFactory;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
@@ -31,6 +32,8 @@ class PreviewTableTest extends BaseCase
     protected GenericBackendCredentials $projectCredentials;
 
     protected CreateBucketResponse $bucketResponse;
+
+    private TableFilterQueryBuilderFactory $tableFilterQueryBuilderFactory;
 
     protected function setUp(): void
     {
@@ -42,6 +45,8 @@ class PreviewTableTest extends BaseCase
 
         [$bucketResponse, $connection] = $this->createTestBucket($projectCredentials, $projectResponse);
         $this->bucketResponse = $bucketResponse;
+
+        $this->tableFilterQueryBuilderFactory = new TableFilterQueryBuilderFactory();
     }
 
     protected function tearDown(): void
@@ -533,7 +538,7 @@ class PreviewTableTest extends BaseCase
      */
     private function previewTable(string $databaseName, string $tableName, array $commandInput): PreviewTableResponse
     {
-        $handler = new PreviewTableHandler($this->sessionManager);
+        $handler = new PreviewTableHandler($this->sessionManager, $this->tableFilterQueryBuilderFactory);
 
         $command = new PreviewTableCommand();
 
