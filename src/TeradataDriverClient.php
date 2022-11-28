@@ -53,6 +53,7 @@ use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandl
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\DropObject\DropWorkspaceObjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\ResetPassword\ResetWorkspacePasswordHandler;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
 
 class TeradataDriverClient implements ClientInterface
 {

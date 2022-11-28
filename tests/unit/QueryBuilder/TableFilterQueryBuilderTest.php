@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\StorageDriver\UnitTests;
+namespace Keboola\StorageDriver\UnitTests\QueryBuilder;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
@@ -13,10 +13,10 @@ use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
-use Keboola\StorageDriver\Shared\Driver\TableFilterQueryBuilderException;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
-use Keboola\StorageDriver\Teradata\TableFilterQueryBuilder;
-use Keboola\TableBackendUtils\Column\Teradata\TeradataColumnConverter;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilder;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderException;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TeradataColumnConverter;
 use Keboola\TableBackendUtils\Connection\Teradata\TeradataPlatform;
 use PHPUnit\Framework\TestCase;
 

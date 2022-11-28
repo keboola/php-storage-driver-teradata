@@ -22,7 +22,7 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
-use Keboola\StorageDriver\Teradata\TableFilterQueryBuilderFactory;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 
 class PreviewTableHandler implements DriverCommandHandlerInterface

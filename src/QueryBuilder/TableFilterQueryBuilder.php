@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\StorageDriver\Teradata;
+namespace Keboola\StorageDriver\Teradata\QueryBuilder;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
@@ -13,14 +13,11 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
-use Keboola\StorageDriver\Shared\Driver\TableFilterQueryBuilderException;
-use Keboola\StorageDriver\Shared\Driver\TableFilterQueryBuilderInterface;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
-use Keboola\TableBackendUtils\Column\Teradata\TeradataColumnConverter;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use LogicException;
 
-class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
+class TableFilterQueryBuilder
 {
     // TODO move somewhere else
     public const OPERATOR_SINGLE_VALUE = [
@@ -54,6 +51,7 @@ class TableFilterQueryBuilder implements TableFilterQueryBuilderInterface
      * @inheritDoc
      * @return SelectSource
      */
+    // TODO fix name
     public function buildQueryFromCommnand(
         PreviewTableCommand $options,
         string $schemaName

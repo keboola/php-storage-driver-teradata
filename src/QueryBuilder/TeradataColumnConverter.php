@@ -6,11 +6,9 @@ namespace Keboola\StorageDriver\Teradata\QueryBuilder;
 
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
-use Keboola\StorageDriver\Shared\Driver\TableFilterQueryBuilderException;
-use Keboola\TableBackendUtils\Column\ColumnConverterInterface;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
-class TeradataColumnConverter implements ColumnConverterInterface
+class TeradataColumnConverter
 {
     // TODO more types?
     public const DATA_TYPES_OPTIONS = [

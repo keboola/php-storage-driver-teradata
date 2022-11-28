@@ -1,10 +1,9 @@
 <?php
 
-namespace Keboola\StorageDriver\Teradata;
+namespace Keboola\StorageDriver\Teradata\QueryBuilder;
 
 use Doctrine\DBAL\Connection;
 use Keboola\StorageDriver\Command\Info\TableInfo;
-use Keboola\TableBackendUtils\Column\Teradata\TeradataColumnConverter;
 
 class TableFilterQueryBuilderFactory
 {

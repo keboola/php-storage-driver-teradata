@@ -23,7 +23,7 @@ use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
-use Keboola\StorageDriver\Teradata\TableFilterQueryBuilderFactory;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
