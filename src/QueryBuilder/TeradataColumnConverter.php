@@ -10,10 +10,9 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 class TeradataColumnConverter
 {
-    // TODO more types?
     public const DATA_TYPES_OPTIONS = [
         DataType::INTEGER,
-        DataType::DECIMAL,
+        DataType::REAL,
     ];
 
     public const DATA_TYPES_MAP = [
@@ -25,13 +24,16 @@ class TeradataColumnConverter
         DataType::DECIMAL => Teradata::TYPE_DECIMAL,
     ];
 
+    /**
+     * Only cast STRING type to a given NUMERIC type
+     */
     public function convertColumnByDataType(string $column, int $dataType): string
     {
         if (!in_array($dataType, self::DATA_TYPES_OPTIONS, true)) {
             throw new TableFilterQueryBuilderException(
                 sprintf(
                     'Data type %s not recognized. Possible datatypes are [%s]',
-                    $dataType,
+                    self::DATA_TYPES_MAP[$dataType],
                     implode('|', array_map(
                         static fn (int $type) => self::DATA_TYPES_MAP[$type],
                         self::DATA_TYPES_OPTIONS,
@@ -46,7 +48,7 @@ class TeradataColumnConverter
             );
         }
         return sprintf(
-            'CAST(TO_NUMBER(%s) AS DECIMAL)',
+            'CAST(TO_NUMBER(%s) AS REAL)',
             TeradataQuote::quoteSingleIdentifier($column),
         );
     }

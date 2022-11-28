@@ -98,6 +98,11 @@ class PreviewTableTest extends BaseCase
                     'length' => '200',
                     'nullable' => true,
                 ],
+                'decimal_varchar' => [
+                    'type' => Teradata::TYPE_VARCHAR,
+                    'length' => '200',
+                    'nullable' => true,
+                ],
             ],
             'primaryKeysNames' => ['id'],
         ];
@@ -106,14 +111,14 @@ class PreviewTableTest extends BaseCase
         // FILL DATA
         $insertGroups = [
             [
-                'columns' => '"id", "int", "decimal", "float", "date", "time", "varchar"',
+                'columns' => '"id", "int", "decimal", "float", "date", "time", "varchar", "decimal_varchar"',
                 'rows' => [
-                    "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', 'Variable character 1'",
+                    "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', 'Variable character 1', '100.10'",
                     sprintf(
-                        "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '%s'",
+                        "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '%s', '100.20'",
                         str_repeat('VeryLongString123456', 5)
                     ),
-                    '3, NULL, NULL, NULL, NULL, NULL, NULL',
+                    '3, NULL, NULL, NULL, NULL, NULL, NULL, NULL',
                 ],
             ],
         ];
@@ -269,8 +274,8 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id'],
-                'orderBy' => ['date' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
-                'orderByDataType' => DataType::INTEGER,
+                'orderBy' => ['decimal_varchar' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderByDataType' => DataType::REAL,
             ],
             'expectedColumns' => ['id'],
             'expectedRows' => [
@@ -439,10 +444,10 @@ class PreviewTableTest extends BaseCase
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
-            $this->assertStringContainsString(sprintf(
-                'Data type %s not recognized. Possible datatypes are',
-                DataType::DECIMAL
-            ), $e->getMessage());
+            $this->assertStringContainsString(
+                'Data type DECIMAL not recognized. Possible datatypes are',
+                $e->getMessage()
+            );
         }
     }
 

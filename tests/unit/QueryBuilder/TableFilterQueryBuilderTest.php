@@ -239,19 +239,19 @@ class TableFilterQueryBuilderTest extends TestCase
                         'columnsName' => 'height',
                         'operator' => TableWhereFilter\Operator::ne,
                         'values' => ['10.20'],
-                        'dataType' => DataType::DECIMAL,
+                        'dataType' => DataType::REAL,
                     ]),
                 ],
                 'orderBy' => new PreviewTableCommand\PreviewTableOrderBy([
                     'columnName' => 'id',
                     'order' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC,
-                    'dataType' => DataType::DECIMAL,
+                    'dataType' => DataType::REAL,
                 ]),
             ]),
             <<<SQL
             SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
-             WHERE (CAST(TO_NUMBER("height") AS DECIMAL) <> :dcValue1) OR ("height" IS NULL)
-             ORDER BY CAST(TO_NUMBER("id") AS DECIMAL) ASC
+             WHERE (CAST(TO_NUMBER("height") AS REAL) <> :dcValue1) OR ("height" IS NULL)
+             ORDER BY CAST(TO_NUMBER("id") AS REAL) ASC
             SQL,
             [
                 'dcValue1' => '10.20',
@@ -286,7 +286,7 @@ class TableFilterQueryBuilderTest extends TestCase
                         'columnsName' => 'height',
                         'operator' => TableWhereFilter\Operator::ne,
                         'values' => ['10.20'],
-                        'dataType' => DataType::DECIMAL,
+                        'dataType' => DataType::REAL,
                     ]),
                 ],
                 'orderBy' => null,
@@ -295,7 +295,7 @@ class TableFilterQueryBuilderTest extends TestCase
             SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
              WHERE ("id" IN ('foo','bar'))
              AND ((CAST(TO_NUMBER("id") AS INTEGER) NOT IN ('50','60')) OR ("id" IS NULL))
-             AND ((CAST(TO_NUMBER("height") AS DECIMAL) <> :dcValue1) OR ("height" IS NULL))
+             AND ((CAST(TO_NUMBER("height") AS REAL) <> :dcValue1) OR ("height" IS NULL))
             SQL,
             [
                 'dcValue1' => '10.20',
@@ -384,13 +384,13 @@ class TableFilterQueryBuilderTest extends TestCase
                         'columnsName' => 'name',
                         'operator' => TableWhereFilter\Operator::ne,
                         'values' => ['foo'],
-                        'dataType' => DataType::REAL,
+                        'dataType' => DataType::BIGINT,
                     ]),
                 ],
                 'orderBy' => null,
             ]),
             TableFilterQueryBuilderException::class,
-            'Data type 4 not recognized. Possible datatypes are [INTEGER|DECIMAL]',
+            'Data type BIGINT not recognized. Possible datatypes are [INTEGER|REAL]',
         ];
         yield 'fulltext + filter' => [
             new PreviewTableCommand([
