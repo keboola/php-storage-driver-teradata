@@ -204,8 +204,9 @@ class PreviewTableTest extends BaseCase
                         'truncated' => false,
                     ],
                     'varchar' => [
-                        'value' => ['string_value' => 'VeryLongString123456VeryLongString123456VeryLongSt'],
-                        'truncated' => true,
+                        // phpcs:ignore
+                        'value' => ['string_value' => 'VeryLongString123456VeryLongString123456VeryLongString123456VeryLongString123456VeryLongString123456'],
+                        'truncated' => false,
                     ],
                 ],
                 [
