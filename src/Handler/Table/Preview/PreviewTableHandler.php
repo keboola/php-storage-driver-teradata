@@ -149,31 +149,6 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
         return $response;
     }
 
-    private function applyDataType(string $columnName, int $dataType): string
-    {
-        if ($dataType === DataType::STRING) {
-            return $columnName;
-        }
-        if (!array_key_exists($dataType, self::ALLOWED_DATA_TYPES)) {
-            $allowedTypesList = [];
-            foreach (self::ALLOWED_DATA_TYPES as $typeId => $typeName) {
-                $allowedTypesList[] = sprintf('%s for %s', $typeId, $typeName);
-            }
-            throw new Exception(
-                sprintf(
-                    'Data type %s not recognized. Possible datatypes are [%s]',
-                    $dataType,
-                    implode('|', $allowedTypesList)
-                )
-            );
-        }
-        return sprintf(
-            'CAST(%s AS %s)',
-            $columnName,
-            self::ALLOWED_DATA_TYPES[$dataType]
-        );
-    }
-
     /**
      * fulltext search need table info data
      */
