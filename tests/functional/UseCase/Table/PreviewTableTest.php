@@ -117,8 +117,10 @@ class PreviewTableTest extends BaseCase
         // FILL DATA
         $insertGroups = [
             [
+                // phpcs:ignore
                 'columns' => '"id", "int", "decimal", "float", "date", "time", "_timestamp", "varchar", "decimal_varchar"',
                 'rows' => [
+                    // phpcs:ignore
                     "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', '2022-01-01 12:00:01', 'Variable character 1', '100.10'",
                     sprintf(
                         "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '2022-01-02 12:00:02', '%s', '100.20'",
@@ -715,7 +717,16 @@ class PreviewTableTest extends BaseCase
 
     /**
      * @phpcs:ignore
-     * @param array{columns: array<string>, orderBy?: array<string, int>, orderByDataType?: int, limit?: int} $commandInput
+     * @param array{
+     *     columns: array<string>,
+     *     changedSince?: string,
+     *     changedUntil?: string,
+     *     fulltextSearch?: string,
+     *     whereFilters?: TableWhereFilter[],
+     *     orderBy?: array<string, int>,
+     *     orderByDataType?: int,
+     *     limit?: int
+     * } $commandInput
      */
     private function previewTable(string $databaseName, string $tableName, array $commandInput): PreviewTableResponse
     {
@@ -752,7 +763,11 @@ class PreviewTableTest extends BaseCase
         }
 
         if (isset($commandInput['whereFilters'])) {
-            $command->setWhereFilters($commandInput['whereFilters']);
+            $whereFilters = new RepeatedField(GPBType::MESSAGE, TableWhereFilter::class);
+            foreach ($commandInput['whereFilters'] as $whereFilter) {
+                $whereFilters[] = $whereFilter;
+            }
+            $command->setWhereFilters($whereFilters);
         }
 
         if (isset($commandInput['orderBy'])) {
