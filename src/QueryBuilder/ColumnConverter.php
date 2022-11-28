@@ -8,7 +8,7 @@ use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
-class TeradataColumnConverter
+class ColumnConverter
 {
     public const DATA_TYPES_OPTIONS = [
         DataType::INTEGER,

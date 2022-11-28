@@ -8,8 +8,6 @@ use Doctrine\DBAL\Query\QueryException;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\BaseType;
 use Keboola\Datatype\Definition\Teradata;
-use Keboola\Db\ImportExport\Storage\Teradata\SelectSource;
-use Keboola\Db\ImportExport\Storage\SqlSourceInterface;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
@@ -38,12 +36,12 @@ class TableFilterQueryBuilder
 
     private Connection $connection;
     private ?TableInfo $tableInfo;
-    private TeradataColumnConverter $columnConverter;
+    private ColumnConverter $columnConverter;
 
     public function __construct(
         Connection $connection,
         ?TableInfo $tableInfo,
-        TeradataColumnConverter $columnConverter
+        ColumnConverter $columnConverter
     ) {
         $this->connection = $connection;
         $this->tableInfo = $tableInfo;

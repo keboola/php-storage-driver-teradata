@@ -15,9 +15,9 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilder;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderException;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TeradataColumnConverter;
 use Keboola\TableBackendUtils\Connection\Teradata\TeradataPlatform;
 use PHPUnit\Framework\TestCase;
 
@@ -40,7 +40,7 @@ class TableFilterQueryBuilderTest extends TestCase
         $connection->method('getDatabasePlatform')
             ->willReturn(new TeradataPlatform());
 
-        $columnConverter = new TeradataColumnConverter();
+        $columnConverter = new ColumnConverter();
 
         // define table info
         $tableInfoColumns = new RepeatedField(GPBType::MESSAGE, TableInfo\TableColumn::class);
@@ -319,7 +319,7 @@ class TableFilterQueryBuilderTest extends TestCase
         $connection->method('getDatabasePlatform')
             ->willReturn(new TeradataPlatform());
 
-        $columnConverter = new TeradataColumnConverter();
+        $columnConverter = new ColumnConverter();
 
         // define table info
         $tableInfoColumns = new RepeatedField(GPBType::MESSAGE, TableInfo\TableColumn::class);

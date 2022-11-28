@@ -16,7 +16,7 @@ class TableFilterQueryBuilderFactory
         return new TableFilterQueryBuilder(
             $connection,
             $tableInfo,
-            new TeradataColumnConverter(),
+            new ColumnConverter(),
         );
     }
 }

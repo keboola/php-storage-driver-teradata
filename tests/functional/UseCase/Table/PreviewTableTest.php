@@ -788,10 +788,6 @@ class PreviewTableTest extends BaseCase
             $command->setLimit($commandInput['limit']);
         }
 
-        // TODO changeSince, changeUntil
-        // TODO fulltextSearch
-        // TODO whereFilters
-
         $response = $handler(
             $this->projectCredentials,
             $command,
