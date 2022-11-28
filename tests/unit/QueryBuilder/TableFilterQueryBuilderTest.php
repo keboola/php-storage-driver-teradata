@@ -10,7 +10,6 @@ use Doctrine\DBAL\Query\Expression\ExpressionBuilder;
 use Generator;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
-use Keboola\Db\ImportExport\Storage\Teradata\SelectSource;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
@@ -83,20 +82,19 @@ class TableFilterQueryBuilderTest extends TestCase
         $qb = new TableFilterQueryBuilder($connection, $tableInfo, $columnConverter);
 
         // build query
-        /** @var SelectSource $source */
-        $source = $qb->buildQueryFromCommand($previewCommand, 'some_schema');
+        $queryData = $qb->buildQueryFromCommand($previewCommand, 'some_schema');
 
         $this->assertSame(
             str_replace(PHP_EOL, '', $expectedSql),
-            $source->getQuery(),
+            $queryData->getQuery(),
         );
         $this->assertSame(
             $expectedBindings,
-            $source->getQueryBindings(),
+            $queryData->getBindings(),
         );
         $this->assertSame(
             $expectedDataTypes,
-            $source->getDataTypes(),
+            $queryData->getTypes(),
         );
     }
 

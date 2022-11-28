@@ -92,12 +92,13 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             // build sql
             $tableInfo = $this->getTableInfoResponseIfNeeded($credentials, $command, $databaseName);
             $queryBuilder = $this->queryBuilderFactory->create($db, $tableInfo);
-            $selectSource = $queryBuilder->buildQueryFromCommand($command, $databaseName);
+            $queryData = $queryBuilder->buildQueryFromCommand($command, $databaseName);
+
             // select table
             $result = $db->executeQuery(
-                $selectSource->getQuery(),
-                $selectSource->getQueryBindings(),
-                $selectSource->getDataTypes(),
+                $queryData->getQuery(),
+                $queryData->getBindings(),
+                $queryData->getTypes(),
             );
 
             // set response

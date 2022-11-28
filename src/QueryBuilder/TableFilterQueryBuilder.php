@@ -50,13 +50,10 @@ class TableFilterQueryBuilder
         $this->columnConverter = $columnConverter;
     }
 
-    /**
-     * @return SelectSource
-     */
     public function buildQueryFromCommand(
         PreviewTableCommand $options,
         string $schemaName
-    ): SqlSourceInterface {
+    ): TableFilterQueryBuilderResponse {
         $this->assertFilterCombination($options);
 
         $query = new QueryBuilder($this->connection);
@@ -104,7 +101,7 @@ class TableFilterQueryBuilder
         /** @var string[] $types */
         $types = $query->getParameterTypes();
 
-        return new SelectSource(
+        return new TableFilterQueryBuilderResponse(
             $sql,
             $query->getParameters(),
             $types,
