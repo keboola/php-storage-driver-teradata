@@ -28,8 +28,6 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
-use LogicException;
-use Throwable;
 
 class ImportTableFromFileTest extends BaseCase
 {
@@ -55,20 +53,7 @@ class ImportTableFromFileTest extends BaseCase
         $this->cleanTestProject();
     }
 
-    /**
-     * @return Generator<string,array{int}>
-     */
-    public function importAdapterProvider(): Generator
-    {
-        yield 'TPT' => [
-            TableImportFromFileCommand\TeradataTableImportMeta\ImportAdapter::TPT,
-        ];
-    }
-
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableIncrementalLoad(int $importAdapter): void
+    public function testImportTableFromTableIncrementalLoad(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -127,24 +112,16 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        try {
-            $handler(
-                $this->projectCredentials,
-                $cmd,
-                []
-            );
-            $this->fail('Should fail incremental import is not implemented');
-            //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-            // 2 not unique rows from destination + 1 unique row from source
-            // + 1 row which is dedup of two duplicates in source and one from destination
-            //$this->assertSame(4, $ref->getRowsCount());
-            // @todo test updated values
-        } catch (LogicException $e) {
-            $this->assertSame('Not implemented', $e->getMessage());
-        }
+        $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+        // 2 not unique rows from destination + 1 unique row from source
+        // + 1 row which is dedup of two duplicates in source and one from destination
+        $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['1', '2', '3', '5'], 'col1');
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -189,20 +166,7 @@ class ImportTableFromFileTest extends BaseCase
         return $tableDestDef;
     }
 
-    private function getCmdMeta(int $adapter): Any
-    {
-        $meta = new Any();
-        $meta->pack(
-            (new TableImportFromFileCommand\TeradataTableImportMeta())
-                ->setImportAdapter($adapter)
-        );
-        return $meta;
-    }
-
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableFullLoadWithDeduplication(int $importAdapter): void
+    public function testImportTableFromTableFullLoadWithDeduplication(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -261,23 +225,29 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
 
-        try {
-            $handler = new ImportTableFromFileHandler($this->sessionManager);
-            $handler(
-                $this->projectCredentials,
-                $cmd,
-                []
-            );
-            $this->fail('Should fail full load with deduplication is not implemented');
-            //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-            // nothing from destination and 3 rows from source dedup to two
-            //$this->assertSame(2, $ref->getRowsCount());
-            // @todo test updated values
-        } catch (LogicException $e) {
-            $this->assertSame('Deduplication is not implemented.', $e->getMessage());
-        }
+        $handler = new ImportTableFromFileHandler($this->sessionManager);
+        $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+        $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
+        // nothing from destination and 3 rows from source -> dedup to two
+        $this->assertSame(2, $ref->getRowsCount());
+
+        $data = $db->fetchAllAssociative(
+            sprintf(
+                'SELECT * FROM %s.%s ORDER BY %s',
+                TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+                TeradataQuote::quoteSingleIdentifier($destinationTableName),
+                TeradataQuote::quoteSingleIdentifier('col1')
+            )
+        );
+
+        // assert values but skip timestamp
+        $this->assertEqualsArrays(['col1' => '1', 'col2' => '2', 'col3' => '3'], array_slice($data[0], 0, 3));
+        $this->assertEqualsArrays(['col1' => '5', 'col2' => '2', 'col3' => '3'], array_slice($data[1], 0, 3));
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -285,10 +255,7 @@ class ImportTableFromFileTest extends BaseCase
         $db->close();
     }
 
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableFullLoadWithoutDeduplication(int $importAdapter): void
+    public function testImportTableFromTableFullLoadWithoutDeduplication(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -346,7 +313,6 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         /** @var TableImportResponse $response */
@@ -359,8 +325,8 @@ class ImportTableFromFileTest extends BaseCase
         $this->assertSame(['col1', 'col2', 'col3'], iterator_to_array($response->getImportedColumns()));
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // nothing from destination and 3 rows from source
-        $this->assertSame(3, $ref->getRowsCount());
         $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
+        $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['1', '1', '5'], 'col1');
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -392,27 +358,22 @@ class ImportTableFromFileTest extends BaseCase
     }
 
     /**
-     * @return Generator<string,array{int,int}>
+     * @return Generator<string,array{int}>
      */
     public function importCompressionProvider(): Generator
     {
-        foreach ($this->importAdapterProvider() as $name => $adapter) {
-            yield 'NO Compression ' . $name => [
-                $adapter[0],
+            yield 'NO Compression ' => [
                 TableImportFromFileCommand\CsvTypeOptions\Compression::NONE,
             ];
-            yield 'GZIP ' . $name => [
-                $adapter[0],
+            yield 'GZIP ' => [
                 TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP,
             ];
-        }
     }
 
     /**
      * @dataProvider importCompressionProvider
      */
     public function testImportTableFromTableFullLoadSlicedWithoutDeduplication(
-        int $importAdapter,
         int $compression
     ): void {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
@@ -434,11 +395,11 @@ class ImportTableFromFileTest extends BaseCase
         $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
-        $columns[] = 'import';
-        $columns[] = 'isImported';
         $columns[] = 'id';
         $columns[] = 'idTwitter';
         $columns[] = 'name';
+        $columns[] = 'import';
+        $columns[] = 'isImported';
         $columns[] = 'apiLimitExceededDatetime';
         $columns[] = 'analyzeSentiment';
         $columns[] = 'importKloutScore';
@@ -496,7 +457,6 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
         /** @var TableImportResponse $response */
@@ -508,11 +468,11 @@ class ImportTableFromFileTest extends BaseCase
         $this->assertSame(3, $response->getImportedRowsCount());
         $this->assertSame(
             [
-                'import',
-                'isImported',
                 'id',
                 'idTwitter',
                 'name',
+                'import',
+                'isImported',
                 'apiLimitExceededDatetime',
                 'analyzeSentiment',
                 'importKloutScore',
@@ -523,10 +483,8 @@ class ImportTableFromFileTest extends BaseCase
             ],
             iterator_to_array($response->getImportedColumns())
         );
-        $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-        // 0 from destination and 3 rows from source
-        $this->assertSame(3, $ref->getRowsCount());
-        $this->assertSame($ref->getRowsCount(), $response->getTableRowsCount());
+        // 0 (id=10 was overwritten by fullload) from destination and 3 rows from source
+        $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['15', '18', '60']);
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -534,10 +492,7 @@ class ImportTableFromFileTest extends BaseCase
         $db->close();
     }
 
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableIncrementalSlicedWithDeduplication(int $importAdapter): void
+    public function testImportTableFromTableIncrementalSlicedWithDeduplication(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -565,11 +520,11 @@ class ImportTableFromFileTest extends BaseCase
         $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
-        $columns[] = 'import';
-        $columns[] = 'isImported';
         $columns[] = 'id';
         $columns[] = 'idTwitter';
         $columns[] = 'name';
+        $columns[] = 'import';
+        $columns[] = 'isImported';
         $columns[] = 'apiLimitExceededDatetime';
         $columns[] = 'analyzeSentiment';
         $columns[] = 'importKloutScore';
@@ -608,6 +563,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setTableName($destinationTableName)
         );
         $dedupCols = new RepeatedField(GPBType::STRING);
+        $dedupCols[] = 'id';
         $cmd->setImportOptions(
             (new ImportOptions())
                 ->setImportType(ImportOptions\ImportType::INCREMENTAL)
@@ -617,22 +573,16 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        try {
-            $handler(
-                $this->projectCredentials,
-                $cmd,
-                []
-            );
-            $this->fail('Should fail incremental import not implemented.');
-            //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-            // 1 row from destination + 1 row from destination updated + 1 row from slices new
-            //$this->assertSame(3, $ref->getRowsCount());
-        } catch (Throwable $e) {
-            $this->assertSame('Not implemented', $e->getMessage());
-        }
+        $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+        // 1 row from destination (10) + 1 row from destination updated (15) + 1 row from first slice (18)
+        // + 1 row from second slice (60)
+        $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['10', '15', '18', '60']);
 
         // cleanup
         $qb = new TeradataTableQueryBuilder();
@@ -640,10 +590,7 @@ class ImportTableFromFileTest extends BaseCase
         $db->close();
     }
 
-    /**
-     * @dataProvider importAdapterProvider
-     */
-    public function testImportTableFromTableIncrementalSlicedCompressedWithDeduplication(int $importAdapter): void
+    public function testImportTableFromTableIncrementalSlicedCompressedWithDeduplication(): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -671,11 +618,11 @@ class ImportTableFromFileTest extends BaseCase
         $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
-        $columns[] = 'import';
-        $columns[] = 'isImported';
         $columns[] = 'id';
         $columns[] = 'idTwitter';
         $columns[] = 'name';
+        $columns[] = 'import';
+        $columns[] = 'isImported';
         $columns[] = 'apiLimitExceededDatetime';
         $columns[] = 'analyzeSentiment';
         $columns[] = 'importKloutScore';
@@ -714,6 +661,7 @@ class ImportTableFromFileTest extends BaseCase
                 ->setTableName($destinationTableName)
         );
         $dedupCols = new RepeatedField(GPBType::STRING);
+        $dedupCols[] = 'id';
         $cmd->setImportOptions(
             (new ImportOptions())
                 ->setImportType(ImportOptions\ImportType::INCREMENTAL)
@@ -723,26 +671,42 @@ class ImportTableFromFileTest extends BaseCase
                 ->setNumberOfIgnoredLines(0)
                 ->setTimestampColumn('_timestamp')
         );
-        $cmd->setMeta($this->getCmdMeta($importAdapter));
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        try {
-            $handler(
-                $this->projectCredentials,
-                $cmd,
-                []
-            );
-            $this->fail('Should fail incremental import not implemented.');
-            //$ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
-            // 1 row from destination + 1 row from destination updated + 1 row from slices new
-            //$this->assertSame(3, $ref->getRowsCount());
-        } catch (Throwable $e) {
-            $this->assertSame('Not implemented', $e->getMessage());
-        }
-
+        $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+        // 1 row from destination + 1 row from destination updated + 1 row from first slice, 1 row from the second one
+        $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['10', '15', '18', '60']);
         // cleanup
         $qb = new TeradataTableQueryBuilder();
         $qb->getDropTableCommand($bucketDatabaseName, $destinationTableName);
         $db->close();
+    }
+
+    /**
+     * @param string[] $expectedIds
+     */
+    protected function assertIDsInLoadedTable(
+        Connection $db,
+        string $dbName,
+        string $tableName,
+        array $expectedIds,
+        string $columnName = 'id'
+    ): void {
+        /** @var array{string[]} $data */
+        $data = $db->fetchAllAssociative(
+            sprintf(
+                'SELECT %s FROM %s.%s ORDER BY %s',
+                TeradataQuote::quoteSingleIdentifier($columnName),
+                TeradataQuote::quoteSingleIdentifier($dbName),
+                TeradataQuote::quoteSingleIdentifier($tableName),
+                TeradataQuote::quoteSingleIdentifier($columnName)
+            )
+        );
+
+        $this->assertEqualsArrays($expectedIds, array_map(fn($item) => trim($item[$columnName]), $data));
     }
 }
