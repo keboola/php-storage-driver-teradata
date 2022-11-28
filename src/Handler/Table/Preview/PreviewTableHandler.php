@@ -31,7 +31,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
     //   (ale je tam zaroven podminka, ze exportni format musi byt JSON)
     public const STRING_MAX_LENGTH = 50;
 
-    public const DEFAULT_LIMIT = 10;
+    public const DEFAULT_LIMIT = 100;
     public const MAX_LIMIT = 1000;
 
     public const ALLOWED_DATA_TYPES = [
@@ -77,9 +77,10 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             // validate
             $columns = ProtobufHelper::repeatedStringToArray($command->getColumns());
             assert($columns === array_unique($columns), 'PreviewTableCommand.columns has non unique names');
-            // TODO add default limit 10 -> overit cislo
-            // TODO change max limit to 100 -> overit cislo
-            if ($command->getLimit() > 0 && $command->getLimit() < self::MAX_LIMIT) {
+            if ($command->getLimit() === 0) {
+                $command->setLimit(self::DEFAULT_LIMIT);
+            }
+            if ($command->getLimit() > self::MAX_LIMIT) {
                 $command->setLimit(self::MAX_LIMIT);
             }
             if ($command->hasOrderBy() && $command->getOrderBy()) {
