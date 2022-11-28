@@ -6,6 +6,8 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Query\QueryException;
 use Google\Protobuf\Internal\RepeatedField;
+use Keboola\Datatype\Definition\BaseType;
+use Keboola\Datatype\Definition\Teradata;
 use Keboola\Db\ImportExport\Storage\Teradata\SelectSource;
 use Keboola\Db\ImportExport\Storage\SqlSourceInterface;
 use Keboola\StorageDriver\Command\Info\TableInfo;
@@ -70,7 +72,10 @@ class TableFilterQueryBuilder
                 $tableInfoColumns = [];
                 /** @var TableInfo\TableColumn $column */
                 foreach ($this->tableInfo->getColumns() as $column) {
-                    $tableInfoColumns[] = $column->getName();
+                    // search only in STRING types
+                    if ($this->getBasetype($column->getType()) === BaseType::STRING) {
+                        $tableInfoColumns[] = $column->getName();
+                    }
                 }
 
                 $this->buildFulltextFilters(
@@ -369,5 +374,10 @@ class TableFilterQueryBuilder
             TeradataQuote::quoteSingleIdentifier($schemaName),
             TeradataQuote::quoteSingleIdentifier($options->getTableName())
         ));
+    }
+
+    private function getBasetype(string $type): string
+    {
+        return (new Teradata($type))->getBasetype();
     }
 }

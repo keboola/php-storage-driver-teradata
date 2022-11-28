@@ -195,12 +195,12 @@ class TableFilterQueryBuilderTest extends TestCase
             ]),
             <<<SQL
             SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
-             WHERE ("id" LIKE '%foo%') OR ("name" LIKE '%foo%') OR ("height" LIKE '%foo%') OR ("birth_at" LIKE '%foo%')
+             WHERE "name" LIKE '%foo%'
             SQL,
             [],
             [],
         ];
-        yield 'changeSince+changeUntil' => [
+        yield 'changeSince + changeUntil' => [
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
