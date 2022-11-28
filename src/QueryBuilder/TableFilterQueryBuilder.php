@@ -19,7 +19,6 @@ use LogicException;
 
 class TableFilterQueryBuilder
 {
-    // TODO move somewhere else
     public const OPERATOR_SINGLE_VALUE = [
         TableWhereFilter\Operator::eq => '=',
         TableWhereFilter\Operator::ne => '<>',
@@ -32,6 +31,8 @@ class TableFilterQueryBuilder
         TableWhereFilter\Operator::eq => 'IN',
         TableWhereFilter\Operator::ne => 'NOT IN',
     ];
+
+    public const DEFAULT_CAST_SIZE = 16384;
 
     private Connection $connection;
     private ?TableInfo $tableInfo;
@@ -48,7 +49,6 @@ class TableFilterQueryBuilder
     }
 
     /**
-     * @inheritDoc
      * @return SelectSource
      */
     public function buildQueryFromCommand(
@@ -66,10 +66,13 @@ class TableFilterQueryBuilder
                 if ($this->tableInfo === null) {
                     throw new LogicException('tableInfo variable has to be set to use fulltextSearch');
                 }
-                $tableInfoColumns = array_map(
-                    static fn(TableInfo\TableColumn $column) => $column->getName(),
-                    iterator_to_array($this->tableInfo->getColumns())
-                );
+
+                $tableInfoColumns = [];
+                /** @var TableInfo\TableColumn $column */
+                foreach ($this->tableInfo->getColumns() as $column) {
+                    $tableInfoColumns[] = $column->getName();
+                }
+
                 $this->buildFulltextFilters(
                     $query,
                     $options->getFulltextSearch(),
@@ -81,7 +84,7 @@ class TableFilterQueryBuilder
 
             $this->processOrderStatement($options->getOrderBy(), $query);
         } catch (QueryException $e) {
-            throw new TablefilterQueryBuilderException(
+            throw new TableFilterQueryBuilderException(
                 $e->getMessage(),
                 $e
             );
@@ -232,7 +235,7 @@ class TableFilterQueryBuilder
     }
 
     /**
-     * @param array<mixed> $values
+     * @param string[] $values
      */
     private function processMultipleValue(TableWhereFilter $filter, array $values, QueryBuilder $query): void
     {
@@ -246,6 +249,7 @@ class TableFilterQueryBuilder
         }
 
         $quotedValues = array_map(static fn(string $value) => TeradataQuote::quote($value), $values);
+
         if (in_array('', $values, true)) {
             // if empty string is in data we need to compare null
             $query->andWhere($query->expr()->or(
@@ -280,7 +284,7 @@ class TableFilterQueryBuilder
             ));
             return;
         }
-        $quotedValues = array_map(static fn(string $value) => TeradataQuote::quote($value), $values);
+
         $query->andWhere(
             sprintf(
                 '%s %s (%s)',
@@ -312,6 +316,7 @@ class TableFilterQueryBuilder
 
     private function processSelectStatement(PreviewTableCommand $options, QueryBuilder $query): void
     {
+        /** @var string $column */
         foreach ($options->getColumns() as $column) {
             $selectColumnExpresion = TeradataQuote::quoteSingleIdentifier($column);
 

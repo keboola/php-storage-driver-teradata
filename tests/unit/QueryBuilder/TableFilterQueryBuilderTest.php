@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Keboola\StorageDriver\UnitTests\QueryBuilder;
 
 use Doctrine\DBAL\Connection;
@@ -32,8 +34,7 @@ class TableFilterQueryBuilderTest extends TestCase
         string $expectedSql,
         array $expectedBindings,
         array $expectedDataTypes
-    ): void
-    {
+    ): void {
         $connection = $this->createMock(Connection::class);
         $connection->method('getExpressionBuilder')
             ->willReturn(new ExpressionBuilder($this->createMock(Connection::class)));
@@ -367,7 +368,7 @@ class TableFilterQueryBuilderTest extends TestCase
         $qb->buildQueryFromCommand($previewCommand, 'some_schema');
     }
 
-    public function provideFailedData(): \Generator
+    public function provideFailedData(): Generator
     {
         yield 'unsupported dataType' => [
             new PreviewTableCommand([

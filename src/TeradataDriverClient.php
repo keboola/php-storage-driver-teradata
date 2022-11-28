@@ -117,6 +117,7 @@ class TeradataDriverClient implements ClientInterface
             case $command instanceof TableImportFromFileCommand:
                 return new ImportTableFromFileHandler($manager);
             case $command instanceof PreviewTableCommand:
+                assert($queryBuilderFactory instanceof TableFilterQueryBuilderFactory);
                 return new PreviewTableHandler($manager, $queryBuilderFactory);
             case $command instanceof TableExportToFileCommand:
                 return new ExportTableToFileHandler($manager);
