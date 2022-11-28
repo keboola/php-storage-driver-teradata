@@ -51,8 +51,7 @@ class TableFilterQueryBuilder
      * @inheritDoc
      * @return SelectSource
      */
-    // TODO fix name
-    public function buildQueryFromCommnand(
+    public function buildQueryFromCommand(
         PreviewTableCommand $options,
         string $schemaName
     ): SqlSourceInterface {

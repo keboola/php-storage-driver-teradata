@@ -83,7 +83,7 @@ class TableFilterQueryBuilderTest extends TestCase
 
         // build query
         /** @var SelectSource $source */
-        $source = $qb->buildQueryFromCommnand($previewCommand, 'some_schema');
+        $source = $qb->buildQueryFromCommand($previewCommand, 'some_schema');
 
         $this->assertSame(
             str_replace(PHP_EOL, '', $expectedSql),
@@ -364,7 +364,7 @@ class TableFilterQueryBuilderTest extends TestCase
         // build query
         $this->expectException($exceptionClass);
         $this->expectExceptionMessage($exceptionMessage);
-        $qb->buildQueryFromCommnand($previewCommand, 'some_schema');
+        $qb->buildQueryFromCommand($previewCommand, 'some_schema');
     }
 
     public function provideFailedData(): \Generator
