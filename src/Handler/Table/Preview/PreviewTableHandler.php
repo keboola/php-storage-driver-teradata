@@ -16,10 +16,10 @@ use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
@@ -84,7 +84,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             }
 
             if ($command->hasOrderBy() && $command->getOrderBy()) {
-                /** @var PreviewTableCommand\PreviewTableOrderBy $orderBy */
+                /** @var PreviewTableOrderBy $orderBy */
                 $orderBy = $command->getOrderBy();
                 assert($orderBy->getColumnName() !== '', 'PreviewTableCommand.orderBy.columnName is required');
             }

@@ -7,13 +7,17 @@ namespace Keboola\StorageDriver\UnitTests\QueryBuilder;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Query\Expression\ExpressionBuilder;
+use Exception;
 use Generator;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy\Order;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilder;
@@ -112,14 +116,14 @@ class TableFilterQueryBuilderTest extends TestCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'name',
-                        'operator' => TableWhereFilter\Operator::ne,
+                        'operator' => Operator::ne,
                         'values' => ['foo'],
                         'dataType' => DataType::STRING,
                     ]),
                 ],
-                'orderBy' => new PreviewTableCommand\PreviewTableOrderBy([
+                'orderBy' => new PreviewTableOrderBy([
                     'columnName' => 'name',
-                    'order' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC,
+                    'order' => Order::ASC,
                     'dataType' => DataType::STRING,
                 ]),
             ]),
@@ -147,20 +151,20 @@ class TableFilterQueryBuilderTest extends TestCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'name',
-                        'operator' => TableWhereFilter\Operator::ne,
+                        'operator' => Operator::ne,
                         'values' => ['foo'],
                         'dataType' => DataType::STRING,
                     ]),
                     new TableWhereFilter([
                         'columnsName' => 'height',
-                        'operator' => TableWhereFilter\Operator::ge,
+                        'operator' => Operator::ge,
                         'values' => ['1.23'],
                         'dataType' => DataType::STRING,
                     ]),
                 ],
-                'orderBy' => new PreviewTableCommand\PreviewTableOrderBy([
+                'orderBy' => new PreviewTableOrderBy([
                     'columnName' => 'id',
-                    'order' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC,
+                    'order' => Order::ASC,
                     'dataType' => DataType::STRING,
                 ]),
             ]),
@@ -235,14 +239,14 @@ class TableFilterQueryBuilderTest extends TestCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'height',
-                        'operator' => TableWhereFilter\Operator::ne,
+                        'operator' => Operator::ne,
                         'values' => ['10.20'],
                         'dataType' => DataType::REAL,
                     ]),
                 ],
-                'orderBy' => new PreviewTableCommand\PreviewTableOrderBy([
+                'orderBy' => new PreviewTableOrderBy([
                     'columnName' => 'id',
-                    'order' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC,
+                    'order' => Order::ASC,
                     'dataType' => DataType::REAL,
                 ]),
             ]),
@@ -270,19 +274,19 @@ class TableFilterQueryBuilderTest extends TestCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'id',
-                        'operator' => TableWhereFilter\Operator::eq,
+                        'operator' => Operator::eq,
                         'values' => ['foo', 'bar'],
                         'dataType' => DataType::STRING,
                     ]),
                     new TableWhereFilter([
                         'columnsName' => 'id',
-                        'operator' => TableWhereFilter\Operator::ne,
+                        'operator' => Operator::ne,
                         'values' => ['50', '60'],
                         'dataType' => DataType::INTEGER,
                     ]),
                     new TableWhereFilter([
                         'columnsName' => 'height',
-                        'operator' => TableWhereFilter\Operator::ne,
+                        'operator' => Operator::ne,
                         'values' => ['10.20'],
                         'dataType' => DataType::REAL,
                     ]),
@@ -306,7 +310,7 @@ class TableFilterQueryBuilderTest extends TestCase
 
     /**
      * @dataProvider provideFailedData
-     * @param class-string<\Exception> $exceptionClass
+     * @param class-string<Exception> $exceptionClass
      */
     public function testBuildQueryFromCommnandFailed(
         PreviewTableCommand $previewCommand,
@@ -380,7 +384,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'name',
-                        'operator' => TableWhereFilter\Operator::ne,
+                        'operator' => Operator::ne,
                         'values' => ['foo'],
                         'dataType' => DataType::BIGINT,
                     ]),
@@ -402,7 +406,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'name',
-                        'operator' => TableWhereFilter\Operator::eq,
+                        'operator' => Operator::eq,
                         'values' => ['foo'],
                         'dataType' => DataType::STRING,
                     ]),
@@ -424,7 +428,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'name',
-                        'operator' => TableWhereFilter\Operator::gt,
+                        'operator' => Operator::gt,
                         'values' => [''],
                         'dataType' => DataType::STRING,
                     ]),

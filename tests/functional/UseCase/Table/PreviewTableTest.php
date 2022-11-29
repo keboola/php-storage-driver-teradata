@@ -16,7 +16,10 @@ use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy\Order;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
@@ -136,7 +139,7 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar'],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['id' => Order::ASC],
             ],
             'expectedColumns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar'],
             'expectedRows' => [
@@ -252,7 +255,7 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'int'],
-                'orderBy' => ['int' => PreviewTableCommand\PreviewTableOrderBy\Order::DESC],
+                'orderBy' => ['int' => Order::DESC],
             ],
             'expectedColumns' => ['id', 'int'],
             'expectedRows' => [
@@ -295,7 +298,7 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id'],
-                'orderBy' => ['decimal_varchar' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['decimal_varchar' => Order::ASC],
                 'orderByDataType' => DataType::REAL,
             ],
             'expectedColumns' => ['id'],
@@ -327,7 +330,7 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'int'],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['id' => Order::ASC],
                 'limit' => 2,
             ],
             'expectedColumns' => ['id', 'int'],
@@ -411,11 +414,11 @@ class PreviewTableTest extends BaseCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'int',
-                        'operator' => TableWhereFilter\Operator::ge,
+                        'operator' => Operator::ge,
                         'values' => ['100'],
                     ]),
                 ],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['id' => Order::ASC],
             ],
             'expectedColumns' => ['id', 'int'],
             'expectedRows' => [
@@ -451,21 +454,21 @@ class PreviewTableTest extends BaseCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'int',
-                        'operator' => TableWhereFilter\Operator::gt,
+                        'operator' => Operator::gt,
                         'values' => ['100'],
                     ]),
                     new TableWhereFilter([
                         'columnsName' => 'int',
-                        'operator' => TableWhereFilter\Operator::lt,
+                        'operator' => Operator::lt,
                         'values' => ['210'],
                     ]),
                     new TableWhereFilter([
                         'columnsName' => 'int',
-                        'operator' => TableWhereFilter\Operator::eq,
+                        'operator' => Operator::eq,
                         'values' => ['99', '100', '199', '200'],
                     ]),
                 ],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['id' => Order::ASC],
             ],
             'expectedColumns' => ['id', 'int'],
             'expectedRows' => [
@@ -491,12 +494,12 @@ class PreviewTableTest extends BaseCase
                 'whereFilters' => [
                     new TableWhereFilter([
                         'columnsName' => 'decimal_varchar',
-                        'operator' => TableWhereFilter\Operator::eq,
+                        'operator' => Operator::eq,
                         'values' => ['100.2'],
                         'dataType' => DataType::REAL,
                     ]),
                 ],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['id' => Order::ASC],
             ],
             'expectedColumns' => ['id', 'decimal_varchar'],
             'expectedRows' => [
@@ -618,7 +621,7 @@ class PreviewTableTest extends BaseCase
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'orderBy' => ['' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['' => Order::ASC],
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
@@ -629,7 +632,7 @@ class PreviewTableTest extends BaseCase
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['id' => Order::ASC],
                 'orderByDataType' => DataType::DECIMAL,
             ]);
             $this->fail('This should never happen');
@@ -787,7 +790,7 @@ class PreviewTableTest extends BaseCase
             $inputOrderByKey = key($commandInput['orderBy']);
             /** @var int $inputOrderByValue */
             $inputOrderByValue = current($commandInput['orderBy']);
-            $orderBy = (new PreviewTableCommand\PreviewTableOrderBy())
+            $orderBy = (new PreviewTableOrderBy())
                 ->setColumnName($inputOrderByKey)
                 ->setOrder($inputOrderByValue);
             if (isset($commandInput['orderByDataType'])) {

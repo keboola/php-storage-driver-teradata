@@ -2,6 +2,8 @@
 
 namespace Keboola\StorageDriver\Teradata\QueryBuilder;
 
+use DateTime;
+use DateTimeZone;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Query\QueryException;
@@ -11,8 +13,10 @@ use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy\Order;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use LogicException;
@@ -20,16 +24,16 @@ use LogicException;
 class TableFilterQueryBuilder
 {
     public const OPERATOR_SINGLE_VALUE = [
-        TableWhereFilter\Operator::eq => '=',
-        TableWhereFilter\Operator::ne => '<>',
-        TableWhereFilter\Operator::gt => '>',
-        TableWhereFilter\Operator::ge => '>=',
-        TableWhereFilter\Operator::lt => '<',
-        TableWhereFilter\Operator::le => '<=',
+        Operator::eq => '=',
+        Operator::ne => '<>',
+        Operator::gt => '>',
+        Operator::ge => '>=',
+        Operator::lt => '<',
+        Operator::le => '<=',
     ];
     public const OPERATOR_MULTI_VALUE = [
-        TableWhereFilter\Operator::eq => 'IN',
-        TableWhereFilter\Operator::ne => 'NOT IN',
+        Operator::eq => 'IN',
+        Operator::ne => 'NOT IN',
     ];
 
     public const DEFAULT_CAST_SIZE = 16384;
@@ -122,7 +126,7 @@ class TableFilterQueryBuilder
             $query->andWhere('"_timestamp" >= :changedSince');
             $query->setParameter(
                 'changedSince',
-                (new \DateTime('@' . $options->getChangeSince(), new \DateTimeZone('UTC')))
+                (new DateTime('@' . $options->getChangeSince(), new DateTimeZone('UTC')))
                     ->format('Y-m-d H:i:s')
             );
         }
@@ -131,7 +135,7 @@ class TableFilterQueryBuilder
             $query->andWhere('"_timestamp" < :changedUntil');
             $query->setParameter(
                 'changedUntil',
-                (new \DateTime('@' . $options->getChangeUntil(), new \DateTimeZone('UTC')))
+                (new DateTime('@' . $options->getChangeUntil(), new DateTimeZone('UTC')))
                     ->format('Y-m-d H:i:s')
             );
         }
@@ -176,8 +180,8 @@ class TableFilterQueryBuilder
     {
         if ($value === '') {
             $isAllowedOperator = in_array($filter->getOperator(), [
-                TableWhereFilter\Operator::eq,
-                TableWhereFilter\Operator::ne,
+                Operator::eq,
+                Operator::ne,
             ], true);
 
             if (!$isAllowedOperator) {
@@ -191,7 +195,7 @@ class TableFilterQueryBuilder
                 sprintf(
                     '%s %s',
                     TeradataQuote::quoteSingleIdentifier($filter->getColumnsName()),
-                    $filter->getOperator() === TableWhereFilter\Operator::eq ? 'IS NULL' : 'IS NOT NULL'
+                    $filter->getOperator() === Operator::eq ? 'IS NULL' : 'IS NOT NULL'
                 )
             );
             return;
@@ -206,7 +210,7 @@ class TableFilterQueryBuilder
             $columnSql = TeradataQuote::quoteSingleIdentifier($filter->getColumnsName());
         }
 
-        if ($filter->getOperator() === TableWhereFilter\Operator::ne) {
+        if ($filter->getOperator() === Operator::ne) {
             // if not equals add IS NULL condition
             $query->andWhere($query->expr()->or(
                 sprintf(
@@ -262,13 +266,13 @@ class TableFilterQueryBuilder
                 sprintf(
                     '%s %s',
                     TeradataQuote::quoteSingleIdentifier($filter->getColumnsName()),
-                    $filter->getOperator() === TableWhereFilter\Operator::eq ? 'IS NULL' : 'IS NOT NULL'
+                    $filter->getOperator() === Operator::eq ? 'IS NULL' : 'IS NOT NULL'
                 )
             ));
             return;
         }
 
-        if ($filter->getOperator() === TableWhereFilter\Operator::ne) {
+        if ($filter->getOperator() === Operator::ne) {
             // on not equals we also need to check if value is null
             $query->andWhere($query->expr()->or(
                 sprintf(
@@ -304,13 +308,13 @@ class TableFilterQueryBuilder
         if ($sort->getDataType() !== DataType::STRING) {
             $query->addOrderBy(
                 $this->columnConverter->convertColumnByDataType($sort->getColumnName(), $sort->getDataType()),
-                PreviewTableOrderBy\Order::name($sort->getOrder())
+                Order::name($sort->getOrder())
             );
             return;
         }
         $query->addOrderBy(
             TeradataQuote::quoteSingleIdentifier($sort->getColumnName()),
-            PreviewTableOrderBy\Order::name($sort->getOrder())
+            Order::name($sort->getOrder())
         );
     }
 
@@ -344,7 +348,7 @@ class TableFilterQueryBuilder
                 TeradataQuote::quoteSingleIdentifier($column)
             )
         );
-        //flag if is casted
+        //flag if is cast
         $query->addSelect(
             sprintf(
                 '(IF LENGTH(%s) > %s THEN 1 ELSE 0 ENDIF) AS %s',
