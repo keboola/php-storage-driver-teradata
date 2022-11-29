@@ -83,6 +83,13 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                 $command->setLimit(self::DEFAULT_LIMIT);
             }
 
+            if ($command->getChangeSince() !== '') {
+                assert(is_numeric($command->getChangeSince()), 'PreviewTableCommand.changeSince must be numeric timestamp');
+            }
+            if ($command->getChangeUntil() !== '') {
+                assert(is_numeric($command->getChangeUntil()), 'PreviewTableCommand.changeUntil must be numeric timestamp');
+            }
+
             if ($command->hasOrderBy() && $command->getOrderBy()) {
                 /** @var PreviewTableOrderBy $orderBy */
                 $orderBy = $command->getOrderBy();

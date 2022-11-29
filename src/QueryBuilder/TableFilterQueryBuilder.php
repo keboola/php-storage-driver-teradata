@@ -126,8 +126,7 @@ class TableFilterQueryBuilder
             $query->andWhere('"_timestamp" >= :changedSince');
             $query->setParameter(
                 'changedSince',
-                (new DateTime('@' . $options->getChangeSince(), new DateTimeZone('UTC')))
-                    ->format('Y-m-d H:i:s')
+                $this->getTimestampFormatted($options->getChangeSince()),
             );
         }
 
@@ -135,10 +134,18 @@ class TableFilterQueryBuilder
             $query->andWhere('"_timestamp" < :changedUntil');
             $query->setParameter(
                 'changedUntil',
-                (new DateTime('@' . $options->getChangeUntil(), new DateTimeZone('UTC')))
-                    ->format('Y-m-d H:i:s')
+                $this->getTimestampFormatted($options->getChangeUntil()),
             );
         }
+    }
+
+    /**
+     * @param string $timestamp
+     */
+    private function getTimestampFormatted(string $timestamp): string
+    {
+        return (new DateTime('@' . $timestamp, new DateTimeZone('UTC')))
+            ->format('Y-m-d H:i:s');
     }
 
     /**

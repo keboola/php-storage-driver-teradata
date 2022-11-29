@@ -617,6 +617,28 @@ class PreviewTableTest extends BaseCase
             $this->assertStringContainsString('PreviewTableCommand.limit cannot be greater than 1000', $e->getMessage());
         }
 
+        // bad format of changeSince
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, [
+                'columns' => ['id', 'int'],
+                'changedSince' => '2022-11-01 12:00:00 UTC',
+            ]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('PreviewTableCommand.changeSince must be numeric timestamp', $e->getMessage());
+        }
+
+        // bad format of changeUntil
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, [
+                'columns' => ['id', 'int'],
+                'changedUntil' => '2022-11-01 12:00:00 UTC',
+            ]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('PreviewTableCommand.changeUntil must be numeric timestamp', $e->getMessage());
+        }
+
         // empty order by columnName
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
