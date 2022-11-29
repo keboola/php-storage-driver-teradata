@@ -77,12 +77,12 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             // validate
             $columns = ProtobufHelper::repeatedStringToArray($command->getColumns());
             assert($columns === array_unique($columns), 'PreviewTableCommand.columns has non unique names');
+
+            assert($command->getLimit() <= self::MAX_LIMIT, 'PreviewTableCommand.limit cannot be greater than 1000');
             if ($command->getLimit() === 0) {
                 $command->setLimit(self::DEFAULT_LIMIT);
             }
-            if ($command->getLimit() > self::MAX_LIMIT) {
-                $command->setLimit(self::MAX_LIMIT);
-            }
+
             if ($command->hasOrderBy() && $command->getOrderBy()) {
                 /** @var PreviewTableCommand\PreviewTableOrderBy $orderBy */
                 $orderBy = $command->getOrderBy();

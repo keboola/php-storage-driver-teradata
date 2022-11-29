@@ -603,6 +603,17 @@ class PreviewTableTest extends BaseCase
             $this->assertStringContainsString('PreviewTableCommand.columns has non unique names', $e->getMessage());
         }
 
+        // too high limit
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, [
+                'columns' => ['id', 'int'],
+                'limit' => 2000,
+            ]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('PreviewTableCommand.limit cannot be greater than 1000', $e->getMessage());
+        }
+
         // empty order by columnName
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
