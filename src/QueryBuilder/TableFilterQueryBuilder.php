@@ -270,7 +270,8 @@ class TableFilterQueryBuilder
         }
     }
 
-    private function processSelectWithLargeColumnTruncation(
+    // TODO truncate - preview does not contains export format
+    /*private function processSelectWithLargeColumnTruncation(
         QueryBuilder $query,
         string $selectColumnExpresion,
         string $column
@@ -294,7 +295,7 @@ class TableFilterQueryBuilder
                 TeradataQuote::quoteSingleIdentifier(uniqid($column))
             )
         );
-    }
+    }*/
 
     private function processLimitStatement(PreviewTableCommand $options, QueryBuilder $query): void
     {
