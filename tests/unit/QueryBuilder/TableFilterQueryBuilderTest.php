@@ -129,7 +129,7 @@ class TableFilterQueryBuilderTest extends TestCase
             ]),
             <<<SQL
             SELECT TOP 100 "id", "name" FROM "some_schema"."some_table"
-             WHERE ("name" <> :dcValue1) OR ("name" IS NULL)
+             WHERE "name" <> :dcValue1
              ORDER BY "name" ASC
             SQL,
             [
@@ -170,7 +170,7 @@ class TableFilterQueryBuilderTest extends TestCase
             ]),
             <<<SQL
             SELECT "id", "name" FROM "some_schema"."some_table"
-             WHERE (("name" <> :dcValue1) OR ("name" IS NULL))
+             WHERE ("name" <> :dcValue1)
              AND ("height" >= :dcValue2)
              ORDER BY "id" ASC
             SQL,
@@ -252,7 +252,7 @@ class TableFilterQueryBuilderTest extends TestCase
             ]),
             <<<SQL
             SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
-             WHERE (CAST(TO_NUMBER("height") AS REAL) <> :dcValue1) OR ("height" IS NULL)
+             WHERE CAST(TO_NUMBER("height") AS REAL) <> :dcValue1
              ORDER BY CAST(TO_NUMBER("id") AS REAL) ASC
             SQL,
             [
@@ -296,8 +296,8 @@ class TableFilterQueryBuilderTest extends TestCase
             <<<SQL
             SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
              WHERE ("id" IN ('foo','bar'))
-             AND ((CAST(TO_NUMBER("id") AS INTEGER) NOT IN ('50','60')) OR ("id" IS NULL))
-             AND ((CAST(TO_NUMBER("height") AS REAL) <> :dcValue1) OR ("height" IS NULL))
+             AND (CAST(TO_NUMBER("id") AS INTEGER) NOT IN ('50','60'))
+             AND (CAST(TO_NUMBER("height") AS REAL) <> :dcValue1)
             SQL,
             [
                 'dcValue1' => '10.20',
@@ -416,7 +416,7 @@ class TableFilterQueryBuilderTest extends TestCase
             TableFilterQueryBuilderException::class,
             'Cannot use fulltextSearch and whereFilters at the same time',
         ];
-        yield 'filter with empty string and GT operator' => [
+        yield 'filter with multiple values and GT operator' => [
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
@@ -429,14 +429,13 @@ class TableFilterQueryBuilderTest extends TestCase
                     new TableWhereFilter([
                         'columnsName' => 'name',
                         'operator' => Operator::gt,
-                        'values' => [''],
-                        'dataType' => DataType::STRING,
+                        'values' => ['foo', 'bar'],
                     ]),
                 ],
                 'orderBy' => null,
             ]),
             TableFilterQueryBuilderException::class,
-            'Teradata where filter on empty strings can be used only with "ne, eq" operators.',
+            'whereFilter with multiple values can be used only with "eq", "ne" operators',
         ];
     }
 }

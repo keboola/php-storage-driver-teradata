@@ -185,29 +185,6 @@ class TableFilterQueryBuilder
 
     private function processSimpleValue(TableWhereFilter $filter, string $value, QueryBuilder $query): void
     {
-        if ($value === '') {
-            $isAllowedOperator = in_array($filter->getOperator(), [
-                Operator::eq,
-                Operator::ne,
-            ], true);
-
-            if (!$isAllowedOperator) {
-                throw new TableFilterQueryBuilderException(
-                    'Teradata where filter on empty strings can be used only with "ne, eq" operators.',
-                );
-            }
-
-            // on empty strings compare null
-            $query->andWhere(
-                sprintf(
-                    '%s %s',
-                    TeradataQuote::quoteSingleIdentifier($filter->getColumnsName()),
-                    $filter->getOperator() === Operator::eq ? 'IS NULL' : 'IS NOT NULL'
-                )
-            );
-            return;
-        }
-
         if ($filter->getDataType() !== DataType::STRING) {
             $columnSql = $this->columnConverter->convertColumnByDataType(
                 $filter->getColumnsName(),
@@ -217,24 +194,6 @@ class TableFilterQueryBuilder
             $columnSql = TeradataQuote::quoteSingleIdentifier($filter->getColumnsName());
         }
 
-        if ($filter->getOperator() === Operator::ne) {
-            // if not equals add IS NULL condition
-            $query->andWhere($query->expr()->or(
-                sprintf(
-                    '%s %s %s',
-                    $columnSql,
-                    self::OPERATOR_SINGLE_VALUE[$filter->getOperator()],
-                    $query->createNamedParameter($value)
-                ),
-                sprintf(
-                    '%s IS NULL',
-                    TeradataQuote::quoteSingleIdentifier($filter->getColumnsName())
-                )
-            ));
-            return;
-        }
-
-        // otherwise add normal where
         $query->andWhere(
             sprintf(
                 '%s %s %s',
@@ -250,6 +209,12 @@ class TableFilterQueryBuilder
      */
     private function processMultipleValue(TableWhereFilter $filter, array $values, QueryBuilder $query): void
     {
+        if (!array_key_exists($filter->getOperator(), self::OPERATOR_MULTI_VALUE)) {
+            throw new TableFilterQueryBuilderException(
+                'whereFilter with multiple values can be used only with "eq", "ne" operators',
+            );
+        }
+
         if ($filter->getDataType() !== DataType::STRING) {
             $columnSql = $this->columnConverter->convertColumnByDataType(
                 $filter->getColumnsName(),
@@ -260,41 +225,6 @@ class TableFilterQueryBuilder
         }
 
         $quotedValues = array_map(static fn(string $value) => TeradataQuote::quote($value), $values);
-
-        if (in_array('', $values, true)) {
-            // if empty string is in data we need to compare null
-            $query->andWhere($query->expr()->or(
-                sprintf(
-                    '%s %s (%s)',
-                    $columnSql,
-                    self::OPERATOR_MULTI_VALUE[$filter->getOperator()],
-                    implode(',', $quotedValues)
-                ),
-                sprintf(
-                    '%s %s',
-                    TeradataQuote::quoteSingleIdentifier($filter->getColumnsName()),
-                    $filter->getOperator() === Operator::eq ? 'IS NULL' : 'IS NOT NULL'
-                )
-            ));
-            return;
-        }
-
-        if ($filter->getOperator() === Operator::ne) {
-            // on not equals we also need to check if value is null
-            $query->andWhere($query->expr()->or(
-                sprintf(
-                    '%s %s (%s)',
-                    $columnSql,
-                    self::OPERATOR_MULTI_VALUE[$filter->getOperator()],
-                    implode(',', $quotedValues)
-                ),
-                sprintf(
-                    '%s IS NULL',
-                    TeradataQuote::quoteSingleIdentifier($filter->getColumnsName())
-                )
-            ));
-            return;
-        }
 
         $query->andWhere(
             sprintf(
