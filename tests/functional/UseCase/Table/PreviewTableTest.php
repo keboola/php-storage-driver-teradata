@@ -614,7 +614,10 @@ class PreviewTableTest extends BaseCase
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
-            $this->assertStringContainsString('PreviewTableCommand.limit cannot be greater than 1000', $e->getMessage());
+            $this->assertStringContainsString(
+                'PreviewTableCommand.limit cannot be greater than 1000',
+                $e->getMessage()
+            );
         }
 
         // bad format of changeSince
@@ -625,7 +628,10 @@ class PreviewTableTest extends BaseCase
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
-            $this->assertStringContainsString('PreviewTableCommand.changeSince must be numeric timestamp', $e->getMessage());
+            $this->assertStringContainsString(
+                'PreviewTableCommand.changeSince must be numeric timestamp',
+                $e->getMessage()
+            );
         }
 
         // bad format of changeUntil
@@ -636,7 +642,10 @@ class PreviewTableTest extends BaseCase
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
-            $this->assertStringContainsString('PreviewTableCommand.changeUntil must be numeric timestamp', $e->getMessage());
+            $this->assertStringContainsString(
+                'PreviewTableCommand.changeUntil must be numeric timestamp',
+                $e->getMessage()
+            );
         }
 
         // empty order by columnName
