@@ -121,11 +121,13 @@ class TableFilterQueryBuilderTest extends TestCase
                         'dataType' => DataType::STRING,
                     ]),
                 ],
-                'orderBy' => new PreviewTableOrderBy([
-                    'columnName' => 'name',
-                    'order' => Order::ASC,
-                    'dataType' => DataType::STRING,
-                ]),
+                'orderBy' => [
+                    new PreviewTableOrderBy([
+                        'columnName' => 'name',
+                        'order' => Order::ASC,
+                        'dataType' => DataType::STRING,
+                    ]),
+                ],
             ]),
             <<<SQL
             SELECT TOP 100 "id", "name" FROM "some_schema"."some_table"
@@ -139,7 +141,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 'dcValue1' => ParameterType::STRING,
             ],
         ];
-        yield 'more filters + orderBy' => [
+        yield 'more filters + more orderBy' => [
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
@@ -162,17 +164,24 @@ class TableFilterQueryBuilderTest extends TestCase
                         'dataType' => DataType::STRING,
                     ]),
                 ],
-                'orderBy' => new PreviewTableOrderBy([
-                    'columnName' => 'id',
-                    'order' => Order::ASC,
-                    'dataType' => DataType::STRING,
-                ]),
+                'orderBy' => [
+                    new PreviewTableOrderBy([
+                        'columnName' => 'id',
+                        'order' => Order::ASC,
+                        'dataType' => DataType::STRING,
+                    ]),
+                    new PreviewTableOrderBy([
+                        'columnName' => 'name',
+                        'order' => Order::DESC,
+                        'dataType' => DataType::STRING,
+                    ]),
+                ],
             ]),
             <<<SQL
             SELECT "id", "name" FROM "some_schema"."some_table"
              WHERE ("name" <> :dcValue1)
              AND ("height" >= :dcValue2)
-             ORDER BY "id" ASC
+             ORDER BY "id" ASC, "name" DESC
             SQL,
             [
                 'dcValue1' => 'foo',
@@ -193,7 +202,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 'columns' => ['id', 'name', 'height', 'birth_at'],
                 'fulltextSearch' => 'foo',
                 'whereFilters' => [],
-                'orderBy' => null,
+                'orderBy' => [],
             ]),
             <<<SQL
             SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
@@ -212,7 +221,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 'columns' => ['id', 'name'],
                 'fulltextSearch' => '',
                 'whereFilters' => [],
-                'orderBy' => null,
+                'orderBy' => [],
             ]),
             <<<SQL
             SELECT "id", "name" FROM "some_schema"."some_table"
@@ -244,11 +253,13 @@ class TableFilterQueryBuilderTest extends TestCase
                         'dataType' => DataType::REAL,
                     ]),
                 ],
-                'orderBy' => new PreviewTableOrderBy([
-                    'columnName' => 'id',
-                    'order' => Order::ASC,
-                    'dataType' => DataType::REAL,
-                ]),
+                'orderBy' => [
+                    new PreviewTableOrderBy([
+                        'columnName' => 'id',
+                        'order' => Order::ASC,
+                        'dataType' => DataType::REAL,
+                    ]),
+                ],
             ]),
             <<<SQL
             SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
@@ -291,7 +302,7 @@ class TableFilterQueryBuilderTest extends TestCase
                         'dataType' => DataType::REAL,
                     ]),
                 ],
-                'orderBy' => null,
+                'orderBy' => [],
             ]),
             <<<SQL
             SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
@@ -389,7 +400,7 @@ class TableFilterQueryBuilderTest extends TestCase
                         'dataType' => DataType::BIGINT,
                     ]),
                 ],
-                'orderBy' => null,
+                'orderBy' => [],
             ]),
             TableFilterQueryBuilderException::class,
             'Data type BIGINT not recognized. Possible datatypes are [INTEGER|REAL]',
@@ -411,7 +422,7 @@ class TableFilterQueryBuilderTest extends TestCase
                         'dataType' => DataType::STRING,
                     ]),
                 ],
-                'orderBy' => null,
+                'orderBy' => [],
             ]),
             TableFilterQueryBuilderException::class,
             'Cannot use fulltextSearch and whereFilters at the same time',
@@ -432,7 +443,7 @@ class TableFilterQueryBuilderTest extends TestCase
                         'values' => ['foo', 'bar'],
                     ]),
                 ],
-                'orderBy' => null,
+                'orderBy' => [],
             ]),
             TableFilterQueryBuilderException::class,
             'whereFilter with multiple values can be used only with "eq", "ne" operators',
