@@ -15,7 +15,11 @@ use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy\Order;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
@@ -23,6 +27,7 @@ use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
@@ -31,6 +36,8 @@ class PreviewTableTest extends BaseCase
     protected GenericBackendCredentials $projectCredentials;
 
     protected CreateBucketResponse $bucketResponse;
+
+    private TableFilterQueryBuilderFactory $tableFilterQueryBuilderFactory;
 
     protected function setUp(): void
     {
@@ -42,6 +49,8 @@ class PreviewTableTest extends BaseCase
 
         [$bucketResponse, $connection] = $this->createTestBucket($projectCredentials, $projectResponse);
         $this->bucketResponse = $bucketResponse;
+
+        $this->tableFilterQueryBuilderFactory = new TableFilterQueryBuilderFactory();
     }
 
     protected function tearDown(): void
@@ -88,7 +97,17 @@ class PreviewTableTest extends BaseCase
                     'length' => '',
                     'nullable' => true,
                 ],
+                '_timestamp' => [
+                    'type' => Teradata::TYPE_TIMESTAMP,
+                    'length' => '',
+                    'nullable' => true,
+                ],
                 'varchar' => [
+                    'type' => Teradata::TYPE_VARCHAR,
+                    'length' => '200',
+                    'nullable' => true,
+                ],
+                'decimal_varchar' => [
                     'type' => Teradata::TYPE_VARCHAR,
                     'length' => '200',
                     'nullable' => true,
@@ -101,14 +120,16 @@ class PreviewTableTest extends BaseCase
         // FILL DATA
         $insertGroups = [
             [
-                'columns' => '"id", "int", "decimal", "float", "date", "time", "varchar"',
+                // phpcs:ignore
+                'columns' => '"id", "int", "decimal", "float", "date", "time", "_timestamp", "varchar", "decimal_varchar"',
                 'rows' => [
-                    "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', 'Variable character 1'",
+                    // phpcs:ignore
+                    "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', '2022-01-01 12:00:01', 'Variable character 1', '100.10'",
                     sprintf(
-                        "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '%s'",
+                        "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '2022-01-02 12:00:02', '%s', '100.20'",
                         str_repeat('VeryLongString123456', 5)
                     ),
-                    '3, NULL, NULL, NULL, NULL, NULL, NULL',
+                    '3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL',
                 ],
             ],
         ];
@@ -117,10 +138,10 @@ class PreviewTableTest extends BaseCase
         // CHECK: all records + truncated
         $filter = [
             'input' => [
-                'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', 'varchar'],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar'],
+                'orderBy' => ['id' => Order::ASC],
             ],
-            'expectedColumns' => ['id', 'int', 'decimal', 'float', 'date', 'time', 'varchar'],
+            'expectedColumns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar'],
             'expectedRows' => [
                 [
                     'id' => [
@@ -145,6 +166,10 @@ class PreviewTableTest extends BaseCase
                     ],
                     'time' => [
                         'value' => ['string_value' => '12:00:01.000000'],
+                        'truncated' => false,
+                    ],
+                    '_timestamp' => [
+                        'value' => ['string_value' => '2022-01-01 12:00:01.000000'],
                         'truncated' => false,
                     ],
                     'varchar' => [
@@ -177,9 +202,14 @@ class PreviewTableTest extends BaseCase
                         'value' => ['string_value' => '12:00:02.000000'],
                         'truncated' => false,
                     ],
+                    '_timestamp' => [
+                        'value' => ['string_value' => '2022-01-02 12:00:02.000000'],
+                        'truncated' => false,
+                    ],
                     'varchar' => [
-                        'value' => ['string_value' => 'VeryLongString123456VeryLongString123456VeryLongSt'],
-                        'truncated' => true,
+                        // phpcs:ignore
+                        'value' => ['string_value' => 'VeryLongString123456VeryLongString123456VeryLongString123456VeryLongString123456VeryLongString123456'],
+                        'truncated' => false,
                     ],
                 ],
                 [
@@ -207,6 +237,10 @@ class PreviewTableTest extends BaseCase
                         'value' => ['null_value' => NullValue::NULL_VALUE],
                         'truncated' => false,
                     ],
+                    '_timestamp' => [
+                        'value' => ['null_value' => NullValue::NULL_VALUE],
+                        'truncated' => false,
+                    ],
                     'varchar' => [
                         'value' => ['null_value' => NullValue::NULL_VALUE],
                         'truncated' => false,
@@ -221,7 +255,7 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'int'],
-                'orderBy' => ['int' => PreviewTableCommand\PreviewTableOrderBy\Order::DESC],
+                'orderBy' => ['int' => Order::DESC],
             ],
             'expectedColumns' => ['id', 'int'],
             'expectedRows' => [
@@ -264,8 +298,8 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id'],
-                'orderBy' => ['date' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
-                'orderByDataType' => DataType::INTEGER,
+                'orderBy' => ['decimal_varchar' => Order::ASC],
+                'orderByDataType' => DataType::REAL,
             ],
             'expectedColumns' => ['id'],
             'expectedRows' => [
@@ -296,7 +330,7 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'int'],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['id' => Order::ASC],
                 'limit' => 2,
             ],
             'expectedColumns' => ['id', 'int'],
@@ -318,6 +352,164 @@ class PreviewTableTest extends BaseCase
                     ],
                     'int' => [
                         'value' => ['string_value' => '200'],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
+        // CHECK: changedSince + changedUntil
+        $filter = [
+            'input' => [
+                'columns' => ['id', '_timestamp'],
+                'changedSince' => '1641038401',
+                'changedUntil' => '1641038402',
+            ],
+            'expectedColumns' => ['id', '_timestamp'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '1'],
+                        'truncated' => false,
+                    ],
+                    '_timestamp' => [
+                        'value' => ['string_value' => '2022-01-01 12:00:01.000000'],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
+        // CHECK: fulltext search
+        $filter = [
+            'input' => [
+                'columns' => ['id', 'varchar'],
+                'fulltextSearch' => 'character',
+            ],
+            'expectedColumns' => ['id', 'varchar'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '1'],
+                        'truncated' => false,
+                    ],
+                    'varchar' => [
+                        'value' => ['string_value' => 'Variable character 1'],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
+        // CHECK: simple where filter
+        $filter = [
+            'input' => [
+                'columns' => ['id', 'int'],
+                'whereFilters' => [
+                    new TableWhereFilter([
+                        'columnsName' => 'int',
+                        'operator' => Operator::ge,
+                        'values' => ['100'],
+                    ]),
+                ],
+                'orderBy' => ['id' => Order::ASC],
+            ],
+            'expectedColumns' => ['id', 'int'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '1'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '100'],
+                        'truncated' => false,
+                    ],
+                ],
+                [
+                    'id' => [
+                        'value' => ['string_value' => '2'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '200'],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
+        // CHECK: multiple where filters
+        $filter = [
+            'input' => [
+                'columns' => ['id', 'int'],
+                'whereFilters' => [
+                    new TableWhereFilter([
+                        'columnsName' => 'int',
+                        'operator' => Operator::gt,
+                        'values' => ['100'],
+                    ]),
+                    new TableWhereFilter([
+                        'columnsName' => 'int',
+                        'operator' => Operator::lt,
+                        'values' => ['210'],
+                    ]),
+                    new TableWhereFilter([
+                        'columnsName' => 'int',
+                        'operator' => Operator::eq,
+                        'values' => ['99', '100', '199', '200'],
+                    ]),
+                ],
+                'orderBy' => ['id' => Order::ASC],
+            ],
+            'expectedColumns' => ['id', 'int'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '2'],
+                        'truncated' => false,
+                    ],
+                    'int' => [
+                        'value' => ['string_value' => '200'],
+                        'truncated' => false,
+                    ],
+                ],
+            ],
+        ];
+        $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
+        $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
+
+        // CHECK: where filter with datatype
+        $filter = [
+            'input' => [
+                'columns' => ['id', 'decimal_varchar'],
+                'whereFilters' => [
+                    new TableWhereFilter([
+                        'columnsName' => 'decimal_varchar',
+                        'operator' => Operator::eq,
+                        'values' => ['100.2'],
+                        'dataType' => DataType::REAL,
+                    ]),
+                ],
+                'orderBy' => ['id' => Order::ASC],
+            ],
+            'expectedColumns' => ['id', 'decimal_varchar'],
+            'expectedRows' => [
+                [
+                    'id' => [
+                        'value' => ['string_value' => '2'],
+                        'truncated' => false,
+                    ],
+                    'decimal_varchar' => [
+                        'value' => ['string_value' => '100.20'],
                         'truncated' => false,
                     ],
                 ],
@@ -414,11 +606,53 @@ class PreviewTableTest extends BaseCase
             $this->assertStringContainsString('PreviewTableCommand.columns has non unique names', $e->getMessage());
         }
 
+        // too high limit
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, [
+                'columns' => ['id', 'int'],
+                'limit' => 2000,
+            ]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString(
+                'PreviewTableCommand.limit cannot be greater than 1000',
+                $e->getMessage()
+            );
+        }
+
+        // bad format of changeSince
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, [
+                'columns' => ['id', 'int'],
+                'changedSince' => '2022-11-01 12:00:00 UTC',
+            ]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString(
+                'PreviewTableCommand.changeSince must be numeric timestamp',
+                $e->getMessage()
+            );
+        }
+
+        // bad format of changeUntil
+        try {
+            $this->previewTable($bucketDatabaseName, $tableName, [
+                'columns' => ['id', 'int'],
+                'changedUntil' => '2022-11-01 12:00:00 UTC',
+            ]);
+            $this->fail('This should never happen');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString(
+                'PreviewTableCommand.changeUntil must be numeric timestamp',
+                $e->getMessage()
+            );
+        }
+
         // empty order by columnName
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'orderBy' => ['' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['' => Order::ASC],
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
@@ -429,15 +663,15 @@ class PreviewTableTest extends BaseCase
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'orderBy' => ['id' => PreviewTableCommand\PreviewTableOrderBy\Order::ASC],
+                'orderBy' => ['id' => Order::ASC],
                 'orderByDataType' => DataType::DECIMAL,
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
-            $this->assertStringContainsString(sprintf(
-                'Data type %s not recognized. Possible datatypes are',
-                DataType::DECIMAL
-            ), $e->getMessage());
+            $this->assertStringContainsString(
+                'Data type DECIMAL not recognized. Possible datatypes are',
+                $e->getMessage()
+            );
         }
     }
 
@@ -529,11 +763,20 @@ class PreviewTableTest extends BaseCase
 
     /**
      * @phpcs:ignore
-     * @param array{columns: array<string>, orderBy?: array<string, int>, orderByDataType?: int, limit?: int} $commandInput
+     * @param array{
+     *     columns: array<string>,
+     *     changedSince?: string,
+     *     changedUntil?: string,
+     *     fulltextSearch?: string,
+     *     whereFilters?: TableWhereFilter[],
+     *     orderBy?: array<string, int>,
+     *     orderByDataType?: int,
+     *     limit?: int
+     * } $commandInput
      */
     private function previewTable(string $databaseName, string $tableName, array $commandInput): PreviewTableResponse
     {
-        $handler = new PreviewTableHandler($this->sessionManager);
+        $handler = new PreviewTableHandler($this->sessionManager, $this->tableFilterQueryBuilderFactory);
 
         $command = new PreviewTableCommand();
 
@@ -553,12 +796,32 @@ class PreviewTableTest extends BaseCase
         }
         $command->setColumns($columns);
 
+        if (isset($commandInput['changedSince'])) {
+            $command->setChangeSince($commandInput['changedSince']);
+        }
+
+        if (isset($commandInput['changedUntil'])) {
+            $command->setChangeUntil($commandInput['changedUntil']);
+        }
+
+        if (isset($commandInput['fulltextSearch'])) {
+            $command->setFulltextSearch($commandInput['fulltextSearch']);
+        }
+
+        if (isset($commandInput['whereFilters'])) {
+            $whereFilters = new RepeatedField(GPBType::MESSAGE, TableWhereFilter::class);
+            foreach ($commandInput['whereFilters'] as $whereFilter) {
+                $whereFilters[] = $whereFilter;
+            }
+            $command->setWhereFilters($whereFilters);
+        }
+
         if (isset($commandInput['orderBy'])) {
             /** @var string $inputOrderByKey */
             $inputOrderByKey = key($commandInput['orderBy']);
             /** @var int $inputOrderByValue */
             $inputOrderByValue = current($commandInput['orderBy']);
-            $orderBy = (new PreviewTableCommand\PreviewTableOrderBy())
+            $orderBy = (new PreviewTableOrderBy())
                 ->setColumnName($inputOrderByKey)
                 ->setOrder($inputOrderByValue);
             if (isset($commandInput['orderByDataType'])) {
@@ -570,10 +833,6 @@ class PreviewTableTest extends BaseCase
         if (isset($commandInput['limit'])) {
             $command->setLimit($commandInput['limit']);
         }
-
-        // TODO changeSince, changeUntil
-        // TODO fulltextSearch
-        // TODO whereFilters
 
         $response = $handler(
             $this->projectCredentials,

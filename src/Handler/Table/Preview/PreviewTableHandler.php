@@ -10,22 +10,28 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\NullValue;
 use Google\Protobuf\Value;
 use Keboola\Datatype\Definition\Teradata;
+use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
+use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
+use Keboola\StorageDriver\Command\Info\ObjectType;
+use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
+use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
-use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 class PreviewTableHandler implements DriverCommandHandlerInterface
 {
     // TODO truncated: orezat primo v query na 16384 znaku (viz ExasolExportQueryBuilder::processSelectStatement)
     //   (ale je tam zaroven podminka, ze exportni format musi byt JSON)
-    public const STRING_MAX_LENGTH = 50;
+    //public const STRING_MAX_LENGTH = 50;
 
+    public const DEFAULT_LIMIT = 100;
     public const MAX_LIMIT = 1000;
 
     public const ALLOWED_DATA_TYPES = [
@@ -35,10 +41,14 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
     ];
 
     private TeradataSessionManager $manager;
+    private TableFilterQueryBuilderFactory $queryBuilderFactory;
 
-    public function __construct(TeradataSessionManager $manager)
-    {
+    public function __construct(
+        TeradataSessionManager $manager,
+        TableFilterQueryBuilderFactory $queryBuilderFactory
+    ) {
         $this->manager = $manager;
+        $this->queryBuilderFactory = $queryBuilderFactory;
     }
 
     /**
@@ -64,44 +74,39 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             /** @var string $databaseName */
             $databaseName = $command->getPath()[0];
 
-            // build sql
+            // validate
             $columns = ProtobufHelper::repeatedStringToArray($command->getColumns());
             assert($columns === array_unique($columns), 'PreviewTableCommand.columns has non unique names');
-            $columnsSql = implode(', ', array_map([TeradataQuote::class, 'quoteSingleIdentifier'], $columns));
 
-            $limitSql = sprintf(
-                'TOP %d',
-                ($command->getLimit() > 0 && $command->getLimit() < self::MAX_LIMIT)
-                    ? $command->getLimit()
-                    : self::MAX_LIMIT
-            );
-
-            // TODO changeSince, changeUntil
-            // TODO fulltextSearch
-            // TODO whereFilters
-            // TODO truncated: rewrite to SQL
-            $selectTableSql = sprintf(
-                "SELECT %s %s\nFROM %s.%s",
-                $limitSql,
-                $columnsSql,
-                TeradataQuote::quoteSingleIdentifier($databaseName),
-                TeradataQuote::quoteSingleIdentifier($command->getTableName())
-            );
-
-            if ($command->hasOrderBy() && $command->getOrderBy()) {
-                /** @var PreviewTableCommand\PreviewTableOrderBy $orderBy */
-                $orderBy = $command->getOrderBy();
-                assert($orderBy->getColumnName() !== '', 'PreviewTableCommand.orderBy.columnName is required');
-                $quotedColumnName = TeradataQuote::quoteSingleIdentifier($orderBy->getColumnName());
-                $selectTableSql .= sprintf(
-                    "\nORDER BY %s %s",
-                    $this->applyDataType($quotedColumnName, $orderBy->getDataType()),
-                    $orderBy->getOrder() === PreviewTableCommand\PreviewTableOrderBy\Order::DESC ? 'DESC' : 'ASC'
-                );
+            assert($command->getLimit() <= self::MAX_LIMIT, 'PreviewTableCommand.limit cannot be greater than 1000');
+            if ($command->getLimit() === 0) {
+                $command->setLimit(self::DEFAULT_LIMIT);
             }
 
+            if ($command->getChangeSince() !== '') {
+                assert(is_numeric($command->getChangeSince()), 'PreviewTableCommand.changeSince must be numeric timestamp');
+            }
+            if ($command->getChangeUntil() !== '') {
+                assert(is_numeric($command->getChangeUntil()), 'PreviewTableCommand.changeUntil must be numeric timestamp');
+            }
+
+            if ($command->hasOrderBy() && $command->getOrderBy()) {
+                /** @var PreviewTableOrderBy $orderBy */
+                $orderBy = $command->getOrderBy();
+                assert($orderBy->getColumnName() !== '', 'PreviewTableCommand.orderBy.columnName is required');
+            }
+
+            // build sql
+            $tableInfo = $this->getTableInfoResponseIfNeeded($credentials, $command, $databaseName);
+            $queryBuilder = $this->queryBuilderFactory->create($db, $tableInfo);
+            $queryData = $queryBuilder->buildQueryFromCommand($command, $databaseName);
+
             // select table
-            $result = $db->executeQuery($selectTableSql);
+            $result = $db->executeQuery(
+                $queryData->getQuery(),
+                $queryData->getBindings(),
+                $queryData->getTypes(),
+            );
 
             // set response
             $response = new PreviewTableResponse();
@@ -125,12 +130,12 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                     } else {
                         // preview returns all data as string
                         // TODO truncated: rewrite to SQL
-                        if (mb_strlen((string) $itemValue) > self::STRING_MAX_LENGTH) {
-                            $truncated = true;
-                            $value->setStringValue(mb_substr((string) $itemValue, 0, self::STRING_MAX_LENGTH));
-                        } else {
+                        //if (mb_strlen((string) $itemValue) > self::STRING_MAX_LENGTH) {
+                        //    $truncated = true;
+                        //    $value->setStringValue(mb_substr((string) $itemValue, 0, self::STRING_MAX_LENGTH));
+                        //} else {
                             $value->setStringValue((string) $itemValue);
-                        }
+                        //}
                     }
 
                     $rowColumns[] = (new PreviewTableResponse\Row\Column())
@@ -151,28 +156,30 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
         return $response;
     }
 
-    private function applyDataType(string $columnName, int $dataType): string
-    {
-        if ($dataType === DataType::STRING) {
-            return $columnName;
+    /**
+     * fulltext search need table info data
+     */
+    private function getTableInfoResponseIfNeeded(
+        GenericBackendCredentials $credentials,
+        PreviewTableCommand $command,
+        string $databaseName
+    ): ?TableInfo {
+        if ($command->getFulltextSearch() !== '') {
+            $objectInfoHandler = (new ObjectInfoHandler($this->manager));
+            $tableInfoCommand = (new ObjectInfoCommand())
+                ->setExpectedObjectType(ObjectType::TABLE)
+                ->setPath(ProtobufHelper::arrayToRepeatedString([
+                    $databaseName,
+                    $command->getTableName()
+                ]));
+            /** @var ObjectInfoResponse $response */
+            $response = $objectInfoHandler($credentials, $tableInfoCommand, []);
+
+            assert($response instanceof ObjectInfoResponse);
+            assert($response->getObjectType() === ObjectType::TABLE);
+
+            return $response->getTableInfo();
         }
-        if (!array_key_exists($dataType, self::ALLOWED_DATA_TYPES)) {
-            $allowedTypesList = [];
-            foreach (self::ALLOWED_DATA_TYPES as $typeId => $typeName) {
-                $allowedTypesList[] = sprintf('%s for %s', $typeId, $typeName);
-            }
-            throw new Exception(
-                sprintf(
-                    'Data type %s not recognized. Possible datatypes are [%s]',
-                    $dataType,
-                    implode('|', $allowedTypesList)
-                )
-            );
-        }
-        return sprintf(
-            'CAST(%s AS %s)',
-            $columnName,
-            self::ALLOWED_DATA_TYPES[$dataType]
-        );
+        return null;
     }
 }

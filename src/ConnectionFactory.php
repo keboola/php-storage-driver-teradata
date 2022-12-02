@@ -33,6 +33,7 @@ class ConnectionFactory
             'password' => $credentials->getSecret(),
             'port' => $credentials->getPort() === 0 ? 1025 : $credentials->getPort(),
             'dbname' => '',
+            'serverVersion' => '17.10',
         ], $cfg);
         $meta = $credentials->getMeta();
         if ($meta !== null) {
