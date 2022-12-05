@@ -13,8 +13,10 @@ use Keboola\Db\ImportExport\Backend\Teradata\TeradataImportOptions;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\FullImporter;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\IncrementalImporter;
 use Keboola\Db\ImportExport\Backend\Teradata\ToStage\ToStageImporter;
+use Keboola\Db\ImportExport\ImportOptionsInterface;
 use Keboola\Db\ImportExport\Storage\Teradata\Table;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportStrategy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table as CommandDestination;
 use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand;
@@ -143,6 +145,10 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
         ImportOptions $options,
         GenericBackendCredentials $credentials
     ): TeradataImportOptions {
+        $strategyMapping = [
+            ImportStrategy::STRING_TABLE => ImportOptionsInterface::USING_TYPES_STRING,
+            ImportStrategy::USER_DEFINED_TABLE => ImportOptionsInterface::USING_TYPES_USER
+        ];
         return new TeradataImportOptions(
             $credentials->getHost(),
             $credentials->getPrincipal(),
@@ -151,7 +157,8 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
             ProtobufHelper::repeatedStringToArray($options->getConvertEmptyValuesToNullOnColumns()),
             $options->getImportType() === ImportType::INCREMENTAL,
             $options->getTimestampColumn() === '_timestamp',
-            $options->getNumberOfIgnoredLines()
+            $options->getNumberOfIgnoredLines(),
+            $strategyMapping[$options->getImportStrategy()]
         );
     }
 
