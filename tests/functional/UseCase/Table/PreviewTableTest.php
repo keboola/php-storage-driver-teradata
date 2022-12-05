@@ -15,11 +15,11 @@ use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy\Order;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
@@ -140,7 +140,7 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar'],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -261,7 +261,7 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id', 'int'],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'int',
                         'order' => Order::DESC,
                     ]),
@@ -309,7 +309,7 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id'],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'decimal_varchar',
                         'order' => Order::ASC,
                         'dataType' => DataType::REAL,
@@ -346,7 +346,7 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id', 'int'],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -439,7 +439,7 @@ class PreviewTableTest extends BaseCase
                     ]),
                 ],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -494,7 +494,7 @@ class PreviewTableTest extends BaseCase
                     ]),
                 ],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -530,7 +530,7 @@ class PreviewTableTest extends BaseCase
                     ]),
                 ],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -696,7 +696,7 @@ class PreviewTableTest extends BaseCase
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => '',
                     ]),
                 ],
@@ -711,7 +711,7 @@ class PreviewTableTest extends BaseCase
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'id',
                         'dataType' => DataType::DECIMAL,
                     ]),
@@ -820,7 +820,7 @@ class PreviewTableTest extends BaseCase
      *     changedUntil?: string,
      *     fulltextSearch?: string,
      *     whereFilters?: TableWhereFilter[],
-     *     orderBy?: PreviewTableOrderBy[],
+     *     orderBy?: OrderBy[],
      *     limit?: int
      * } $commandInput
      */
@@ -867,7 +867,7 @@ class PreviewTableTest extends BaseCase
         }
 
         if (isset($commandInput['orderBy'])) {
-            $orderBy = new RepeatedField(GPBType::MESSAGE, PreviewTableOrderBy::class);
+            $orderBy = new RepeatedField(GPBType::MESSAGE, OrderBy::class);
             foreach ($commandInput['orderBy'] as $orderByOrig) {
                 $orderBy[] = $orderByOrig;
             }

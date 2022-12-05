@@ -15,8 +15,8 @@ use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
 use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -92,7 +92,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
 
             /**
              * @var int $index
-             * @var PreviewTableOrderBy $orderBy
+             * @var OrderBy $orderBy
              */
             foreach ($command->getOrderBy() as $index => $orderBy) {
                 assert($orderBy->getColumnName() !== '', sprintf(

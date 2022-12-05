@@ -12,11 +12,11 @@ use Keboola\Datatype\Definition\BaseType;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy\Order;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use LogicException;
@@ -237,7 +237,7 @@ class TableFilterQueryBuilder
     }
 
     /**
-     * @param RepeatedField|PreviewTableOrderBy[] $sort
+     * @param RepeatedField|OrderBy[] $sort
      */
     private function processOrderStatement(RepeatedField $sort, QueryBuilder $query): void
     {

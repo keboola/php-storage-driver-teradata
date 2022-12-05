@@ -13,11 +13,11 @@ use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy\Order;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilder;
@@ -122,7 +122,7 @@ class TableFilterQueryBuilderTest extends TestCase
                     ]),
                 ],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'name',
                         'order' => Order::ASC,
                         'dataType' => DataType::STRING,
@@ -165,12 +165,12 @@ class TableFilterQueryBuilderTest extends TestCase
                     ]),
                 ],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                         'dataType' => DataType::STRING,
                     ]),
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'name',
                         'order' => Order::DESC,
                         'dataType' => DataType::STRING,
@@ -254,7 +254,7 @@ class TableFilterQueryBuilderTest extends TestCase
                     ]),
                 ],
                 'orderBy' => [
-                    new PreviewTableOrderBy([
+                    new OrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                         'dataType' => DataType::REAL,
