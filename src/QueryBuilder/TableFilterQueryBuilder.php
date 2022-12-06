@@ -65,7 +65,7 @@ class TableFilterQueryBuilder extends CommonFilterQueryBuilder
 
             $this->processOrderStatement($options->getOrderBy(), $query);
         } catch (QueryException $e) {
-            throw new TableFilterQueryBuilderException(
+            throw new QueryBuilderException(
                 $e->getMessage(),
                 $e
             );
@@ -91,7 +91,7 @@ class TableFilterQueryBuilder extends CommonFilterQueryBuilder
     private function assertFilterCombination(PreviewTableCommand $options): void
     {
         if ($options->getFulltextSearch() !== '' && $options->getWhereFilters()->count()) {
-            throw new TableFilterQueryBuilderException(
+            throw new QueryBuilderException(
                 'Cannot use fulltextSearch and whereFilters at the same time',
             );
         }

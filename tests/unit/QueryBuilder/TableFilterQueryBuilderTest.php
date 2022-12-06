@@ -21,7 +21,7 @@ use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilder;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderException;
+use Keboola\StorageDriver\Teradata\QueryBuilder\QueryBuilderException;
 use Keboola\TableBackendUtils\Connection\Teradata\TeradataPlatform;
 use PHPUnit\Framework\TestCase;
 
@@ -402,7 +402,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 ],
                 'orderBy' => [],
             ]),
-            TableFilterQueryBuilderException::class,
+            QueryBuilderException::class,
             'Data type BIGINT not recognized. Possible datatypes are [INTEGER|REAL]',
         ];
         yield 'fulltext + filter' => [
@@ -424,7 +424,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 ],
                 'orderBy' => [],
             ]),
-            TableFilterQueryBuilderException::class,
+            QueryBuilderException::class,
             'Cannot use fulltextSearch and whereFilters at the same time',
         ];
         yield 'filter with multiple values and GT operator' => [
@@ -445,7 +445,7 @@ class TableFilterQueryBuilderTest extends TestCase
                 ],
                 'orderBy' => [],
             ]),
-            TableFilterQueryBuilderException::class,
+            QueryBuilderException::class,
             'whereFilter with multiple values can be used only with "eq", "ne" operators',
         ];
     }

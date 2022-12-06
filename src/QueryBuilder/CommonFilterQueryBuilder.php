@@ -111,7 +111,7 @@ abstract class CommonFilterQueryBuilder
     private function processMultipleValue(TableWhereFilter $filter, array $values, QueryBuilder $query): void
     {
         if (!array_key_exists($filter->getOperator(), self::OPERATOR_MULTI_VALUE)) {
-            throw new TableFilterQueryBuilderException(
+            throw new QueryBuilderException(
                 'whereFilter with multiple values can be used only with "eq", "ne" operators',
             );
         }

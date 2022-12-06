@@ -30,7 +30,7 @@ class ColumnConverter
     public function convertColumnByDataType(string $column, int $dataType): string
     {
         if (!in_array($dataType, self::DATA_TYPES_OPTIONS, true)) {
-            throw new TableFilterQueryBuilderException(
+            throw new QueryBuilderException(
                 sprintf(
                     'Data type %s not recognized. Possible datatypes are [%s]',
                     self::DATA_TYPES_MAP[$dataType],
