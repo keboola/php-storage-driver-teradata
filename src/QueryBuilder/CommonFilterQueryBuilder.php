@@ -41,21 +41,21 @@ abstract class CommonFilterQueryBuilder
         $this->columnConverter = $columnConverter;
     }
 
-    private function processChangedConditions(PreviewTableCommand $options, QueryBuilder $query): void
+    protected function processChangedConditions(string $changeSince, string $changeUntil, QueryBuilder $query): void
     {
-        if ($options->getChangeSince() !== '') {
+        if ($changeSince !== '') {
             $query->andWhere('"_timestamp" >= :changedSince');
             $query->setParameter(
                 'changedSince',
-                $this->getTimestampFormatted($options->getChangeSince()),
+                $this->getTimestampFormatted($changeSince),
             );
         }
 
-        if ($options->getChangeUntil() !== '') {
+        if ($changeUntil !== '') {
             $query->andWhere('"_timestamp" < :changedUntil');
             $query->setParameter(
                 'changedUntil',
-                $this->getTimestampFormatted($options->getChangeUntil()),
+                $this->getTimestampFormatted($changeUntil),
             );
         }
     }
@@ -72,7 +72,7 @@ abstract class CommonFilterQueryBuilder
     /**
      * @param RepeatedField|TableWhereFilter[] $filters
      */
-    private function processWhereFilters(RepeatedField $filters, QueryBuilder $query): void
+    protected function processWhereFilters(RepeatedField $filters, QueryBuilder $query): void
     {
         foreach ($filters as $whereFilter) {
             $values = ProtobufHelper::repeatedStringToArray($whereFilter->getValues());
@@ -140,7 +140,7 @@ abstract class CommonFilterQueryBuilder
     /**
      * @param RepeatedField|OrderBy[] $sort
      */
-    private function processOrderStatement(RepeatedField $sort, QueryBuilder $query): void
+    protected function processOrderStatement(RepeatedField $sort, QueryBuilder $query): void
     {
         foreach ($sort as $orderBy) {
             if ($orderBy->getDataType() !== DataType::STRING) {
@@ -157,10 +157,12 @@ abstract class CommonFilterQueryBuilder
         }
     }
 
-    private function processSelectStatement(PreviewTableCommand $options, QueryBuilder $query): void
+    /**
+     * @param string[] $columns
+     */
+    protected function processSelectStatement(array $columns, QueryBuilder $query): void
     {
-        /** @var string $column */
-        foreach ($options->getColumns() as $column) {
+        foreach ($columns as $column) {
             $selectColumnExpresion = TeradataQuote::quoteSingleIdentifier($column);
 
             // TODO truncate - preview does not contains export format
@@ -199,19 +201,19 @@ abstract class CommonFilterQueryBuilder
         );
     }*/
 
-    private function processLimitStatement(PreviewTableCommand $options, QueryBuilder $query): void
+    protected function processLimitStatement(int $limit, QueryBuilder $query): void
     {
-        if ($options->getLimit() !== 0) {
-            $query->setMaxResults($options->getLimit());
+        if ($limit > 0) {
+            $query->setMaxResults($limit);
         }
     }
 
-    private function processFromStatement(PreviewTableCommand $options, QueryBuilder $query, string $schemaName): void
+    protected function processFromStatement(string $schemaName, string $tableName, QueryBuilder $query): void
     {
         $query->from(sprintf(
             '%s.%s',
             TeradataQuote::quoteSingleIdentifier($schemaName),
-            TeradataQuote::quoteSingleIdentifier($options->getTableName())
+            TeradataQuote::quoteSingleIdentifier($tableName)
         ));
     }
 }

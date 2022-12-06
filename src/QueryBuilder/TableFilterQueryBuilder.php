@@ -37,7 +37,7 @@ class TableFilterQueryBuilder extends CommonFilterQueryBuilder
 
         $query = new QueryBuilder($this->connection);
 
-        $this->processChangedConditions($options, $query);
+        $this->processChangedConditions($options->getChangeSince(), $options->getChangeUntil(), $query);
 
         try {
             if ($options->getFulltextSearch() !== '') {
@@ -71,9 +71,9 @@ class TableFilterQueryBuilder extends CommonFilterQueryBuilder
             );
         }
 
-        $this->processSelectStatement($options, $query);
-        $this->processLimitStatement($options, $query);
-        $this->processFromStatement($options, $query, $schemaName);
+        $this->processSelectStatement(ProtobufHelper::repeatedStringToArray($options->getColumns()), $query);
+        $this->processLimitStatement($options->getLimit(), $query);
+        $this->processFromStatement($schemaName, $options->getTableName(), $query);
 
         $sql = $query->getSQL();
 
