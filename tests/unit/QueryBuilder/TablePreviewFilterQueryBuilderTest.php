@@ -20,12 +20,12 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Oper
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilder;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TablePreviewFilterQueryBuilder;
 use Keboola\StorageDriver\Teradata\QueryBuilder\QueryBuilderException;
 use Keboola\TableBackendUtils\Connection\Teradata\TeradataPlatform;
 use PHPUnit\Framework\TestCase;
 
-class TableFilterQueryBuilderTest extends TestCase
+class TablePreviewFilterQueryBuilderTest extends TestCase
 {
     /**
      * @dataProvider provideSuccessData
@@ -83,7 +83,7 @@ class TableFilterQueryBuilderTest extends TestCase
             ->setPrimaryKeysNames(ProtobufHelper::arrayToRepeatedString(['id']));
 
         // create query builder
-        $qb = new TableFilterQueryBuilder($connection, $tableInfo, $columnConverter);
+        $qb = new TablePreviewFilterQueryBuilder($connection, $tableInfo, $columnConverter);
 
         // build query
         $queryData = $qb->buildQueryFromCommand($previewCommand, 'some_schema');
@@ -373,7 +373,7 @@ class TableFilterQueryBuilderTest extends TestCase
             ->setPrimaryKeysNames(ProtobufHelper::arrayToRepeatedString(['id']));
 
         // create query builder
-        $qb = new TableFilterQueryBuilder($connection, $tableInfo, $columnConverter);
+        $qb = new TablePreviewFilterQueryBuilder($connection, $tableInfo, $columnConverter);
 
         // build query
         $this->expectException($exceptionClass);

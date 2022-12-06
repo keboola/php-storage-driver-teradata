@@ -22,7 +22,7 @@ use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TablePreviewFilterQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 
 class PreviewTableHandler implements DriverCommandHandlerInterface
@@ -41,11 +41,11 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
     ];
 
     private TeradataSessionManager $manager;
-    private TableFilterQueryBuilderFactory $queryBuilderFactory;
+    private TablePreviewFilterQueryBuilderFactory $queryBuilderFactory;
 
     public function __construct(
         TeradataSessionManager $manager,
-        TableFilterQueryBuilderFactory $queryBuilderFactory
+        TablePreviewFilterQueryBuilderFactory $queryBuilderFactory
     ) {
         $this->manager = $manager;
         $this->queryBuilderFactory = $queryBuilderFactory;

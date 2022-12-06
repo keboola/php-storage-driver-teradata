@@ -11,20 +11,20 @@ use Google\Protobuf\Value;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
+use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
 use Throwable;
 
 class PreviewTableTest extends BaseCase
 {
+    protected GenericBackendCredentials $projectCredentials;
+
     protected CreateBucketResponse $bucketResponse;
 
     private TableFilterQueryBuilderFactory $tableFilterQueryBuilderFactory;

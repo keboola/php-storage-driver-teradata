@@ -2,7 +2,7 @@
 
 namespace Keboola\StorageDriver\Teradata\QueryBuilder;
 
-class TableFilterQueryBuilderResponse
+class QueryBuilderResponse
 {
     private string $query;
     /**

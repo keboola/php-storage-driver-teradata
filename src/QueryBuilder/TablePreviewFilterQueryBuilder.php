@@ -13,7 +13,7 @@ use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use LogicException;
 
-class TableFilterQueryBuilder extends CommonFilterQueryBuilder
+class TablePreviewFilterQueryBuilder extends CommonFilterQueryBuilder
 {
     public const DEFAULT_CAST_SIZE = 16384;
 
@@ -32,7 +32,7 @@ class TableFilterQueryBuilder extends CommonFilterQueryBuilder
     public function buildQueryFromCommand(
         PreviewTableCommand $options,
         string $schemaName
-    ): TableFilterQueryBuilderResponse {
+    ): QueryBuilderResponse {
         $this->assertFilterCombination($options);
 
         $query = new QueryBuilder($this->connection);
@@ -80,7 +80,7 @@ class TableFilterQueryBuilder extends CommonFilterQueryBuilder
         /** @var string[] $types */
         $types = $query->getParameterTypes();
 
-        return new TableFilterQueryBuilderResponse(
+        return new QueryBuilderResponse(
             $sql,
             $query->getParameters(),
             $types,
