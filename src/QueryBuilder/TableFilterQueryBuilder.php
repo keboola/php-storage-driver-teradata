@@ -12,11 +12,11 @@ use Keboola\Datatype\Definition\BaseType;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy\Order;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use LogicException;
@@ -236,23 +236,24 @@ class TableFilterQueryBuilder
         );
     }
 
-    private function processOrderStatement(?PreviewTableOrderBy $sort, QueryBuilder $query): void
+    /**
+     * @param RepeatedField|OrderBy[] $sort
+     */
+    private function processOrderStatement(RepeatedField $sort, QueryBuilder $query): void
     {
-        if ($sort === null) {
-            return;
-        }
-
-        if ($sort->getDataType() !== DataType::STRING) {
+        foreach ($sort as $orderBy) {
+            if ($orderBy->getDataType() !== DataType::STRING) {
+                $query->addOrderBy(
+                    $this->columnConverter->convertColumnByDataType($orderBy->getColumnName(), $orderBy->getDataType()),
+                    Order::name($orderBy->getOrder())
+                );
+                return;
+            }
             $query->addOrderBy(
-                $this->columnConverter->convertColumnByDataType($sort->getColumnName(), $sort->getDataType()),
-                Order::name($sort->getOrder())
+                TeradataQuote::quoteSingleIdentifier($orderBy->getColumnName()),
+                Order::name($orderBy->getOrder())
             );
-            return;
         }
-        $query->addOrderBy(
-            TeradataQuote::quoteSingleIdentifier($sort->getColumnName()),
-            Order::name($sort->getOrder())
-        );
     }
 
     private function processSelectStatement(PreviewTableCommand $options, QueryBuilder $query): void

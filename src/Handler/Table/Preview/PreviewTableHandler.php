@@ -15,8 +15,8 @@ use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
 use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand\PreviewTableOrderBy;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -90,10 +90,15 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                 assert(is_numeric($command->getChangeUntil()), 'PreviewTableCommand.changeUntil must be numeric timestamp');
             }
 
-            if ($command->hasOrderBy() && $command->getOrderBy()) {
-                /** @var PreviewTableOrderBy $orderBy */
-                $orderBy = $command->getOrderBy();
-                assert($orderBy->getColumnName() !== '', 'PreviewTableCommand.orderBy.columnName is required');
+            /**
+             * @var int $index
+             * @var OrderBy $orderBy
+             */
+            foreach ($command->getOrderBy() as $index => $orderBy) {
+                assert($orderBy->getColumnName() !== '', sprintf(
+                    'PreviewTableCommand.orderBy.%d.columnName is required',
+                    $index,
+                ));
             }
 
             // build sql
@@ -170,7 +175,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                 ->setExpectedObjectType(ObjectType::TABLE)
                 ->setPath(ProtobufHelper::arrayToRepeatedString([
                     $databaseName,
-                    $command->getTableName()
+                    $command->getTableName(),
                 ]));
             /** @var ObjectInfoResponse $response */
             $response = $objectInfoHandler($credentials, $tableInfoCommand, []);
