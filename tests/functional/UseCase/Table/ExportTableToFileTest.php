@@ -10,7 +10,6 @@ use Generator;
 use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
-use http\Message\Body;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Info\TableInfo;
@@ -28,7 +27,6 @@ use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Export\ExportTableToFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilder;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilderFactory;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
@@ -66,8 +64,10 @@ class ExportTableToFileTest extends BaseCase
 
     /**
      * @dataProvider simpleExportProvider
+     * @param array{exportOptions: ExportOptions} $input
+     * @param array<int, string>[]|null $exportData
      */
-    public function testExportTableToFile(bool $isCompressed, int $exportSize): void
+    public function testExportTableToFile(array $input, ?int $exportSize, ?array $exportData): void
     {
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $sourceTableName = md5($this->getName()) . '_Test_table_export';
@@ -107,9 +107,9 @@ class ExportTableToFileTest extends BaseCase
 
         $cmd->setFileFormat(FileFormat::CSV);
 
-        $exportOptions = new ExportOptions();
-        $exportOptions->setIsCompressed($isCompressed);
-        $cmd->setExportOptions($exportOptions);
+        if ($input['exportOptions'] instanceof ExportOptions) {
+            $cmd->setExportOptions($input['exportOptions']);
+        }
 
         $exportMeta = new Any();
         $exportMeta->pack(
@@ -168,7 +168,19 @@ class ExportTableToFileTest extends BaseCase
         );
         $this->assertNotNull($files);
         $this->assertCount(1, $files);
-        $this->assertEquals($exportSize, $files[0]['Size']);
+        if ($exportSize !== null) {
+            $this->assertEquals($exportSize, $files[0]['Size']);
+        }
+
+        // check data
+        if ($exportData !== null) {
+            $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
+            $this->assertEqualsArrays(
+                $exportData,
+                // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
+                $csvData
+            );
+        }
 
         // cleanup
         $db = $this->getConnection($this->projectCredentials);
@@ -295,138 +307,43 @@ class ExportTableToFileTest extends BaseCase
         $db->close();
     }
 
-    public function testExportTableToFileLimitColumns(): void
-    {
-        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
-        $sourceTableName = md5($this->getName()) . '_Test_table_export';
-        $exportDir = sprintf(
-            'export/%s/',
-            str_replace([' ', '"', '\''], ['-', '_', '_'], $this->getName())
-        );
-
-        // create table
-        $db = $this->getConnection($this->projectCredentials);
-        $sourceTableDef = $this->createSourceTable($bucketDatabaseName, $sourceTableName, $db);
-
-        // clear files
-        $s3Client = $this->getS3Client(
-            (string) getenv('AWS_ACCESS_KEY_ID'),
-            (string) getenv('AWS_SECRET_ACCESS_KEY'),
-            (string) getenv('AWS_REGION')
-        );
-        $this->clearS3BucketDir(
-            $s3Client,
-            (string) getenv('AWS_S3_BUCKET'),
-            $exportDir
-        );
-
-        // export command
-        $cmd = new TableExportToFileCommand();
-
-        $path = new RepeatedField(GPBType::STRING);
-        $path[] = $bucketDatabaseName;
-        $cmd->setSource(
-            (new ImportExportShared\Table())
-                ->setPath($path)
-                ->setTableName($sourceTableName)
-        );
-        $cmd->setFileProvider(FileProvider::S3);
-        $cmd->setFileFormat(FileFormat::CSV);
-
-        $columnsToExport = new RepeatedField(GPBType::STRING);
-        $columnsToExport[] = 'col1';
-        $columnsToExport[] = 'col2';
-        // we did skip col3
-
-        $exportOptions = new ExportOptions();
-        $exportOptions->setIsCompressed(false);
-        $exportOptions->setColumnsToExport($columnsToExport);
-        $cmd->setExportOptions($exportOptions);
-
-        $exportMeta = new Any();
-        $exportMeta->pack(
-            (new TableExportToFileCommand\TeradataTableExportMeta())
-                ->setExportAdapter(TableExportToFileCommand\TeradataTableExportMeta\ExportAdapter::TPT)
-        );
-        $cmd->setMeta($exportMeta);
-
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath($exportDir)
-        );
-
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
-
-        $handler = new ExportTableToFileHandler($this->sessionManager, $this->tableExportQueryBuilderFactory);
-        $response = $handler(
-            $this->projectCredentials,
-            $cmd,
-            []
-        );
-
-        $this->assertInstanceOf(TableExportToFileResponse::class, $response);
-
-        $exportedTableInfo = $response->getTableInfo();
-        $this->assertNotNull($exportedTableInfo);
-
-        $this->assertSame($sourceTableName, $exportedTableInfo->getTableName());
-        $this->assertSame([$bucketDatabaseName], ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPath()));
-        $this->assertSame(
-            $sourceTableDef->getPrimaryKeysNames(),
-            ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPrimaryKeysNames())
-        );
-        /** @var TableInfo\TableColumn[] $columns */
-        $columns = iterator_to_array($exportedTableInfo->getColumns()->getIterator());
-        $columnsNames = array_map(
-            static fn(TableInfo\TableColumn $col) => $col->getName(),
-            $columns
-        );
-        $this->assertSame($sourceTableDef->getColumnsNames(), $columnsNames);
-
-        // check files
-        /** @var array<int, array{Key: string}> $files */
-        $files = $this->listS3BucketDirFiles(
-            $s3Client,
-            (string) getenv('AWS_S3_BUCKET'),
-            $exportDir
-        );
-        $this->assertNotNull($files);
-        $this->assertCount(1, $files);
-
-        $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
-        $this->assertEqualsArrays(
-            [
-                ['   1', '   2'],
-                ['   2', '   3'],
-                ['   3', '   3'],
-            ],
-            // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
-            $csvData
-        );
-
-        // cleanup
-        $db = $this->getConnection($this->projectCredentials);
-        $this->dropSourceTable($sourceTableDef->getSchemaName(), $sourceTableDef->getTableName(), $db);
-        $db->close();
-    }
-
     public function simpleExportProvider(): Generator
     {
         yield 'plain csv' => [
-            false, // compression
-            63, // bytes
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                ]),
+            ],
+            63, // expected bytes
+            [ // expected data
+                ['   1', '   2', '   4'],
+                ['   2', '   3', '   4'],
+                ['   3', '   3', '   3'],
+            ]
         ];
         yield 'gzipped csv' => [
-            true, // compression
-            46, // bytes
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => true,
+                ]),
+            ],
+            46, // expected bytes
+            null, // expected data - it's gzip file, not csv
+        ];
+        yield 'filter columns' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1', 'col2'],
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['   1', '   2'],
+                ['   2', '   3'],
+                ['   3', '   3'],
+            ]
         ];
     }
 
