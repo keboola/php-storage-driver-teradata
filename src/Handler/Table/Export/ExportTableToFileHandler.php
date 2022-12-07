@@ -139,9 +139,11 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         $database = ProtobufHelper::repeatedStringToArray($source->getPath())[0];
         $queryBuilder = $this->queryBuilderFactory->create($db);
         $queryData = $queryBuilder->buildQueryFromCommand($command, $database, $source->getTableName());
+        /** @var array<string> $queryDataBindings */
+        $queryDataBindings = $queryData->getBindings();
         $sourceRef = new SelectSource(
             $queryData->getQuery(),
-            $queryData->getBindings(),
+            $queryDataBindings,
             $queryData->getTypes(),
         );
 

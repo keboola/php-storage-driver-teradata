@@ -17,8 +17,8 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilder;
 use Keboola\StorageDriver\Teradata\QueryBuilder\QueryBuilderException;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilder;
 use Keboola\TableBackendUtils\Connection\Teradata\TeradataPlatform;
 use PHPUnit\Framework\TestCase;
 
