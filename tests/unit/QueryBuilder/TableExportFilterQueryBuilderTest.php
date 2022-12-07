@@ -65,6 +65,18 @@ class TableExportFilterQueryBuilderTest extends TestCase
 
     public function provideSuccessData(): Generator
     {
+        yield 'empty columns' => [
+            new TableExportToFileCommand([
+                'exportOptions' => new ExportOptions([
+                    'columnsToExport' => [],
+                ]),
+            ]),
+            <<<SQL
+            SELECT * FROM "some_schema"."some_table"
+            SQL,
+            [],
+            [],
+        ];
         yield 'limit + one filter + orderBy' => [
             new TableExportToFileCommand([
                 'exportOptions' => new ExportOptions([

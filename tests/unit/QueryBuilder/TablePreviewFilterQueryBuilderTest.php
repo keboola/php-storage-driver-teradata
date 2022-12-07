@@ -104,6 +104,18 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
 
     public function provideSuccessData(): Generator
     {
+        yield 'empty columns' => [
+            new PreviewTableCommand([
+                'path' => ['some_schema'],
+                'tableName' => 'some_table',
+                'columns' => [],
+            ]),
+            <<<SQL
+            SELECT * FROM "some_schema"."some_table"
+            SQL,
+            [],
+            [],
+        ];
         yield 'limit + one filter + orderBy' => [
             new PreviewTableCommand([
                 'path' => ['some_schema'],

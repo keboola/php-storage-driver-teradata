@@ -162,6 +162,11 @@ abstract class CommonFilterQueryBuilder
      */
     protected function processSelectStatement(array $columns, QueryBuilder $query): void
     {
+        if (count($columns) === 0) {
+            $query->addSelect('*');
+            return;
+        }
+
         foreach ($columns as $column) {
             $selectColumnExpresion = TeradataQuote::quoteSingleIdentifier($column);
 
