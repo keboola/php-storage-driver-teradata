@@ -14,11 +14,16 @@ use Keboola\CsvOptions\CsvOptions;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
 use Keboola\StorageDriver\Command\Table\TableExportToFileResponse;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
@@ -160,7 +165,7 @@ class ExportTableToFileTest extends BaseCase
         $this->assertSame($sourceTableDef->getColumnsNames(), $columnsNames);
 
         // check files
-        /** @var array<int, array<string, mixed>> $files */
+        /** @var array<int, array{Key: string, Size: int}> $files */
         $files = $this->listS3BucketDirFiles(
             $s3Client,
             (string) getenv('AWS_S3_BUCKET'),
@@ -320,7 +325,7 @@ class ExportTableToFileTest extends BaseCase
                 ['   1', '   2', '   4'],
                 ['   2', '   3', '   4'],
                 ['   3', '   3', '   3'],
-            ]
+            ],
         ];
         yield 'gzipped csv' => [
             [ // input
@@ -343,7 +348,145 @@ class ExportTableToFileTest extends BaseCase
                 ['   1', '   2'],
                 ['   2', '   3'],
                 ['   3', '   3'],
-            ]
+            ],
+        ];
+        yield 'filter order by' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1', 'col2'],
+                    'orderBy' => new OrderBy([
+                        'columnName' => 'col1',
+                        'order' => Order::DESC,
+                    ]),
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['   3'],
+                ['   2'],
+                ['   1'],
+            ],
+        ];
+        yield 'filter order by with dataType' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'orderBy' => new OrderBy([
+                        'columnName' => 'col1',
+                        'order' => Order::DESC,
+                        'dataType' => DataType::INTEGER,
+                    ]),
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['   3'],
+                ['   2'],
+                ['   1'],
+            ],
+        ];
+        yield 'filter limit' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'limit' => 2,
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['   1'],
+                ['   2'],
+            ],
+        ];
+        // TODO how to test _timestamp column?
+//        yield 'filter changedSince + changedUntil' => [
+//            [ // input
+//                'exportOptions' => new ExportOptions([
+//                    'isCompressed' => false,
+//                    'columnsToExport' => ['col1'],
+//                    'changeSince' => '1641038401',
+//                    'changeUntil' => '1641038402',
+//                ]),
+//            ],
+//            null, // expected bytes
+//            [ // expected data
+//                ['   1'],
+//                ['   2'],
+//            ],
+//        ];
+        yield 'filter simple where' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'col2',
+                            'operator' => Operator::ge,
+                            'values' => ['3'],
+                        ]),
+                    ],
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['   2'],
+                ['   3'],
+            ],
+        ];
+        yield 'filter multiple where' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'col2',
+                            'operator' => Operator::ge,
+                            'values' => ['3'],
+                        ]),
+                        new TableWhereFilter([
+                            'columnsName' => 'col3',
+                            'operator' => Operator::lt,
+                            'values' => ['4'],
+                        ]),
+                    ],
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['   2'],
+            ],
+        ];
+        yield 'filter where with dataType' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'col2',
+                            'operator' => Operator::gt,
+                            'values' => ['2.9'],
+                            'dataType' => DataType::REAL,
+                        ]),
+                        new TableWhereFilter([
+                            'columnsName' => 'col2',
+                            'operator' => Operator::lt,
+                            'values' => ['3.1'],
+                            'dataType' => DataType::REAL,
+                        ]),
+                    ],
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['   2'],
+                ['   3'],
+            ],
         ];
     }
 
