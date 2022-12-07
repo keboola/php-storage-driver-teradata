@@ -16,7 +16,7 @@
         "keboola/db-import-export": "^1.17",
         "google/protobuf": "^3.21",
         "keboola/php-file-storage-utils": "^0.2.5",
-        "keboola/storage-driver-common": "^1.4.0"
+        "keboola/storage-driver-common": "dev-roman-add-more-params-to-LinkedBuckedCommand as 1.4.0"
     },
     "require-dev": {
         "phpunit/phpunit": "9.2.*",

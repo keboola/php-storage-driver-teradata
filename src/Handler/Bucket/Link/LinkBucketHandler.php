@@ -6,6 +6,7 @@ namespace Keboola\StorageDriver\Teradata\Handler\Bucket\Link;
 
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\LinkedBucketResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
@@ -39,9 +40,10 @@ final class LinkBucketHandler implements DriverCommandHandlerInterface
         $db->executeStatement(sprintf(
             'GRANT %s TO %s;',
             TeradataQuote::quoteSingleIdentifier($command->getSourceShareRoleName()),
-            TeradataQuote::quoteSingleIdentifier($command->getProjectReadOnlyRoleName()),
+            TeradataQuote::quoteSingleIdentifier($command->getTargetProjectReadOnlyRoleName()),
         ));
 
-        return null;
+        // returning empty response to be compatible with BQ
+        return new LinkedBucketResponse();
     }
 }
