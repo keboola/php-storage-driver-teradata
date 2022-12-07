@@ -61,6 +61,7 @@ use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandl
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\DropObject\DropWorkspaceObjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\ResetPassword\ResetWorkspacePasswordHandler;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TablePreviewFilterQueryBuilderFactory;
 
 class TeradataDriverClient implements ClientInterface
@@ -76,7 +77,13 @@ class TeradataDriverClient implements ClientInterface
         assert($credentials instanceof GenericBackendCredentials);
         $manager = new TeradataSessionManager();
         $tablePreviewFilterQueryBuilderFactory = new TablePreviewFilterQueryBuilderFactory();
-        $handler = $this->getHandler($command, $manager, $tablePreviewFilterQueryBuilderFactory);
+        $tableExportFilterQueryBuilderFactory = new TableExportFilterQueryBuilderFactory();
+        $handler = $this->getHandler(
+            $command,
+            $manager,
+            $tablePreviewFilterQueryBuilderFactory,
+            $tableExportFilterQueryBuilderFactory,
+        );
         try {
             $response = $handler(
                 $credentials,
@@ -93,7 +100,8 @@ class TeradataDriverClient implements ClientInterface
     private function getHandler(
         Message $command,
         TeradataSessionManager $manager,
-        ?TablePreviewFilterQueryBuilderFactory $tablePreviewFilterQueryBuilderFactory = null
+        ?TablePreviewFilterQueryBuilderFactory $tablePreviewFilterQueryBuilderFactory = null,
+        ?TableExportFilterQueryBuilderFactory $tableExportFilterQueryBuilderFactory = null
     ): DriverCommandHandlerInterface {
         switch (true) {
             case $command instanceof InitBackendCommand:
@@ -128,7 +136,8 @@ class TeradataDriverClient implements ClientInterface
                 assert($tablePreviewFilterQueryBuilderFactory instanceof TablePreviewFilterQueryBuilderFactory);
                 return new PreviewTableHandler($manager, $tablePreviewFilterQueryBuilderFactory);
             case $command instanceof TableExportToFileCommand:
-                return new ExportTableToFileHandler($manager);
+                assert($tableExportFilterQueryBuilderFactory instanceof TableExportFilterQueryBuilderFactory);
+                return new ExportTableToFileHandler($manager, $tableExportFilterQueryBuilderFactory);
             case $command instanceof CreateWorkspaceCommand:
                 return new CreateWorkspaceHandler($manager);
             case $command instanceof DropWorkspaceCommand:
