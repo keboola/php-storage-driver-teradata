@@ -10,11 +10,15 @@ use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
+use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\DedupType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportStrategy;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
@@ -53,14 +57,30 @@ class ImportTableFromFileTest extends BaseCase
         $this->cleanTestProject();
     }
 
-    public function testImportTableFromTableIncrementalLoad(): void
+    /**
+     * @return Generator<string,array{boolean}>
+     */
+    public function typedTablesProvider(): Generator
+    {
+        yield 'typed ' => [true,];
+        yield 'string table ' => [false,];
+    }
+
+    /**
+     * @dataProvider typedTablesProvider
+     */
+    public function testImportTableFromTableIncrementalLoad(bool $typedTable): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $db = $this->getConnection($this->projectCredentials);
 
         // create tables
-        $tableDestDef = $this->createDestinationTable($bucketDatabaseName, $destinationTableName, $db);
+        if ($typedTable) {
+            $tableDestDef = $this->createDestinationTable($bucketDatabaseName, $destinationTableName, $db);
+        } else {
+            $tableDestDef = $this->createDestinationTypedTable($bucketDatabaseName, $destinationTableName, $db);
+        }
 
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
@@ -105,10 +125,11 @@ class ImportTableFromFileTest extends BaseCase
         $dedupCols[] = 'col1';
         $cmd->setImportOptions(
             (new ImportOptions())
-                ->setImportType(ImportOptions\ImportType::INCREMENTAL)
-                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setImportType(ImportType::INCREMENTAL)
+                ->setDedupType(DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
                 ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
+                ->setImportStrategy($typedTable ? ImportStrategy::USER_DEFINED_TABLE : ImportStrategy::STRING_TABLE)
                 ->setNumberOfIgnoredLines(1)
                 ->setTimestampColumn('_timestamp')
         );
@@ -166,14 +187,64 @@ class ImportTableFromFileTest extends BaseCase
         return $tableDestDef;
     }
 
-    public function testImportTableFromTableFullLoadWithDeduplication(): void
+    private function createDestinationTypedTable(
+        string $bucketDatabaseName,
+        string $destinationTableName,
+        Connection $db
+    ): TeradataTableDefinition {
+        $tableDestDef = new TeradataTableDefinition(
+            $bucketDatabaseName,
+            $destinationTableName,
+            false,
+            new ColumnCollection([
+                new TeradataColumn('col1', new Teradata(
+                    Teradata::TYPE_INT,
+                    []
+                )),
+                new TeradataColumn('col2', new Teradata(
+                    Teradata::TYPE_BIGINT,
+                    []
+                )),
+                TeradataColumn::createGenericColumn('col3'),
+                TeradataColumn::createGenericColumn('_timestamp'),
+            ]),
+            []
+        );
+        $qb = new TeradataTableQueryBuilder();
+        $sql = $qb->getCreateTableCommand(
+            $tableDestDef->getSchemaName(),
+            $tableDestDef->getTableName(),
+            $tableDestDef->getColumnsDefinitions(),
+            $tableDestDef->getPrimaryKeysNames(),
+        );
+        $db->executeStatement($sql);
+        // init some values
+        foreach ([[1, 2, '4', ''], [2, 3, '4', ''], [3, 3, '3', '']] as $i) {
+            $db->executeStatement(sprintf(
+                'INSERT INTO %s.%s VALUES (%s)',
+                TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
+                TeradataQuote::quoteSingleIdentifier($destinationTableName),
+                implode(',', $i)
+            ));
+        }
+        return $tableDestDef;
+    }
+
+    /**
+     * @dataProvider typedTablesProvider
+     */
+    public function testImportTableFromTableFullLoadWithDeduplication(bool $typedTable): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $db = $this->getConnection($this->projectCredentials);
 
         // create tables
-        $tableDestDef = $this->createDestinationTable($bucketDatabaseName, $destinationTableName, $db);
+        if ($typedTable) {
+            $tableDestDef = $this->createDestinationTable($bucketDatabaseName, $destinationTableName, $db);
+        } else {
+            $tableDestDef = $this->createDestinationTypedTable($bucketDatabaseName, $destinationTableName, $db);
+        }
 
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
@@ -218,11 +289,12 @@ class ImportTableFromFileTest extends BaseCase
         $dedupCols[] = 'col1';
         $cmd->setImportOptions(
             (new ImportOptions())
-                ->setImportType(ImportOptions\ImportType::FULL)
-                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setImportType(ImportType::FULL)
+                ->setDedupType(DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
                 ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(1)
+                ->setImportStrategy($typedTable ? ImportStrategy::USER_DEFINED_TABLE : ImportStrategy::STRING_TABLE)
                 ->setTimestampColumn('_timestamp')
         );
 
@@ -255,14 +327,21 @@ class ImportTableFromFileTest extends BaseCase
         $db->close();
     }
 
-    public function testImportTableFromTableFullLoadWithoutDeduplication(): void
+    /**
+     * @dataProvider typedTablesProvider
+     */
+    public function testImportTableFromTableFullLoadWithoutDeduplication(bool $typedTable): void
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $db = $this->getConnection($this->projectCredentials);
 
         // create tables
-        $tableDestDef = $this->createDestinationTable($bucketDatabaseName, $destinationTableName, $db);
+        if ($typedTable) {
+            $tableDestDef = $this->createDestinationTable($bucketDatabaseName, $destinationTableName, $db);
+        } else {
+            $tableDestDef = $this->createDestinationTypedTable($bucketDatabaseName, $destinationTableName, $db);
+        }
 
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
@@ -306,11 +385,12 @@ class ImportTableFromFileTest extends BaseCase
         $dedupCols = new RepeatedField(GPBType::STRING);
         $cmd->setImportOptions(
             (new ImportOptions())
-                ->setImportType(ImportOptions\ImportType::FULL)
-                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setImportType(ImportType::FULL)
+                ->setDedupType(DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
                 ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(1)
+                ->setImportStrategy($typedTable ? ImportStrategy::USER_DEFINED_TABLE : ImportStrategy::STRING_TABLE)
                 ->setTimestampColumn('_timestamp')
         );
 
@@ -450,8 +530,8 @@ class ImportTableFromFileTest extends BaseCase
         $dedupCols = new RepeatedField(GPBType::STRING);
         $cmd->setImportOptions(
             (new ImportOptions())
-                ->setImportType(ImportOptions\ImportType::FULL)
-                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setImportType(ImportType::FULL)
+                ->setDedupType(DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
                 ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
@@ -566,8 +646,8 @@ class ImportTableFromFileTest extends BaseCase
         $dedupCols[] = 'id';
         $cmd->setImportOptions(
             (new ImportOptions())
-                ->setImportType(ImportOptions\ImportType::INCREMENTAL)
-                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setImportType(ImportType::INCREMENTAL)
+                ->setDedupType(DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
                 ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
@@ -664,8 +744,8 @@ class ImportTableFromFileTest extends BaseCase
         $dedupCols[] = 'id';
         $cmd->setImportOptions(
             (new ImportOptions())
-                ->setImportType(ImportOptions\ImportType::INCREMENTAL)
-                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setImportType(ImportType::INCREMENTAL)
+                ->setDedupType(DedupType::UPDATE_DUPLICATES)
                 ->setDedupColumnsNames($dedupCols)
                 ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
