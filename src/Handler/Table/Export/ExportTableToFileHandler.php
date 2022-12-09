@@ -171,9 +171,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
     private function validateExportOptions(?ExportOptions $requestExportOptions): void
     {
         if ($requestExportOptions) {
-            $columnsToExport = $requestExportOptions->getColumnsToExport()->count() > 0
-                ? ProtobufHelper::repeatedStringToArray($requestExportOptions->getColumnsToExport())
-                : [];
+            $columnsToExport = ProtobufHelper::repeatedStringToArray($requestExportOptions->getColumnsToExport());
             assert(
                 $columnsToExport === array_unique($columnsToExport),
                 'TableExportToFileCommand.exportOptions.columnsToExport has non unique names'
