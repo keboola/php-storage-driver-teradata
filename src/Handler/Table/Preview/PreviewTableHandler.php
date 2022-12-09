@@ -69,37 +69,12 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
         assert($command->getTableName() !== '', 'PreviewTableCommand.tableName is required');
         assert($command->getColumns()->count() > 0, 'PreviewTableCommand.columns is required');
 
+        $this->validateFilters($command);
+
         try {
             $db = $this->manager->createSession($credentials);
             /** @var string $databaseName */
             $databaseName = $command->getPath()[0];
-
-            // validate
-            $columns = ProtobufHelper::repeatedStringToArray($command->getColumns());
-            assert($columns === array_unique($columns), 'PreviewTableCommand.columns has non unique names');
-
-            assert($command->getLimit() <= self::MAX_LIMIT, 'PreviewTableCommand.limit cannot be greater than 1000');
-            if ($command->getLimit() === 0) {
-                $command->setLimit(self::DEFAULT_LIMIT);
-            }
-
-            if ($command->getChangeSince() !== '') {
-                assert(is_numeric($command->getChangeSince()), 'PreviewTableCommand.changeSince must be numeric timestamp');
-            }
-            if ($command->getChangeUntil() !== '') {
-                assert(is_numeric($command->getChangeUntil()), 'PreviewTableCommand.changeUntil must be numeric timestamp');
-            }
-
-            /**
-             * @var int $index
-             * @var OrderBy $orderBy
-             */
-            foreach ($command->getOrderBy() as $index => $orderBy) {
-                assert($orderBy->getColumnName() !== '', sprintf(
-                    'PreviewTableCommand.orderBy.%d.columnName is required',
-                    $index,
-                ));
-            }
 
             // build sql
             $tableInfo = $this->getTableInfoResponseIfNeeded($credentials, $command, $databaseName);
@@ -186,5 +161,34 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             return $response->getTableInfo();
         }
         return null;
+    }
+
+    private function validateFilters(PreviewTableCommand $command): void
+    {
+        $columns = ProtobufHelper::repeatedStringToArray($command->getColumns());
+        assert($columns === array_unique($columns), 'PreviewTableCommand.columns has non unique names');
+
+        assert($command->getLimit() <= self::MAX_LIMIT, 'PreviewTableCommand.limit cannot be greater than 1000');
+        if ($command->getLimit() === 0) {
+            $command->setLimit(self::DEFAULT_LIMIT);
+        }
+
+        if ($command->getChangeSince() !== '') {
+            assert(is_numeric($command->getChangeSince()), 'PreviewTableCommand.changeSince must be numeric timestamp');
+        }
+        if ($command->getChangeUntil() !== '') {
+            assert(is_numeric($command->getChangeUntil()), 'PreviewTableCommand.changeUntil must be numeric timestamp');
+        }
+
+        /**
+         * @var int $index
+         * @var OrderBy $orderBy
+         */
+        foreach ($command->getOrderBy() as $index => $orderBy) {
+            assert($orderBy->getColumnName() !== '', sprintf(
+                'PreviewTableCommand.orderBy.%d.columnName is required',
+                $index,
+            ));
+        }
     }
 }

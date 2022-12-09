@@ -88,39 +88,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
 
         // validate exportOptions
         $requestExportOptions = $command->getExportOptions();
-        if ($requestExportOptions) {
-            $columnsToExport = $requestExportOptions->getColumnsToExport()->count() > 0
-                ? ProtobufHelper::repeatedStringToArray($requestExportOptions->getColumnsToExport())
-                : [];
-            assert(
-                $columnsToExport === array_unique($columnsToExport),
-                'TableExportToFileCommand.exportOptions.columnsToExport has non unique names'
-            );
-
-            if ($requestExportOptions->getChangeSince() !== '') {
-                assert(
-                    is_numeric($requestExportOptions->getChangeSince()),
-                    'TableExportToFileCommand.exportOptions.changeSince must be numeric timestamp'
-                );
-            }
-            if ($requestExportOptions->getChangeUntil() !== '') {
-                assert(
-                    is_numeric($requestExportOptions->getChangeUntil()),
-                    'TableExportToFileCommand.exportOptions.changeUntil must be numeric timestamp'
-                );
-            }
-
-            /**
-             * @var int $index
-             * @var OrderBy $orderBy
-             */
-            foreach ($requestExportOptions->getOrderBy() as $index => $orderBy) {
-                assert($orderBy->getColumnName() !== '', sprintf(
-                    'TableExportToFileCommand.exportOptions.orderBy.%d.columnName is required',
-                    $index,
-                ));
-            }
-        }
+        $this->validateExportOptions($requestExportOptions);
 
         $exportOptions = $this->createOptions(
             $credentials,
@@ -198,5 +166,42 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             self::DEFAULT_BUFFER_SIZE,
             self::DEFAULT_MAX_OBJECT_SIZE
         );
+    }
+
+    private function validateExportOptions(?ExportOptions $requestExportOptions): void
+    {
+        if ($requestExportOptions) {
+            $columnsToExport = $requestExportOptions->getColumnsToExport()->count() > 0
+                ? ProtobufHelper::repeatedStringToArray($requestExportOptions->getColumnsToExport())
+                : [];
+            assert(
+                $columnsToExport === array_unique($columnsToExport),
+                'TableExportToFileCommand.exportOptions.columnsToExport has non unique names'
+            );
+
+            if ($requestExportOptions->getChangeSince() !== '') {
+                assert(
+                    is_numeric($requestExportOptions->getChangeSince()),
+                    'TableExportToFileCommand.exportOptions.changeSince must be numeric timestamp'
+                );
+            }
+            if ($requestExportOptions->getChangeUntil() !== '') {
+                assert(
+                    is_numeric($requestExportOptions->getChangeUntil()),
+                    'TableExportToFileCommand.exportOptions.changeUntil must be numeric timestamp'
+                );
+            }
+
+            /**
+             * @var int $index
+             * @var OrderBy $orderBy
+             */
+            foreach ($requestExportOptions->getOrderBy() as $index => $orderBy) {
+                assert($orderBy->getColumnName() !== '', sprintf(
+                    'TableExportToFileCommand.exportOptions.orderBy.%d.columnName is required',
+                    $index,
+                ));
+            }
+        }
     }
 }
