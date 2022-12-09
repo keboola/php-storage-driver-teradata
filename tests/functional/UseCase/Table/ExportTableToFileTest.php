@@ -355,10 +355,12 @@ class ExportTableToFileTest extends BaseCase
                 'exportOptions' => new ExportOptions([
                     'isCompressed' => false,
                     'columnsToExport' => ['col1', 'col2'],
-                    'orderBy' => new OrderBy([
-                        'columnName' => 'col1',
-                        'order' => Order::DESC,
-                    ]),
+                    'orderBy' => [
+                        new OrderBy([
+                            'columnName' => 'col1',
+                            'order' => Order::DESC,
+                        ]),
+                    ],
                 ]),
             ],
             null, // expected bytes
@@ -373,11 +375,13 @@ class ExportTableToFileTest extends BaseCase
                 'exportOptions' => new ExportOptions([
                     'isCompressed' => false,
                     'columnsToExport' => ['col1'],
-                    'orderBy' => new OrderBy([
-                        'columnName' => 'col1',
-                        'order' => Order::DESC,
-                        'dataType' => DataType::INTEGER,
-                    ]),
+                    'orderBy' => [
+                        new OrderBy([
+                            'columnName' => 'col1',
+                            'order' => Order::DESC,
+                            'dataType' => DataType::INTEGER,
+                        ]),
+                    ],
                 ]),
             ],
             null, // expected bytes
