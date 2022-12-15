@@ -6,6 +6,7 @@ namespace Keboola\StorageDriver\FunctionalTests\UseCase\Bucket;
 
 use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\ShareBucketResponse;
 use Keboola\StorageDriver\Command\Bucket\UnlinkBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
@@ -68,9 +69,9 @@ class ShareLinkBucketTest extends BaseCase
             'SET SESSION DATABASE %s;',
             TeradataQuote::quoteSingleIdentifier($bucketDatabaseName)
         ));
-        $shareRoleName = $bucketDatabaseName . '_SHARE';
+        $expectedShareRoleName = 'KBC_PROJECT456_BUCKET123_SHARE';
         // cleaning of the share role
-        $this->dropRole($sourceProjectConnection, $shareRoleName);
+        $this->dropRole($sourceProjectConnection, $expectedShareRoleName);
 
         $sourceProjectConnection->executeQuery('CREATE TABLE TESTTABLE_BEFORE (ID INT)');
         $sourceProjectConnection->executeQuery('INSERT INTO TESTTABLE_BEFORE (1)');
@@ -94,22 +95,26 @@ class ShareLinkBucketTest extends BaseCase
         // share the bucket
         $handler = new ShareBucketHandler($this->sessionManager);
         $command = (new ShareBucketCommand())
-            ->setBucketObjectName($bucketDatabaseName)
-            ->setProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName())
-            ->setBucketShareRoleName($shareRoleName);
+            ->setStackPrefix('KBC')
+            ->setSourceBucketObjectName($bucketDatabaseName)
+            ->setSourceBucketId('bucket123')
+            ->setSourceProjectId('project456')
+            ->setSourceProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName());
 
-        $handler(
+        $shareResponse = $handler(
             $this->sourceProjectCredentials,
             $command,
             []
         );
 
+        $this->assertInstanceOf(ShareBucketResponse::class, $shareResponse);
+        $this->assertEquals($expectedShareRoleName, $shareResponse->getBucketShareRoleName());
+
         // link the bucket
         $handler = new LinkBucketHandler($this->sessionManager);
         $command = (new LinkBucketCommand())
-            ->setBucketObjectName($bucketDatabaseName)
-            ->setSourceShareRoleName($shareRoleName)
-            ->setProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName());
+            ->setSourceShareRoleName($expectedShareRoleName)
+            ->setTargetProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName());
 
         // it is sourceProject who does the grants -> that's why the sourceProjectCredentials
         $handler(
@@ -146,7 +151,7 @@ class ShareLinkBucketTest extends BaseCase
         $command = (new UnLinkBucketCommand())
             ->setBucketObjectName($bucketDatabaseName)
             ->setProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName())
-            ->setSourceShareRoleName($shareRoleName);
+            ->setSourceShareRoleName($expectedShareRoleName);
 
         $unlinkHandler(
             $this->sourceProjectCredentials,
@@ -183,28 +188,33 @@ class ShareLinkBucketTest extends BaseCase
             'SET SESSION DATABASE %s;',
             TeradataQuote::quoteSingleIdentifier($bucketDatabaseName)
         ));
-        $shareRoleName = $bucketDatabaseName . '_SHARE';
+        $expectedShareRoleName = 'KBC_PROJECT456_BUCKET123_SHARE';
         // cleaning of the share role
-        $this->dropRole($sourceProjectConnection, $shareRoleName);
+        $this->dropRole($sourceProjectConnection, $expectedShareRoleName);
 
         $handler = new ShareBucketHandler($this->sessionManager);
         $command = (new ShareBucketCommand())
-            ->setBucketObjectName($bucketDatabaseName)
-            ->setProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName())
-            ->setBucketShareRoleName($shareRoleName);
+            ->setStackPrefix('KBC')
+            ->setSourceBucketId('bucket123')
+            ->setSourceProjectId('project456')
+            ->setSourceBucketObjectName($bucketDatabaseName)
+            ->setSourceProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName());
 
-        $handler(
+        $shareResponse = $handler(
             $this->sourceProjectCredentials,
             $command,
             []
         );
 
-        $this->assertTrue($this->isRoleExists($sourceProjectConnection, $shareRoleName));
+        $this->assertInstanceOf(ShareBucketResponse::class, $shareResponse);
+        $this->assertEquals($expectedShareRoleName, $shareResponse->getBucketShareRoleName());
+
+        $this->assertTrue($this->isRoleExists($sourceProjectConnection, $expectedShareRoleName));
 
         $handler = new UnShareBucketHandler($this->sessionManager);
         $command = (new UnShareBucketCommand())
             ->setBucketObjectName($bucketDatabaseName)
-            ->setBucketShareRoleName($shareRoleName);
+            ->setBucketShareRoleName($expectedShareRoleName);
 
         $handler(
             $this->sourceProjectCredentials,
@@ -212,7 +222,7 @@ class ShareLinkBucketTest extends BaseCase
             []
         );
 
-        $this->assertFalse($this->isRoleExists($sourceProjectConnection, $shareRoleName));
+        $this->assertFalse($this->isRoleExists($sourceProjectConnection, $expectedShareRoleName));
     }
 
     public function testShareUnshareLinkedBucket(): void
@@ -221,6 +231,7 @@ class ShareLinkBucketTest extends BaseCase
             $this->sourceProjectCredentials,
             $this->sourceProjectResponse
         );
+        $expectedShareRoleName = 'KBC_PROJECT456_BUCKET123_SHARE';
 
         $bucketDatabaseName = $bucketResponse->getCreateBucketObjectName();
 
@@ -229,33 +240,36 @@ class ShareLinkBucketTest extends BaseCase
             'SET SESSION DATABASE %s;',
             TeradataQuote::quoteSingleIdentifier($bucketDatabaseName)
         ));
-        $shareRoleName = $bucketDatabaseName . '_SHARE';
         // cleaning of the share role
-        $this->dropRole($sourceProjectConnection, $shareRoleName);
+        $this->dropRole($sourceProjectConnection, $expectedShareRoleName);
 
         $handler = new ShareBucketHandler($this->sessionManager);
         $command = (new ShareBucketCommand())
-            ->setBucketObjectName($bucketDatabaseName)
-            ->setProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName())
-            ->setBucketShareRoleName($shareRoleName);
+            ->setStackPrefix('KBC')
+            ->setSourceBucketObjectName($bucketDatabaseName)
+            ->setSourceBucketId('bucket123')
+            ->setSourceProjectId('project456')
+            ->setSourceProjectReadOnlyRoleName($this->sourceProjectResponse->getProjectReadOnlyRoleName());
 
-        $handler(
+        $shareResponse = $handler(
             $this->sourceProjectCredentials,
             $command,
             []
         );
 
+        $this->assertInstanceOf(ShareBucketResponse::class, $shareResponse);
+        $this->assertEquals($expectedShareRoleName, $shareResponse->getBucketShareRoleName());
+
         // check that there is no need to re-share or whatever
         $sourceProjectConnection->executeQuery('CREATE TABLE TESTTABLE_AFTER (ID INT)');
         $sourceProjectConnection->executeQuery('INSERT INTO TESTTABLE_AFTER (1)');
 
-        $this->assertTrue($this->isRoleExists($sourceProjectConnection, $shareRoleName));
+        $this->assertTrue($this->isRoleExists($sourceProjectConnection, $expectedShareRoleName));
 
         $handler = new LinkBucketHandler($this->sessionManager);
         $command = (new LinkBucketCommand())
-            ->setBucketObjectName($bucketDatabaseName)
-            ->setSourceShareRoleName($shareRoleName)
-            ->setProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName());
+            ->setSourceShareRoleName($expectedShareRoleName)
+            ->setTargetProjectReadOnlyRoleName($this->targetProjectResponse->getProjectReadOnlyRoleName());
 
         $handler(
             $this->sourceProjectCredentials,
@@ -266,7 +280,7 @@ class ShareLinkBucketTest extends BaseCase
         $handler = new UnShareBucketHandler($this->sessionManager);
         $command = (new UnShareBucketCommand())
             ->setBucketObjectName($bucketDatabaseName)
-            ->setBucketShareRoleName($shareRoleName);
+            ->setBucketShareRoleName($expectedShareRoleName);
 
         $handler(
             $this->sourceProjectCredentials,
@@ -274,7 +288,7 @@ class ShareLinkBucketTest extends BaseCase
             []
         );
 
-        $this->assertFalse($this->isRoleExists($sourceProjectConnection, $shareRoleName));
+        $this->assertFalse($this->isRoleExists($sourceProjectConnection, $expectedShareRoleName));
 
         $targetProjectConnection = $this->getConnection($this->targetProjectCredentials);
         // check that the Project2 cannot access the table anymore

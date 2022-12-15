@@ -6,8 +6,10 @@ namespace Keboola\StorageDriver\Teradata\Handler\Bucket\Share;
 
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\ShareBucketResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Shared\NameGenerator\GenericNameGenerator;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
@@ -35,9 +37,12 @@ final class ShareBucketHandler implements DriverCommandHandlerInterface
         assert($command instanceof ShareBucketCommand);
 
         $db = $this->manager->createSession($credentials);
+        $nameGenerator = new GenericNameGenerator($command->getStackPrefix());
 
-
-        $shareRoleName = $command->getBucketShareRoleName();
+        $shareRoleName = $nameGenerator->createShareRoleNameForBucket(
+            $command->getSourceProjectId(),
+            $command->getSourceBucketId()
+        );
 
         if (count($db->fetchAllAssociative(sprintf(
                 'SELECT * FROM DBC.RoleInfoV WHERE RoleName = %s;',
@@ -52,10 +57,10 @@ final class ShareBucketHandler implements DriverCommandHandlerInterface
 
         $db->executeStatement(sprintf(
             'GRANT SELECT ON %s TO %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getBucketObjectName()),
+            TeradataQuote::quoteSingleIdentifier($command->getSourceBucketObjectName()),
             TeradataQuote::quoteSingleIdentifier($shareRoleName),
         ));
 
-        return null;
+        return (new ShareBucketResponse())->setBucketShareRoleName($shareRoleName);
     }
 }
