@@ -109,12 +109,15 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         $queryData = $queryBuilder->buildQueryFromCommand($command, $database, $source->getTableName());
         /** @var array<string> $queryDataBindings */
         $queryDataBindings = $queryData->getBindings();
-        $sourceRef = new SelectSource(
+        $sql = $queryBuilder::processSqlWithBindingParameters(
             $queryData->getQuery(),
             $queryDataBindings,
             $queryData->getTypes(),
         );
 
+        $sourceRef = new SelectSource(
+            $sql,
+        );
         $destinationRef = $this->getDestinationFile($command->getFilePath(), $fileCredentials);
 
         (new Exporter($db))->exportTable(

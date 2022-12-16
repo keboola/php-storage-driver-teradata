@@ -2,20 +2,10 @@
 
 namespace Keboola\StorageDriver\Teradata\QueryBuilder;
 
-use DateTime;
-use DateTimeZone;
-use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Query\QueryException;
-use Google\Protobuf\Internal\RepeatedField;
-use Keboola\Datatype\Definition\Teradata;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
-use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -60,5 +50,44 @@ class TableExportFilterQueryBuilder extends CommonFilterQueryBuilder
             $types,
             ProtobufHelper::repeatedStringToArray($options->getColumnsToExport()),
         );
+    }
+
+    /**
+     * @param list<mixed>|array<string, mixed> $bindings
+     * @param array<string, string|int> $types
+     */
+    public static function processSqlWithBindingParameters(string $sql, array $bindings, array $types): string
+    {
+        foreach ($bindings as $name => $value) {
+            assert(is_string($name));
+            assert(is_string($value) || is_numeric($value));
+            // check type
+            $type = $types[$name] ?? 'unknown';
+            if ($type !== ParameterType::STRING) {
+                throw new LogicException(sprintf(
+                    'Error while process SQL with bindings: type %s not supported',
+                    $type,
+                ));
+            }
+
+            $count = 0;
+            $sql = preg_replace(
+                sprintf('/:%s\b/', preg_quote((string) $name, '/')),
+                TeradataQuote::quote((string) $value),
+                $sql,
+                -1,
+                $count,
+            );
+            assert(is_string($sql));
+
+            if ($count === 0) {
+                throw new LogicException(sprintf(
+                    'Errow while process SQL with bindings: binding %s not found',
+                    $name,
+                ));
+            }
+        }
+
+        return $sql;
     }
 }

@@ -20,6 +20,7 @@ use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
 use Keboola\StorageDriver\Teradata\QueryBuilder\QueryBuilderException;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilder;
 use Keboola\TableBackendUtils\Connection\Teradata\TeradataPlatform;
+use LogicException;
 use PHPUnit\Framework\TestCase;
 
 class TableExportFilterQueryBuilderTest extends TestCase
@@ -33,7 +34,8 @@ class TableExportFilterQueryBuilderTest extends TestCase
         TableExportToFileCommand $exportCommand,
         string $expectedSql,
         array $expectedBindings,
-        array $expectedDataTypes
+        array $expectedDataTypes,
+        string $expectedProcessedSql
     ): void {
         $connection = $this->createMock(Connection::class);
         $connection->method('getExpressionBuilder')
@@ -61,6 +63,15 @@ class TableExportFilterQueryBuilderTest extends TestCase
             $expectedDataTypes,
             $queryData->getTypes(),
         );
+
+        $this->assertSame(
+            str_replace(PHP_EOL, '', $expectedProcessedSql),
+            TableExportFilterQueryBuilder::processSqlWithBindingParameters(
+                $queryData->getQuery(),
+                $queryData->getBindings(),
+                $queryData->getTypes(),
+            ),
+        );
     }
 
     public function provideSuccessData(): Generator
@@ -76,6 +87,9 @@ class TableExportFilterQueryBuilderTest extends TestCase
             SQL,
             [],
             [],
+            <<<SQL
+            SELECT * FROM "some_schema"."some_table"
+            SQL,
         ];
         yield 'limit + one filter + orderBy' => [
             new TableExportToFileCommand([
@@ -110,6 +124,11 @@ class TableExportFilterQueryBuilderTest extends TestCase
             [
                 'dcValue1' => ParameterType::STRING,
             ],
+            <<<SQL
+            SELECT TOP 100 "id", "name" FROM "some_schema"."some_table"
+             WHERE "name" <> 'foo'
+             ORDER BY "name" ASC
+            SQL,
         ];
         yield 'more filters + more orderBy' => [
             new TableExportToFileCommand([
@@ -157,6 +176,12 @@ class TableExportFilterQueryBuilderTest extends TestCase
                 'dcValue1' => ParameterType::STRING,
                 'dcValue2' => ParameterType::STRING,
             ],
+            <<<SQL
+            SELECT "id", "name" FROM "some_schema"."some_table"
+             WHERE ("name" <> 'foo')
+             AND ("height" >= '1.23')
+             ORDER BY "id" ASC, "name" DESC
+            SQL,
         ];
         yield 'changeSince + changeUntil + more columns' => [
             new TableExportToFileCommand([
@@ -178,6 +203,10 @@ class TableExportFilterQueryBuilderTest extends TestCase
                 'changedSince' => ParameterType::STRING,
                 'changedUntil' => ParameterType::STRING,
             ],
+            <<<SQL
+            SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
+             WHERE ("_timestamp" >= '2022-11-01 09:00:00') AND ("_timestamp" < '2022-11-30 17:00:00')
+            SQL,
         ];
         yield 'one filter with type + orderBy with type' => [
             new TableExportToFileCommand([
@@ -211,6 +240,11 @@ class TableExportFilterQueryBuilderTest extends TestCase
             [
                 'dcValue1' => ParameterType::STRING,
             ],
+            <<<SQL
+            SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
+             WHERE CAST(TO_NUMBER("height") AS REAL) <> '10.20'
+             ORDER BY CAST(TO_NUMBER("id") AS REAL) ASC
+            SQL,
         ];
         yield 'more filters with type' => [
             new TableExportToFileCommand([
@@ -250,6 +284,12 @@ class TableExportFilterQueryBuilderTest extends TestCase
             [
                 'dcValue1' => ParameterType::STRING,
             ],
+            <<<SQL
+            SELECT "id", "name", "height", "birth_at" FROM "some_schema"."some_table"
+             WHERE ("id" IN ('foo','bar'))
+             AND (CAST(TO_NUMBER("id") AS INTEGER) NOT IN ('50','60'))
+             AND (CAST(TO_NUMBER("height") AS REAL) <> '10.20')
+            SQL,
         ];
     }
 
@@ -314,5 +354,78 @@ class TableExportFilterQueryBuilderTest extends TestCase
             QueryBuilderException::class,
             'whereFilter with multiple values can be used only with "eq", "ne" operators',
         ];
+    }
+
+    /**
+     * @dataProvider provideProcessingSqlData
+     * @param list<mixed>|array<string, mixed> $bindings
+     * @param array<string, string|int> $types
+     */
+    public function testProcessSqlWithBindingParameters(
+        string $sql,
+        array $bindings,
+        array $types,
+        string $expected
+    ): void {
+        $result = TableExportFilterQueryBuilder::processSqlWithBindingParameters($sql, $bindings, $types);
+        $this->assertSame($expected, $result);
+    }
+
+    public function provideProcessingSqlData(): Generator
+    {
+        yield 'one binding - string' => [
+            <<<SQL
+            SELECT * FROM "t" WHERE "foo" = :dcValue1 AND "foo" = 1
+            SQL,
+            ['dcValue1' => 'bar'],
+            ['dcValue1' => ParameterType::STRING],
+            <<<SQL
+            SELECT * FROM "t" WHERE "foo" = 'bar' AND "foo" = 1
+            SQL,
+        ];
+
+        yield 'multiple binding - string' => [
+            <<<SQL
+            SELECT * FROM "t" WHERE "foo" = :dcValue1 AND "foo" = :dcValue2 AND "foo" = (:dcValue1)
+            SQL,
+            [
+                'dcValue1' => 'bar',
+                'dcValue2' => '2',
+            ],
+            [
+                'dcValue1' => ParameterType::STRING,
+                'dcValue2' => ParameterType::STRING,
+            ],
+            <<<SQL
+            SELECT * FROM "t" WHERE "foo" = 'bar' AND "foo" = '2' AND "foo" = ('bar')
+            SQL,
+        ];
+    }
+
+    public function testProcessSqlWithBindingParametersFailed(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Error while process SQL with bindings: type 1 not supported');
+        TableExportFilterQueryBuilder::processSqlWithBindingParameters(
+            'SELECT * FROM t WHERE foo = :dcValue1',
+            ['dcValue1' => 'bar'],
+            ['dcValue1' => ParameterType::INTEGER],
+        );
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Error while process SQL with bindings: type unknown not supported');
+        TableExportFilterQueryBuilder::processSqlWithBindingParameters(
+            'SELECT * FROM t WHERE foo = :dcValue1',
+            ['dcValue1' => 'bar'],
+            ['dcValue1' => 999],
+        );
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Errow while process SQL with bindings: binding dcValue1 not found');
+        TableExportFilterQueryBuilder::processSqlWithBindingParameters(
+            'SELECT * FROM t WHERE foo = :dcValue1',
+            ['dcValue2' => 'bar'],
+            ['dcValue2' => ParameterType::INTEGER],
+        );
     }
 }
