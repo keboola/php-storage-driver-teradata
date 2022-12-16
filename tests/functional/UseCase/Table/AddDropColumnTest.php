@@ -116,4 +116,55 @@ class AddDropColumnTest extends BaseCase
 
         $db->close();
     }
+    public function testDropColumn(): void
+    {
+        $db = $this->getConnection($this->projectCredentials);
+
+        $tableName = md5($this->getName()) . '_Test_table';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+
+        $tableDef = new TeradataTableDefinition(
+            $bucketDatabaseName,
+            $tableName,
+            false,
+            new ColumnCollection([
+                TeradataColumn::createGenericColumn('col1'),
+                TeradataColumn::createGenericColumn('col2'),
+                TeradataColumn::createGenericColumn('col3'),
+            ]),
+            []
+        );
+        $qb = new TeradataTableQueryBuilder();
+        $sql = $qb->getCreateTableCommand(
+            $tableDef->getSchemaName(),
+            $tableDef->getTableName(),
+            $tableDef->getColumnsDefinitions(),
+            $tableDef->getPrimaryKeysNames(),
+        );
+        $db->executeStatement($sql);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+
+        $command = (new DropColumnCommand())
+            ->setPath($path)
+            ->setTableName($tableName)
+            ->setColumnName('col2')
+            ;
+        $handler = new DropColumnHandler($this->sessionManager);
+
+        /** @var ObjectInfoResponse $response */
+        $handler(
+            $this->projectCredentials,
+            $command,
+            []
+        );
+
+        $newConnection = $this->getConnection($this->projectCredentials);
+
+        $tableRef = new TeradataTableReflection($newConnection, $bucketDatabaseName, $tableName);
+        $this->assertEquals(['col1', 'col3'], $tableRef->getColumnsNames());
+
+        $db->close();
+    }
 }

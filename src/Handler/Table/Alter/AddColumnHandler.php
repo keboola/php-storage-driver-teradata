@@ -33,7 +33,7 @@ final class AddColumnHandler implements DriverCommandHandlerInterface
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
-     * @param CreateTableCommand $command
+     * @param AddColumnCommand $command
      */
     public function __invoke(
         Message $credentials,
@@ -57,7 +57,7 @@ final class AddColumnHandler implements DriverCommandHandlerInterface
             assert($column->getName() !== '', 'TableColumnShared.name is required');
             assert($column->getType() !== '', 'TableColumnShared.type is required');
 
-//            /** @var TeradataTableColumnSharedMeta|null $columnMeta */
+            /** @var TeradataTableColumnMeta|null $columnMeta */
             $columnMeta = MetaHelper::getMetaRestricted($column, TeradataTableColumnMeta::class);
 
             $columnDefinition = new TeradataColumn(
