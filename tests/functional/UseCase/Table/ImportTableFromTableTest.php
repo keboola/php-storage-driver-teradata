@@ -12,11 +12,11 @@ use Keboola\Datatype\Definition\Teradata;
 use Keboola\Db\ImportExport\Backend\Snowflake\Helper\DateTimeHelper;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportStrategy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table;
 use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand;
 use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromTableHandler;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
@@ -25,7 +25,7 @@ use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
-class ImportTableFromTableTest extends BaseCase
+class ImportTableFromTableTest extends ImportBaseCase
 {
     protected GenericBackendCredentials $projectCredentials;
 
@@ -283,29 +283,33 @@ class ImportTableFromTableTest extends BaseCase
     /**
      * Incremental load to storage from workspace
      * This is output mapping, timestamp is updated
+     * @dataProvider isTypedTablesProvider
      */
-    public function testImportTableFromTableIncrementalLoad(): void
+    public function testImportTableFromTableIncrementalLoad(bool $isTypedTable): void
     {
+        // typed tables have to have same structure, but string tables can do the mapping
+        $sourceExtraColumn = $isTypedTable ? 'col3' : 'colX';
+
         $sourceTableName = md5($this->getName()) . '_Test_table';
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $db = $this->getConnection($this->projectCredentials);
 
-        // create tables
+        // create source table, basically it imitates user table in workspace - usually typed
         $tableSourceDef = new TeradataTableDefinition(
             $bucketDatabaseName,
             $sourceTableName,
             false,
             new ColumnCollection([
-                new TeradataColumn(
-                    'col1',
-                    new Teradata(Teradata::TYPE_VARCHAR, [
-                        'length' => '32000',
-                        'nullable' => false,
-                    ])
-                ),
-                TeradataColumn::createGenericColumn('col2'),
-                TeradataColumn::createGenericColumn('col3'),
+                new TeradataColumn('col1', new Teradata(
+                    Teradata::TYPE_INT,
+                    []
+                )),
+                new TeradataColumn('col2', new Teradata(
+                    Teradata::TYPE_BIGINT,
+                    []
+                )),
+                TeradataColumn::createGenericColumn($sourceExtraColumn),
             ]),
             ['col1']
         );
@@ -326,38 +330,11 @@ class ImportTableFromTableTest extends BaseCase
             ));
         }
 
-        $tableDestDef = new TeradataTableDefinition(
-            $bucketDatabaseName,
-            $destinationTableName,
-            false,
-            new ColumnCollection([
-                new TeradataColumn(
-                    'col1',
-                    new Teradata(Teradata::TYPE_VARCHAR, [
-                        'length' => '32000',
-                        'nullable' => false,
-                    ])
-                ),
-                TeradataColumn::createGenericColumn('col4'), // <- different col rename
-                TeradataColumn::createGenericColumn('_timestamp'),
-            ]),
-            ['col1']
-        );
-        $sql = $qb->getCreateTableCommand(
-            $tableDestDef->getSchemaName(),
-            $tableDestDef->getTableName(),
-            $tableDestDef->getColumnsDefinitions(),
-            $tableDestDef->getPrimaryKeysNames(),
-        );
-        $db->executeStatement($sql);
-        $timestamp = TeradataQuote::quote(DateTimeHelper::getNowFormatted());
-        foreach ([['1', '1', $timestamp], ['2', '2', $timestamp], ['3', '3', $timestamp]] as $i) {
-            $db->executeStatement(sprintf(
-                'INSERT INTO %s.%s VALUES (%s)',
-                TeradataQuote::quoteSingleIdentifier($bucketDatabaseName),
-                TeradataQuote::quoteSingleIdentifier($destinationTableName),
-                implode(',', $i),
-            ));
+        // create tables
+        if ($isTypedTable) {
+            $tableDestDef = $this->createDestinationTypedTable($bucketDatabaseName, $destinationTableName, $db);
+        } else {
+            $tableDestDef = $this->createDestinationTable($bucketDatabaseName, $destinationTableName, $db);
         }
 
         $cmd = new TableImportFromTableCommand();
@@ -372,7 +349,10 @@ class ImportTableFromTableTest extends BaseCase
             ->setDestinationColumnName('col1');
         $columnMappings[] = (new TableImportFromTableCommand\SourceTableMapping\ColumnMapping())
             ->setSourceColumnName('col2')
-            ->setDestinationColumnName('col4');
+            ->setDestinationColumnName('col2');
+        $columnMappings[] = (new TableImportFromTableCommand\SourceTableMapping\ColumnMapping())
+            ->setSourceColumnName($sourceExtraColumn)
+            ->setDestinationColumnName('col3');
         $cmd->setSource(
             (new TableImportFromTableCommand\SourceTableMapping())
                 ->setPath($path)
@@ -384,12 +364,18 @@ class ImportTableFromTableTest extends BaseCase
                 ->setPath($path)
                 ->setTableName($destinationTableName)
         );
+
+        $dedupColumns = new RepeatedField(GPBType::STRING);
+        $dedupColumns[] = 'col1';
+
         $cmd->setImportOptions(
             (new ImportOptions())
                 ->setImportType(ImportOptions\ImportType::INCREMENTAL)
-                ->setDedupType(ImportOptions\DedupType::INSERT_DUPLICATES)
+                ->setDedupType(ImportOptions\DedupType::UPDATE_DUPLICATES)
+                ->setDedupColumnsNames($dedupColumns)
                 ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
                 ->setNumberOfIgnoredLines(0)
+                ->setImportStrategy($isTypedTable ? ImportStrategy::USER_DEFINED_TABLE : ImportStrategy::STRING_TABLE)
                 ->setTimestampColumn('_timestamp')
         );
 
