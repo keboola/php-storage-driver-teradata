@@ -6,19 +6,24 @@ namespace Keboola\StorageDriver\FunctionalTests\UseCase\Table;
 
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
+use Keboola\Datatype\Definition\BaseType;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
 use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Table\AddColumnCommand;
+use Keboola\StorageDriver\Command\Table\DropColumnCommand;
 use Keboola\StorageDriver\Command\Table\TableColumnShared;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddColumnHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropColumnHandler;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
+use Keboola\TableBackendUtils\Column\ColumnInterface;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
+use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
 class AddDropColumnTest extends BaseCase
 {
@@ -47,7 +52,7 @@ class AddDropColumnTest extends BaseCase
 
     public function testAddColumn(): void
     {
-        $db = $this->getConnection($this->getCredentials());
+        $db = $this->getConnection($this->projectCredentials);
 
         $tableName = md5($this->getName()) . '_Test_table';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -81,8 +86,8 @@ class AddDropColumnTest extends BaseCase
             ->setColumnDefinition(
                 (new TableColumnShared())
                     ->setName('newCol')
-                    ->setType(Teradata::TYPE_VARCHAR)
-                    ->setLength(Teradata::DEFAULT_NON_LATIN_CHAR_LENGTH)
+                    ->setType(Teradata::TYPE_BIGINT)
+                    ->setLength('20')
             );
         $handler = new AddColumnHandler($this->sessionManager);
 
@@ -96,6 +101,18 @@ class AddDropColumnTest extends BaseCase
         $this->assertInstanceOf(ObjectInfoResponse::class, $response);
         $this->assertSame(ObjectType::TABLE, $response->getObjectType());
         $this->assertNotNull($response->getTableInfo());
+
+        $newConnection = $this->getConnection($this->projectCredentials);
+
+        $tableRef = new TeradataTableReflection($newConnection, $bucketDatabaseName, $tableName);
+        $this->assertEquals(['col1', 'col2', 'col3', 'newCol'], $tableRef->getColumnsNames());
+        foreach ($tableRef->getColumnsDefinitions() as $colDef) {
+            /** @var ColumnInterface $colDef */
+            if ($colDef->getColumnName() === 'newCol') {
+                $this->assertEquals(BaseType::INTEGER, $colDef->getColumnDefinition()->getBasetype());
+                break;
+            }
+        }
 
         $db->close();
     }
