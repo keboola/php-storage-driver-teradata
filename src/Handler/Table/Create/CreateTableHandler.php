@@ -9,8 +9,8 @@ use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
 use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
-use Keboola\StorageDriver\Command\Table\CreateTableCommand\TableColumn;
-use Keboola\StorageDriver\Command\Table\CreateTableCommand\TableColumn\TeradataTableColumnMeta;
+use Keboola\StorageDriver\Command\Table\TableColumnShared;
+use Keboola\StorageDriver\Command\Table\TableColumnShared\TeradataTableColumnMeta;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
@@ -54,11 +54,11 @@ final class CreateTableHandler implements DriverCommandHandlerInterface
 
             // define columns
             $columns = [];
-            /** @var TableColumn $column */
+            /** @var TableColumnShared $column */
             foreach ($command->getColumns() as $column) {
                 // validate
-                assert($column->getName() !== '', 'TableColumn.name is required');
-                assert($column->getType() !== '', 'TableColumn.type is required');
+                assert($column->getName() !== '', 'TableColumnShared.name is required');
+                assert($column->getType() !== '', 'TableColumnShared.type is required');
 
                 /** @var TeradataTableColumnMeta|null $columnMeta */
                 $columnMeta = MetaHelper::getMetaRestricted($column, TeradataTableColumnMeta::class);

@@ -153,7 +153,6 @@ class AddDropColumnTest extends BaseCase
             ;
         $handler = new DropColumnHandler($this->sessionManager);
 
-        /** @var ObjectInfoResponse $response */
         $handler(
             $this->projectCredentials,
             $command,

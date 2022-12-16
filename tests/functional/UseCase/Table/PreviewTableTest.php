@@ -21,6 +21,7 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
+use Keboola\StorageDriver\Command\Table\TableColumnShared;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
@@ -736,10 +737,10 @@ class PreviewTableTest extends BaseCase
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $databaseName;
 
-        $columns = new RepeatedField(GPBType::MESSAGE, CreateTableCommand\TableColumn::class);
+        $columns = new RepeatedField(GPBType::MESSAGE, TableColumnShared::class);
         /** @var array{type: string, length: string, nullable: bool} $columnData */
         foreach ($structure['columns'] as $columnName => $columnData) {
-            $columns[] = (new CreateTableCommand\TableColumn())
+            $columns[] = (new TableColumnShared())
                 ->setName($columnName)
                 ->setType($columnData['type'])
                 ->setLength($columnData['length'])
