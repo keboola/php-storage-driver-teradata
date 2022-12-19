@@ -45,9 +45,9 @@ final class AddColumnHandler implements DriverCommandHandlerInterface
 
         $column = $command->getColumnDefinition();
         // validate
-        assert($command->getPath()->count() === 1, 'TableColumnShared.path is required and size must equal 1');
-        assert($command->getTableName() !== '', 'TableColumnShared.tableName is required');
-        assert($column instanceof TableColumnShared, 'TableColumnShared.columnDefinition is required');
+        assert($command->getPath()->count() === 1, 'AddColumnCommand.path is required and size must equal 1');
+        assert($command->getTableName() !== '', 'AddColumnCommand.tableName is required');
+        assert($column instanceof TableColumnShared, 'AddColumnCommand.columnDefinition is required');
 
         try {
             $db = $this->manager->createSession($credentials);

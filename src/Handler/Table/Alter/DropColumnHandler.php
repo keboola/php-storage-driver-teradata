@@ -34,15 +34,15 @@ final class DropColumnHandler implements DriverCommandHandlerInterface
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof DropColumnCommand);
 
-        assert($command->getPath()->count() === 1, 'TableColumnShared.path is required and size must equal 1');
-        assert($command->getTableName() !== '', 'TableColumnShared.tableName is required');
+        assert($command->getPath()->count() === 1, 'DropColumnCommand.path is required and size must equal 1');
+        assert($command->getTableName() !== '', 'DropColumnCommand.tableName is required');
 
         try {
             $db = $this->manager->createSession($credentials);
 
             // define columns
             // validate
-            assert($command->getColumnName() !== '', 'DropColumnCommand.name is required');
+            assert($command->getColumnName() !== '', 'DropColumnCommand.columnName is required');
 
             // build sql
             $builder = new TeradataTableQueryBuilder();
