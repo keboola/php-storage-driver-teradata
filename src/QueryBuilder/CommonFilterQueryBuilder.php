@@ -100,7 +100,7 @@ abstract class CommonFilterQueryBuilder
                 '%s %s %s',
                 $columnSql,
                 self::OPERATOR_SINGLE_VALUE[$filter->getOperator()],
-                $query->createNamedParameter($value)
+                $query->createNamedParameter($value),
             )
         );
     }

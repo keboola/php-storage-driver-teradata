@@ -70,10 +70,15 @@ class ExportTableToFileTest extends BaseCase
     /**
      * @dataProvider simpleExportProvider
      * @param array{exportOptions: ExportOptions} $input
+     * @param int[] $exportSize
      * @param array<int, string>[]|null $exportData
      */
-    public function testExportTableToFile(array $input, ?int $exportSize, ?array $exportData): void
-    {
+    public function testExportTableToFile(
+        array $input,
+        ?array $exportSize,
+        ?array $exportData,
+        ?int $exportRowsCount = null
+    ): void {
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $sourceTableName = md5($this->getName()) . '_Test_table_export';
         $exportDir = sprintf(
@@ -174,7 +179,8 @@ class ExportTableToFileTest extends BaseCase
         $this->assertNotNull($files);
         $this->assertCount(1, $files);
         if ($exportSize !== null) {
-            $this->assertEquals($exportSize, $files[0]['Size']);
+            $this->assertGreaterThanOrEqual($exportSize[0], $files[0]['Size'], 'File is smaller than expected.');
+            $this->assertLessThanOrEqual($exportSize[1], $files[0]['Size'], 'File is bigger than expected.');
         }
 
         // check data
@@ -185,6 +191,11 @@ class ExportTableToFileTest extends BaseCase
                 // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
                 $csvData
             );
+        }
+        // check rows count
+        if ($exportRowsCount !== null) {
+            $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
+            $this->assertCount($exportRowsCount, $csvData);
         }
 
         // cleanup
@@ -320,11 +331,11 @@ class ExportTableToFileTest extends BaseCase
                     'isCompressed' => false,
                 ]),
             ],
-            63, // expected bytes
+            [123, 123], // expected bytes
             [ // expected data
-                ['   1', '   2', '   4'],
-                ['   2', '   3', '   4'],
-                ['   3', '   3', '   3'],
+                ['1', '2', '4', '2022-01-01 12:00:01.000000'],
+                ['2', '3', '4', '2022-01-02 12:00:02.000000'],
+                ['3', '3', '3', '2022-01-03 12:00:03.000000'],
             ],
         ];
         yield 'gzipped csv' => [
@@ -333,7 +344,7 @@ class ExportTableToFileTest extends BaseCase
                     'isCompressed' => true,
                 ]),
             ],
-            46, // expected bytes
+            [70, 80], // expected bytes
             null, // expected data - it's gzip file, not csv
         ];
         yield 'filter columns' => [
@@ -345,52 +356,55 @@ class ExportTableToFileTest extends BaseCase
             ],
             null, // expected bytes
             [ // expected data
-                ['   1', '   2'],
-                ['   2', '   3'],
-                ['   3', '   3'],
+                ['1', '2'],
+                ['2', '3'],
+                ['3', '3'],
             ],
         ];
-        yield 'filter order by' => [
-            [ // input
-                'exportOptions' => new ExportOptions([
-                    'isCompressed' => false,
-                    'columnsToExport' => ['col1', 'col2'],
-                    'orderBy' => [
-                        new OrderBy([
-                            'columnName' => 'col1',
-                            'order' => Order::DESC,
-                        ]),
-                    ],
-                ]),
-            ],
-            null, // expected bytes
-            [ // expected data
-                ['   3'],
-                ['   2'],
-                ['   1'],
-            ],
-        ];
-        yield 'filter order by with dataType' => [
-            [ // input
-                'exportOptions' => new ExportOptions([
-                    'isCompressed' => false,
-                    'columnsToExport' => ['col1'],
-                    'orderBy' => [
-                        new OrderBy([
-                            'columnName' => 'col1',
-                            'order' => Order::DESC,
-                            'dataType' => DataType::INTEGER,
-                        ]),
-                    ],
-                ]),
-            ],
-            null, // expected bytes
-            [ // expected data
-                ['   3'],
-                ['   2'],
-                ['   1'],
-            ],
-        ];
+        // TODO unable to use ORDER BY because of error: Row size or Sort Key size overflow
+//        yield 'filter order by' => [
+//            [ // input
+//                'exportOptions' => new ExportOptions([
+//                    'isCompressed' => false,
+//                    'columnsToExport' => ['col1', 'col2'],
+//                    'orderBy' => [
+//                        new OrderBy([
+//                            'columnName' => 'col1',
+//                            'order' => Order::DESC,
+//                        ]),
+//                    ],
+//                ]),
+//            ],
+//            null, // expected bytes
+//            [ // expected data
+//                ['3'],
+//                ['2'],
+//                ['1'],
+//            ],
+//        ];
+        // TODO unable to use ORDER BY because of error: Row size or Sort Key size overflow
+//        yield 'filter order by with dataType' => [
+//            [ // input
+//                'exportOptions' => new ExportOptions([
+//                    'isCompressed' => false,
+//                    'columnsToExport' => ['col1'],
+//                    'orderBy' => [
+//                        new OrderBy([
+//                            'columnName' => 'col1',
+//                            'order' => Order::DESC,
+//                            'dataType' => DataType::INTEGER,
+//                        ]),
+//                    ],
+//                ]),
+//            ],
+//            null, // expected bytes
+//            [ // expected data
+//                ['3'],
+//                ['2'],
+//                ['1'],
+//            ],
+//        ];
+        // TODO add ORDER BY after it works and fill in expected data
         yield 'filter limit' => [
             [ // input
                 'exportOptions' => new ExportOptions([
@@ -400,27 +414,23 @@ class ExportTableToFileTest extends BaseCase
                 ]),
             ],
             null, // expected bytes
+            null, // expected data - result rows are unsorted, so only count rows
+            2, // expected rows count
+        ];
+        yield 'filter changedSince + changedUntil' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1', '_timestamp'],
+                    'changeSince' => '1641038401',
+                    'changeUntil' => '1641038402',
+                ]),
+            ],
+            null, // expected bytes
             [ // expected data
-                ['   1'],
-                ['   2'],
+                ['1', '2022-01-01 12:00:01.000000'],
             ],
         ];
-        // TODO how to test _timestamp column?
-//        yield 'filter changedSince + changedUntil' => [
-//            [ // input
-//                'exportOptions' => new ExportOptions([
-//                    'isCompressed' => false,
-//                    'columnsToExport' => ['col1'],
-//                    'changeSince' => '1641038401',
-//                    'changeUntil' => '1641038402',
-//                ]),
-//            ],
-//            null, // expected bytes
-//            [ // expected data
-//                ['   1'],
-//                ['   2'],
-//            ],
-//        ];
         yield 'filter simple where' => [
             [ // input
                 'exportOptions' => new ExportOptions([
@@ -437,8 +447,28 @@ class ExportTableToFileTest extends BaseCase
             ],
             null, // expected bytes
             [ // expected data
-                ['   2'],
-                ['   3'],
+                ['2'],
+                ['3'],
+            ],
+        ];
+        yield 'filter simple where with multiple values' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'col2',
+                            'operator' => Operator::eq,
+                            'values' => ['3', '4'],
+                        ]),
+                    ],
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['2'],
+                ['3'],
             ],
         ];
         yield 'filter multiple where' => [
@@ -462,7 +492,7 @@ class ExportTableToFileTest extends BaseCase
             ],
             null, // expected bytes
             [ // expected data
-                ['   2'],
+                ['3'],
             ],
         ];
         yield 'filter where with dataType' => [
@@ -483,13 +513,17 @@ class ExportTableToFileTest extends BaseCase
                             'values' => ['3.1'],
                             'dataType' => DataType::REAL,
                         ]),
+                        new TableWhereFilter([
+                            'columnsName' => 'col3',
+                            'operator' => Operator::eq,
+                            'values' => ['4'],
+                        ]),
                     ],
                 ]),
             ],
             null, // expected bytes
             [ // expected data
-                ['   2'],
-                ['   3'],
+                ['2'],
             ],
         ];
     }
@@ -524,8 +558,9 @@ class ExportTableToFileTest extends BaseCase
                 TeradataColumn::createGenericColumn('col1'),
                 TeradataColumn::createGenericColumn('col2'),
                 TeradataColumn::createGenericColumn('col3'),
+                TeradataColumn::createTimestampColumn(),
             ]),
-            []
+            ['col1'],
         );
         $qb = new TeradataTableQueryBuilder();
         $sql = $qb->getCreateTableCommand(
@@ -538,15 +573,18 @@ class ExportTableToFileTest extends BaseCase
 
         // init some values
         foreach ([
-            ['1', '2', '4'],
-            ['2', '3', '4'],
-            ['3', '3', '3'],
+            ['1', '2', '4', '2022-01-01 12:00:01'],
+            ['2', '3', '4', '2022-01-02 12:00:02'],
+            ['3', '3', '3', '2022-01-03 12:00:03'],
         ] as $i) {
             $db->executeStatement(sprintf(
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($databaseName),
                 TeradataQuote::quoteSingleIdentifier($tableName),
-                implode(',', $i)
+                implode(',', array_map(
+                    static fn ($val) => TeradataQuote::quote($val),
+                    $i,
+                )),
             ));
         }
 

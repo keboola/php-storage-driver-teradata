@@ -115,6 +115,11 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             $queryData->getTypes(),
         );
 
+        // quote apostrophe
+        $sql = str_replace("'", "''", $sql);
+        // add semicolon
+        $sql .= ';';
+
         $sourceRef = new SelectSource(
             $sql,
         );
