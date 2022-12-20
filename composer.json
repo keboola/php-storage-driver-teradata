@@ -16,8 +16,7 @@
         "keboola/db-import-export": "^1.17",
         "google/protobuf": "^3.21",
         "keboola/php-file-storage-utils": "^0.2.5",
-        "keboola/table-backend-utils": "dev-jirka-ter-58-add-drop-column as v1.12.0",
-        "keboola/storage-driver-common": "dev-jirka-ter-58-add-commands-add-drop-column as 1.3.0"
+        "keboola/storage-driver-common": "^1.6.0"
     },
     "require-dev": {
         "phpunit/phpunit": "9.2.*",
