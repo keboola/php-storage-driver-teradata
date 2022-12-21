@@ -40,9 +40,9 @@ final class AddPKHandler implements DriverCommandHandlerInterface
         // validate
         assert($command->getPath()->count() === 1, 'AddPrimaryKeyCommand.path is required and size must equal 1');
         assert($command->getTableName() !== '', 'AddPrimaryKeyCommand.tableName is required');
-        assert($command->getPrimaryKeysNames()->count() < 1, 'AddPrimaryKeyCommand.primaryKeysNames is required and cannot be empty');
+        assert($command->getPrimaryKeysNames()->count() > 1, 'AddPrimaryKeyCommand.primaryKeysNames is required and cannot be empty');
 
-        $desiredPks = $command->getPrimaryKeysNames();
+        $desiredPks = iterator_to_array($command->getPrimaryKeysNames());
         $dbName = $command->getPath()[0];
         try {
             $db = $this->manager->createSession($credentials);

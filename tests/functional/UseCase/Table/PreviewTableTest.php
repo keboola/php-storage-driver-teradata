@@ -10,10 +10,6 @@ use Google\Protobuf\NullValue;
 use Google\Protobuf\Value;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
-use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
-use Keboola\StorageDriver\Command\Info\ObjectType;
-use Keboola\StorageDriver\Command\Table\CreateTableCommand;
-use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
@@ -21,21 +17,14 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
-use Keboola\StorageDriver\Command\Table\TableColumnShared;
-use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
-use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
-use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
 use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
-use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
 class PreviewTableTest extends BaseCase
 {
-    protected GenericBackendCredentials $projectCredentials;
-
     protected CreateBucketResponse $bucketResponse;
 
     private TableFilterQueryBuilderFactory $tableFilterQueryBuilderFactory;
@@ -120,18 +109,16 @@ class PreviewTableTest extends BaseCase
 
         // FILL DATA
         $insertGroups = [
-            [
+            // phpcs:ignore
+            'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar', 'decimal_varchar'],
+            'rows' => [
                 // phpcs:ignore
-                'columns' => '"id", "int", "decimal", "float", "date", "time", "_timestamp", "varchar", "decimal_varchar"',
-                'rows' => [
-                    // phpcs:ignore
-                    "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', '2022-01-01 12:00:01', 'Variable character 1', '100.10'",
-                    sprintf(
-                        "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '2022-01-02 12:00:02', '%s', '100.20'",
-                        str_repeat('VeryLongString123456', 5)
-                    ),
-                    '3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL',
-                ],
+                "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', '2022-01-01 12:00:01', 'Variable character 1', '100.10'",
+                sprintf(
+                    "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '2022-01-02 12:00:02', '%s', '100.20'",
+                    str_repeat('VeryLongString123456', 5)
+                ),
+                '3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL',
             ],
         ];
         $this->fillTableWithData($bucketDatabaseName, $tableName, $insertGroups);
@@ -727,91 +714,6 @@ class PreviewTableTest extends BaseCase
         }
     }
 
-    /**
-     * @param array{columns: array<string, array<string, mixed>>, primaryKeysNames: array<int, string>} $structure
-     */
-    private function createTable(string $databaseName, string $tableName, array $structure): void
-    {
-        $createTableHandler = new CreateTableHandler($this->sessionManager);
-
-        $path = new RepeatedField(GPBType::STRING);
-        $path[] = $databaseName;
-
-        $columns = new RepeatedField(GPBType::MESSAGE, TableColumnShared::class);
-        /** @var array{type: string, length: string, nullable: bool} $columnData */
-        foreach ($structure['columns'] as $columnName => $columnData) {
-            $columns[] = (new TableColumnShared())
-                ->setName($columnName)
-                ->setType($columnData['type'])
-                ->setLength($columnData['length'])
-                ->setNullable($columnData['nullable']);
-        }
-
-        $primaryKeysNames = new RepeatedField(GPBType::STRING);
-        foreach ($structure['primaryKeysNames'] as $primaryKeyName) {
-            $primaryKeysNames[] = $primaryKeyName;
-        }
-
-        $createTableCommand = (new CreateTableCommand())
-            ->setPath($path)
-            ->setTableName($tableName)
-            ->setColumns($columns)
-            ->setPrimaryKeysNames($primaryKeysNames);
-
-        $createTableResponse = $createTableHandler(
-            $this->projectCredentials,
-            $createTableCommand,
-            []
-        );
-
-        $this->assertInstanceOf(ObjectInfoResponse::class, $createTableResponse);
-        $this->assertSame(ObjectType::TABLE, $createTableResponse->getObjectType());
-    }
-
-    /**
-     * @param array{columns: string, rows: array<int, string>}[] $insertGroups
-     */
-    private function fillTableWithData(string $databaseName, string $tableName, array $insertGroups): void
-    {
-        try {
-            $db = $this->getConnection($this->projectCredentials);
-
-            foreach ($insertGroups as $insertGroup) {
-                foreach ($insertGroup['rows'] as $insertRow) {
-                    $insertSql = sprintf(
-                        "INSERT INTO %s.%s\n(%s) VALUES\n(%s);",
-                        TeradataQuote::quoteSingleIdentifier($databaseName),
-                        TeradataQuote::quoteSingleIdentifier($tableName),
-                        $insertGroup['columns'],
-                        $insertRow
-                    );
-                    $inserted = $db->executeStatement($insertSql);
-                    $this->assertEquals(1, $inserted);
-                }
-            }
-        } finally {
-            if (isset($db)) {
-                $db->close();
-            }
-        }
-    }
-
-    private function dropTable(string $databaseName, string $tableName): void
-    {
-        $handler = new DropTableHandler($this->sessionManager);
-
-        $path = new RepeatedField(GPBType::STRING);
-        $path[] = $databaseName;
-        $command = (new DropTableCommand())
-            ->setPath($path)
-            ->setTableName($tableName);
-
-        $handler(
-            $this->projectCredentials,
-            $command,
-            []
-        );
-    }
 
     /**
      * @phpcs:ignore

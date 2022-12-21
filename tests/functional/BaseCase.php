@@ -12,9 +12,12 @@ use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
+use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
+use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\TableColumnShared;
 use Keboola\StorageDriver\Command\Table\TableColumnShared\TeradataTableColumnMeta;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
@@ -25,6 +28,7 @@ use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
@@ -49,6 +53,8 @@ class BaseCase extends TestCase
     protected array $dbs = [];
 
     protected TeradataSessionManager $sessionManager;
+
+    protected GenericBackendCredentials $projectCredentials;
 
     // to distinguish projects if you need more projects in one test case
     protected string $projectSuffix = '';
@@ -135,16 +141,16 @@ class BaseCase extends TestCase
         ));
 
         return (new GenericBackendCredentials())
-            ->setHost((string) getenv('TERADATA_HOST'))
-            ->setPrincipal((string) getenv('TERADATA_USERNAME'))
-            ->setSecret((string) getenv('TERADATA_PASSWORD'))
-            ->setPort((int) getenv('TERADATA_PORT'))
+            ->setHost((string)getenv('TERADATA_HOST'))
+            ->setPrincipal((string)getenv('TERADATA_USERNAME'))
+            ->setSecret((string)getenv('TERADATA_PASSWORD'))
+            ->setPort((int)getenv('TERADATA_PORT'))
             ->setMeta($any);
     }
 
     protected function getRootDatabase(): string
     {
-        return (string) getenv('TERADATA_ROOT_DATABASE');
+        return (string)getenv('TERADATA_ROOT_DATABASE');
     }
 
     /**
@@ -395,8 +401,9 @@ class BaseCase extends TestCase
      */
     protected function createTestBucket(
         GenericBackendCredentials $projectCredentials,
-        CreateProjectResponse $projectResponse
-    ): array {
+        CreateProjectResponse     $projectResponse
+    ): array
+    {
         $bucket = md5($this->getName()) . '_Test_bucket';
 
         $handler = new CreateBucketHandler($this->sessionManager);
@@ -441,8 +448,9 @@ class BaseCase extends TestCase
      */
     protected function createTestWorkspace(
         GenericBackendCredentials $projectCredentials,
-        CreateProjectResponse $projectResponse
-    ): array {
+        CreateProjectResponse     $projectResponse
+    ): array
+    {
         $handler = new CreateWorkspaceHandler($this->sessionManager);
         $command = (new CreateWorkspaceCommand())
             ->setStackPrefix($this->getStackPrefix())
@@ -469,9 +477,10 @@ class BaseCase extends TestCase
 
     protected function createTestTable(
         GenericBackendCredentials $credentials,
-        string $database,
-        ?string $tableName = null
-    ): string {
+        string                    $database,
+        ?string                   $tableName = null
+    ): string
+    {
         if ($tableName === null) {
             $tableName = md5($this->getName()) . '_Test_table';
         }
@@ -525,7 +534,7 @@ class BaseCase extends TestCase
 
     protected static function isDebug(): bool
     {
-        return (bool) getenv('DEBUG');
+        return (bool)getenv('DEBUG');
     }
 
     protected function getS3Client(string $key, string $secret, string $region): S3Client
@@ -570,5 +579,93 @@ class BaseCase extends TestCase
                 ],
             ]);
         }
+    }
+
+
+    /**
+     * @param array{columns: array<string, array<string, mixed>>, primaryKeysNames: array<int, string>} $structure
+     */
+    protected function createTable(string $databaseName, string $tableName, array $structure): void
+    {
+        $createTableHandler = new CreateTableHandler($this->sessionManager);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $databaseName;
+
+        $columns = new RepeatedField(GPBType::MESSAGE, TableColumnShared::class);
+        /** @var array{type: string, length: string, nullable: bool} $columnData */
+        foreach ($structure['columns'] as $columnName => $columnData) {
+            $columns[] = (new TableColumnShared())
+                ->setName($columnName)
+                ->setType($columnData['type'])
+                ->setLength($columnData['length'])
+                ->setNullable($columnData['nullable']);
+        }
+
+        $primaryKeysNames = new RepeatedField(GPBType::STRING);
+        foreach ($structure['primaryKeysNames'] as $primaryKeyName) {
+            $primaryKeysNames[] = $primaryKeyName;
+        }
+
+        $createTableCommand = (new CreateTableCommand())
+            ->setPath($path)
+            ->setTableName($tableName)
+            ->setColumns($columns)
+            ->setPrimaryKeysNames($primaryKeysNames);
+
+        $createTableResponse = $createTableHandler(
+            $this->projectCredentials,
+            $createTableCommand,
+            []
+        );
+
+        $this->assertInstanceOf(ObjectInfoResponse::class, $createTableResponse);
+        $this->assertSame(ObjectType::TABLE, $createTableResponse->getObjectType());
+    }
+
+    /**
+     * @param array{columns: string, rows: array<int, string>} $insertGroups
+     */
+    protected function fillTableWithData(string $databaseName, string $tableName, array $insertGroups): void
+    {
+        try {
+            $db = $this->getConnection($this->projectCredentials);
+
+            foreach ($insertGroups['rows'] as $insertRow) {
+                $insertSql = sprintf(
+                    "INSERT INTO %s.%s\n(%s) VALUES\n(%s);",
+                    TeradataQuote::quoteSingleIdentifier($databaseName),
+                    TeradataQuote::quoteSingleIdentifier($tableName),
+                    implode(
+                        ',',
+                        array_map(fn($item) => TeradataQuote::quoteSingleIdentifier($item), $insertGroups['columns'])
+                    ),
+                    $insertRow
+                );
+                $inserted = $db->executeStatement($insertSql);
+                $this->assertEquals(1, $inserted);
+            }
+        } finally {
+            if (isset($db)) {
+                $db->close();
+            }
+        }
+    }
+
+    protected function dropTable(string $databaseName, string $tableName): void
+    {
+        $handler = new DropTableHandler($this->sessionManager);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $databaseName;
+        $command = (new DropTableCommand())
+            ->setPath($path)
+            ->setTableName($tableName);
+
+        $handler(
+            $this->projectCredentials,
+            $command,
+            []
+        );
     }
 }
