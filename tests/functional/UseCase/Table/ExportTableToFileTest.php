@@ -19,8 +19,6 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
@@ -32,7 +30,7 @@ use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Export\ExportTableToFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilderFactory;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -45,7 +43,7 @@ class ExportTableToFileTest extends BaseCase
 
     protected CreateBucketResponse $bucketResponse;
 
-    private TableExportFilterQueryBuilderFactory $tableExportQueryBuilderFactory;
+    private ExportQueryBuilderFactory $tableExportQueryBuilderFactory;
 
     protected function setUp(): void
     {
@@ -58,7 +56,7 @@ class ExportTableToFileTest extends BaseCase
         [$bucketResponse,] = $this->createTestBucket($projectCredentials, $projectResponse);
         $this->bucketResponse = $bucketResponse;
 
-        $this->tableExportQueryBuilderFactory = new TableExportFilterQueryBuilderFactory();
+        $this->tableExportQueryBuilderFactory = new ExportQueryBuilderFactory();
     }
 
     protected function tearDown(): void
@@ -410,7 +408,9 @@ class ExportTableToFileTest extends BaseCase
                 'exportOptions' => new ExportOptions([
                     'isCompressed' => false,
                     'columnsToExport' => ['col1'],
-                    'limit' => 2,
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'limit' => 2,
+                    ]),
                 ]),
             ],
             null, // expected bytes
@@ -422,8 +422,10 @@ class ExportTableToFileTest extends BaseCase
                 'exportOptions' => new ExportOptions([
                     'isCompressed' => false,
                     'columnsToExport' => ['col1', '_timestamp'],
-                    'changeSince' => '1641038401',
-                    'changeUntil' => '1641038402',
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'changeSince' => '1641038401',
+                        'changeUntil' => '1641038402',
+                    ]),
                 ]),
             ],
             null, // expected bytes
@@ -436,13 +438,15 @@ class ExportTableToFileTest extends BaseCase
                 'exportOptions' => new ExportOptions([
                     'isCompressed' => false,
                     'columnsToExport' => ['col1'],
-                    'whereFilters' => [
-                        new TableWhereFilter([
-                            'columnsName' => 'col2',
-                            'operator' => Operator::ge,
-                            'values' => ['3'],
-                        ]),
-                    ],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'whereFilters' => [
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::ge,
+                                'values' => ['3'],
+                            ]),
+                        ],
+                    ]),
                 ]),
             ],
             null, // expected bytes
@@ -456,13 +460,15 @@ class ExportTableToFileTest extends BaseCase
                 'exportOptions' => new ExportOptions([
                     'isCompressed' => false,
                     'columnsToExport' => ['col1'],
-                    'whereFilters' => [
-                        new TableWhereFilter([
-                            'columnsName' => 'col2',
-                            'operator' => Operator::eq,
-                            'values' => ['3', '4'],
-                        ]),
-                    ],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'whereFilters' => [
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::eq,
+                                'values' => ['3', '4'],
+                            ]),
+                        ],
+                    ]),
                 ]),
             ],
             null, // expected bytes
@@ -476,18 +482,20 @@ class ExportTableToFileTest extends BaseCase
                 'exportOptions' => new ExportOptions([
                     'isCompressed' => false,
                     'columnsToExport' => ['col1'],
-                    'whereFilters' => [
-                        new TableWhereFilter([
-                            'columnsName' => 'col2',
-                            'operator' => Operator::ge,
-                            'values' => ['3'],
-                        ]),
-                        new TableWhereFilter([
-                            'columnsName' => 'col3',
-                            'operator' => Operator::lt,
-                            'values' => ['4'],
-                        ]),
-                    ],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'whereFilters' => [
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::ge,
+                                'values' => ['3'],
+                            ]),
+                            new TableWhereFilter([
+                                'columnsName' => 'col3',
+                                'operator' => Operator::lt,
+                                'values' => ['4'],
+                            ]),
+                        ],
+                    ]),
                 ]),
             ],
             null, // expected bytes
@@ -500,25 +508,27 @@ class ExportTableToFileTest extends BaseCase
                 'exportOptions' => new ExportOptions([
                     'isCompressed' => false,
                     'columnsToExport' => ['col1'],
-                    'whereFilters' => [
-                        new TableWhereFilter([
-                            'columnsName' => 'col2',
-                            'operator' => Operator::gt,
-                            'values' => ['2.9'],
-                            'dataType' => DataType::REAL,
-                        ]),
-                        new TableWhereFilter([
-                            'columnsName' => 'col2',
-                            'operator' => Operator::lt,
-                            'values' => ['3.1'],
-                            'dataType' => DataType::REAL,
-                        ]),
-                        new TableWhereFilter([
-                            'columnsName' => 'col3',
-                            'operator' => Operator::eq,
-                            'values' => ['4'],
-                        ]),
-                    ],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'whereFilters' => [
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::gt,
+                                'values' => ['2.9'],
+                                'dataType' => DataType::REAL,
+                            ]),
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::lt,
+                                'values' => ['3.1'],
+                                'dataType' => DataType::REAL,
+                            ]),
+                            new TableWhereFilter([
+                                'columnsName' => 'col3',
+                                'operator' => Operator::eq,
+                                'values' => ['4'],
+                            ]),
+                        ],
+                    ]),
                 ]),
             ],
             null, // expected bytes
@@ -573,16 +583,16 @@ class ExportTableToFileTest extends BaseCase
 
         // init some values
         foreach ([
-            ['1', '2', '4', '2022-01-01 12:00:01'],
-            ['2', '3', '4', '2022-01-02 12:00:02'],
-            ['3', '3', '3', '2022-01-03 12:00:03'],
-        ] as $i) {
+                     ['1', '2', '4', '2022-01-01 12:00:01'],
+                     ['2', '3', '4', '2022-01-02 12:00:02'],
+                     ['3', '3', '3', '2022-01-03 12:00:03'],
+                 ] as $i) {
             $db->executeStatement(sprintf(
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($databaseName),
                 TeradataQuote::quoteSingleIdentifier($tableName),
                 implode(',', array_map(
-                    static fn ($val) => TeradataQuote::quote($val),
+                    static fn($val) => TeradataQuote::quote($val),
                     $i,
                 )),
             ));

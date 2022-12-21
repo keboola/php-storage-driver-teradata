@@ -6,10 +6,11 @@ use DateTime;
 use DateTimeZone;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
+use Doctrine\DBAL\Query\QueryException;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOrderBy;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
@@ -138,21 +139,28 @@ abstract class CommonFilterQueryBuilder
     }
 
     /**
-     * @param RepeatedField|OrderBy[] $sort
+     * @param RepeatedField|ExportOrderBy[] $sort
      */
     protected function processOrderStatement(RepeatedField $sort, QueryBuilder $query): void
     {
-        foreach ($sort as $orderBy) {
-            if ($orderBy->getDataType() !== DataType::STRING) {
+        try {
+            foreach ($sort as $orderBy) {
+                if ($orderBy->getDataType() !== DataType::STRING) {
+                    $query->addOrderBy(
+                        $this->columnConverter->convertColumnByDataType($orderBy->getColumnName(), $orderBy->getDataType()),
+                        Order::name($orderBy->getOrder())
+                    );
+                    return;
+                }
                 $query->addOrderBy(
-                    $this->columnConverter->convertColumnByDataType($orderBy->getColumnName(), $orderBy->getDataType()),
+                    TeradataQuote::quoteSingleIdentifier($orderBy->getColumnName()),
                     Order::name($orderBy->getOrder())
                 );
-                return;
             }
-            $query->addOrderBy(
-                TeradataQuote::quoteSingleIdentifier($orderBy->getColumnName()),
-                Order::name($orderBy->getOrder())
+        } catch (QueryException $e) {
+            throw new QueryBuilderException(
+                $e->getMessage(),
+                $e
             );
         }
     }

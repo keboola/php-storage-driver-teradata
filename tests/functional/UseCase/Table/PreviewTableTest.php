@@ -11,14 +11,20 @@ use Google\Protobuf\Value;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportFilters;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOrderBy;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
+use Keboola\StorageDriver\Command\Table\TableColumnShared;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
+use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
 class PreviewTableTest extends BaseCase
@@ -27,7 +33,7 @@ class PreviewTableTest extends BaseCase
 
     protected CreateBucketResponse $bucketResponse;
 
-    private TableFilterQueryBuilderFactory $tableFilterQueryBuilderFactory;
+    private ExportQueryBuilderFactory $tableFilterQueryBuilderFactory;
 
     protected function setUp(): void
     {
@@ -40,7 +46,7 @@ class PreviewTableTest extends BaseCase
         [$bucketResponse, $connection] = $this->createTestBucket($projectCredentials, $projectResponse);
         $this->bucketResponse = $bucketResponse;
 
-        $this->tableFilterQueryBuilderFactory = new TableFilterQueryBuilderFactory();
+        $this->tableFilterQueryBuilderFactory = new ExportQueryBuilderFactory();
     }
 
     protected function tearDown(): void
@@ -128,7 +134,7 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar'],
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -249,7 +255,7 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id', 'int'],
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'int',
                         'order' => Order::DESC,
                     ]),
@@ -297,7 +303,7 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id'],
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'decimal_varchar',
                         'order' => Order::ASC,
                         'dataType' => DataType::REAL,
@@ -334,12 +340,14 @@ class PreviewTableTest extends BaseCase
             'input' => [
                 'columns' => ['id', 'int'],
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
                 ],
-                'limit' => 2,
+                'filters' => new ExportFilters([
+                    'limit' => 2,
+                ]),
             ],
             'expectedColumns' => ['id', 'int'],
             'expectedRows' => [
@@ -368,12 +376,14 @@ class PreviewTableTest extends BaseCase
         $response = $this->previewTable($bucketDatabaseName, $tableName, $filter['input']);
         $this->checkPreviewData($response, $filter['expectedColumns'], $filter['expectedRows']);
 
-        // CHECK: changedSince + changedUntil
+        // CHECK: changeSince + changeUntil
         $filter = [
             'input' => [
                 'columns' => ['id', '_timestamp'],
-                'changedSince' => '1641038401',
-                'changedUntil' => '1641038402',
+                'filters' => new ExportFilters([
+                    'changeSince' => '1641038401',
+                    'changeUntil' => '1641038402',
+                ]),
             ],
             'expectedColumns' => ['id', '_timestamp'],
             'expectedRows' => [
@@ -396,7 +406,9 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'varchar'],
-                'fulltextSearch' => 'character',
+                'filters' => new ExportFilters([
+                    'fulltextSearch' => 'character',
+                ]),
             ],
             'expectedColumns' => ['id', 'varchar'],
             'expectedRows' => [
@@ -419,15 +431,17 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'int'],
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'int',
-                        'operator' => Operator::ge,
-                        'values' => ['100'],
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'int',
+                            'operator' => Operator::ge,
+                            'values' => ['100'],
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -464,25 +478,27 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'int'],
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'int',
-                        'operator' => Operator::gt,
-                        'values' => ['100'],
-                    ]),
-                    new TableWhereFilter([
-                        'columnsName' => 'int',
-                        'operator' => Operator::lt,
-                        'values' => ['210'],
-                    ]),
-                    new TableWhereFilter([
-                        'columnsName' => 'int',
-                        'operator' => Operator::eq,
-                        'values' => ['99', '100', '199', '200'],
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'int',
+                            'operator' => Operator::gt,
+                            'values' => ['100'],
+                        ]),
+                        new TableWhereFilter([
+                            'columnsName' => 'int',
+                            'operator' => Operator::lt,
+                            'values' => ['210'],
+                        ]),
+                        new TableWhereFilter([
+                            'columnsName' => 'int',
+                            'operator' => Operator::eq,
+                            'values' => ['99', '100', '199', '200'],
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -509,16 +525,18 @@ class PreviewTableTest extends BaseCase
         $filter = [
             'input' => [
                 'columns' => ['id', 'decimal_varchar'],
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'decimal_varchar',
-                        'operator' => Operator::eq,
-                        'values' => ['100.2'],
-                        'dataType' => DataType::REAL,
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'decimal_varchar',
+                            'operator' => Operator::eq,
+                            'values' => ['100.2'],
+                            'dataType' => DataType::REAL,
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'id',
                         'order' => Order::ASC,
                     ]),
@@ -655,7 +673,7 @@ class PreviewTableTest extends BaseCase
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'changedSince' => '2022-11-01 12:00:00 UTC',
+                'changeSince' => '2022-11-01 12:00:00 UTC',
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
@@ -669,7 +687,7 @@ class PreviewTableTest extends BaseCase
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'changedUntil' => '2022-11-01 12:00:00 UTC',
+                'changeUntil' => '2022-11-01 12:00:00 UTC',
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
@@ -684,7 +702,7 @@ class PreviewTableTest extends BaseCase
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => '',
                     ]),
                 ],
@@ -699,7 +717,7 @@ class PreviewTableTest extends BaseCase
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'id',
                         'dataType' => DataType::DECIMAL,
                     ]),
@@ -719,12 +737,8 @@ class PreviewTableTest extends BaseCase
      * @phpcs:ignore
      * @param array{
      *     columns: array<string>,
-     *     changedSince?: string,
-     *     changedUntil?: string,
-     *     fulltextSearch?: string,
-     *     whereFilters?: TableWhereFilter[],
-     *     orderBy?: OrderBy[],
-     *     limit?: int
+     *     filters: ExportFilters,
+     *     orderBy?: ExportOrderBy[],
      * } $commandInput
      */
     private function previewTable(string $databaseName, string $tableName, array $commandInput): PreviewTableResponse
@@ -748,37 +762,16 @@ class PreviewTableTest extends BaseCase
             $columns[] = $column;
         }
         $command->setColumns($columns);
-
-        if (isset($commandInput['changedSince'])) {
-            $command->setChangeSince($commandInput['changedSince']);
-        }
-
-        if (isset($commandInput['changedUntil'])) {
-            $command->setChangeUntil($commandInput['changedUntil']);
-        }
-
-        if (isset($commandInput['fulltextSearch'])) {
-            $command->setFulltextSearch($commandInput['fulltextSearch']);
-        }
-
-        if (isset($commandInput['whereFilters'])) {
-            $whereFilters = new RepeatedField(GPBType::MESSAGE, TableWhereFilter::class);
-            foreach ($commandInput['whereFilters'] as $whereFilter) {
-                $whereFilters[] = $whereFilter;
-            }
-            $command->setWhereFilters($whereFilters);
+        if (array_key_exists('filters', $commandInput)) {
+            $command->setFilters($commandInput['filters']);
         }
 
         if (isset($commandInput['orderBy'])) {
-            $orderBy = new RepeatedField(GPBType::MESSAGE, OrderBy::class);
+            $orderBy = new RepeatedField(GPBType::MESSAGE, ExportOrderBy::class);
             foreach ($commandInput['orderBy'] as $orderByOrig) {
                 $orderBy[] = $orderByOrig;
             }
             $command->setOrderBy($orderBy);
-        }
-
-        if (isset($commandInput['limit'])) {
-            $command->setLimit($commandInput['limit']);
         }
 
         $response = $handler(

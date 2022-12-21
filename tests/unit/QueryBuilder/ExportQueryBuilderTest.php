@@ -13,19 +13,18 @@ use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy\Order;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportFilters;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOrderBy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
 use Keboola\StorageDriver\Teradata\QueryBuilder\QueryBuilderException;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TablePreviewFilterQueryBuilder;
-use Keboola\TableBackendUtils\Connection\Teradata\TeradataPlatform;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilder;
 use PHPUnit\Framework\TestCase;
 
-class TablePreviewFilterQueryBuilderTest extends TestCase
+class ExportQueryBuilderTest extends TestCase
 {
     /**
      * @dataProvider provideSuccessData
@@ -41,8 +40,6 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
         $connection = $this->createMock(Connection::class);
         $connection->method('getExpressionBuilder')
             ->willReturn(new ExpressionBuilder($this->createMock(Connection::class)));
-        $connection->method('getDatabasePlatform')
-            ->willReturn(new TeradataPlatform());
 
         $columnConverter = new ColumnConverter();
 
@@ -83,10 +80,16 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             ->setPrimaryKeysNames(ProtobufHelper::arrayToRepeatedString(['id']));
 
         // create query builder
-        $qb = new TablePreviewFilterQueryBuilder($connection, $tableInfo, $columnConverter);
+        $qb = new ExportQueryBuilder($connection, $tableInfo, $columnConverter);
 
         // build query
-        $queryData = $qb->buildQueryFromCommand($previewCommand, 'some_schema');
+        $queryData = $qb->buildQueryFromCommand(
+            $previewCommand->getFilters(),
+            $previewCommand->getOrderBy(),
+            $previewCommand->getColumns(),
+            'some_schema',
+            'some_table'
+        );
 
         $this->assertSame(
             str_replace(PHP_EOL, '', $expectedSql),
@@ -120,23 +123,26 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
-                'limit' => 100,
-                'changeSince' => '',
-                'changeUntil' => '',
                 'columns' => ['id', 'name'],
-                'fulltextSearch' => '',
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'name',
-                        'operator' => Operator::ne,
-                        'values' => ['foo'],
-                        'dataType' => DataType::STRING,
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'limit' => 100,
+                    'changeSince' => '',
+                    'changeUntil' => '',
+
+                    'fulltextSearch' => '',
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'name',
+                            'operator' => Operator::ne,
+                            'values' => ['foo'],
+                            'dataType' => DataType::STRING,
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'name',
-                        'order' => Order::ASC,
+                        'order' => ExportOrderBy\Order::ASC,
                         'dataType' => DataType::STRING,
                     ]),
                 ],
@@ -157,34 +163,37 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
-                'limit' => 0,
-                'changeSince' => '',
-                'changeUntil' => '',
                 'columns' => ['id', 'name'],
-                'fulltextSearch' => '',
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'name',
-                        'operator' => Operator::ne,
-                        'values' => ['foo'],
-                        'dataType' => DataType::STRING,
-                    ]),
-                    new TableWhereFilter([
-                        'columnsName' => 'height',
-                        'operator' => Operator::ge,
-                        'values' => ['1.23'],
-                        'dataType' => DataType::STRING,
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'limit' => 0,
+                    'changeSince' => '',
+                    'changeUntil' => '',
+
+                    'fulltextSearch' => '',
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'name',
+                            'operator' => Operator::ne,
+                            'values' => ['foo'],
+                            'dataType' => DataType::STRING,
+                        ]),
+                        new TableWhereFilter([
+                            'columnsName' => 'height',
+                            'operator' => Operator::ge,
+                            'values' => ['1.23'],
+                            'dataType' => DataType::STRING,
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'id',
-                        'order' => Order::ASC,
+                        'order' => ExportOrderBy\Order::ASC,
                         'dataType' => DataType::STRING,
                     ]),
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'name',
-                        'order' => Order::DESC,
+                        'order' => ExportOrderBy\Order::DESC,
                         'dataType' => DataType::STRING,
                     ]),
                 ],
@@ -208,12 +217,15 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
-                'limit' => 0,
-                'changeSince' => '',
-                'changeUntil' => '',
                 'columns' => ['id', 'name', 'height', 'birth_at'],
-                'fulltextSearch' => 'foo',
-                'whereFilters' => [],
+                'filters' => new ExportFilters([
+                    'limit' => 0,
+                    'changeSince' => '',
+                    'changeUntil' => '',
+
+                    'fulltextSearch' => 'foo',
+                    'whereFilters' => [],
+                ]),
                 'orderBy' => [],
             ]),
             <<<SQL
@@ -227,12 +239,15 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
-                'limit' => 0,
-                'changeSince' => '1667293200',
-                'changeUntil' => '1669827600',
                 'columns' => ['id', 'name'],
-                'fulltextSearch' => '',
-                'whereFilters' => [],
+                'filters' => new ExportFilters([
+                    'limit' => 0,
+                    'changeSince' => '1667293200',
+                    'changeUntil' => '1669827600',
+
+                    'fulltextSearch' => '',
+                    'whereFilters' => [],
+                ]),
                 'orderBy' => [],
             ]),
             <<<SQL
@@ -252,23 +267,26 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
-                'limit' => 0,
-                'changeSince' => '',
-                'changeUntil' => '',
                 'columns' => ['id', 'name', 'height', 'birth_at'],
-                'fulltextSearch' => '',
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'height',
-                        'operator' => Operator::ne,
-                        'values' => ['10.20'],
-                        'dataType' => DataType::REAL,
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'limit' => 0,
+                    'changeSince' => '',
+                    'changeUntil' => '',
+
+                    'fulltextSearch' => '',
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'height',
+                            'operator' => Operator::ne,
+                            'values' => ['10.20'],
+                            'dataType' => DataType::REAL,
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [
-                    new OrderBy([
+                    new ExportOrderBy([
                         'columnName' => 'id',
-                        'order' => Order::ASC,
+                        'order' => ExportOrderBy\Order::ASC,
                         'dataType' => DataType::REAL,
                     ]),
                 ],
@@ -288,32 +306,35 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
         yield 'more filters with type' => [
             new PreviewTableCommand([
                 'path' => ['some_schema'],
-                'tableName' => 'some_table',
-                'limit' => 0,
-                'changeSince' => '',
-                'changeUntil' => '',
                 'columns' => ['id', 'name', 'height', 'birth_at'],
-                'fulltextSearch' => '',
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'id',
-                        'operator' => Operator::eq,
-                        'values' => ['foo', 'bar'],
-                        'dataType' => DataType::STRING,
-                    ]),
-                    new TableWhereFilter([
-                        'columnsName' => 'id',
-                        'operator' => Operator::ne,
-                        'values' => ['50', '60'],
-                        'dataType' => DataType::INTEGER,
-                    ]),
-                    new TableWhereFilter([
-                        'columnsName' => 'height',
-                        'operator' => Operator::ne,
-                        'values' => ['10.20'],
-                        'dataType' => DataType::REAL,
-                    ]),
-                ],
+                'tableName' => 'some_table',
+                'filters' => new ExportFilters([
+                    'limit' => 0,
+                    'changeSince' => '',
+                    'changeUntil' => '',
+
+                    'fulltextSearch' => '',
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'id',
+                            'operator' => Operator::eq,
+                            'values' => ['foo', 'bar'],
+                            'dataType' => DataType::STRING,
+                        ]),
+                        new TableWhereFilter([
+                            'columnsName' => 'id',
+                            'operator' => Operator::ne,
+                            'values' => ['50', '60'],
+                            'dataType' => DataType::INTEGER,
+                        ]),
+                        new TableWhereFilter([
+                            'columnsName' => 'height',
+                            'operator' => Operator::ne,
+                            'values' => ['10.20'],
+                            'dataType' => DataType::REAL,
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [],
             ]),
             <<<SQL
@@ -343,11 +364,8 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
         $connection = $this->createMock(Connection::class);
         $connection->method('getExpressionBuilder')
             ->willReturn(new ExpressionBuilder($this->createMock(Connection::class)));
-        $connection->method('getDatabasePlatform')
-            ->willReturn(new TeradataPlatform());
 
         $columnConverter = new ColumnConverter();
-
         // define table info
         $tableInfoColumns = new RepeatedField(GPBType::MESSAGE, TableInfo\TableColumn::class);
         $tableInfoColumns[] = new TableInfo\TableColumn([
@@ -385,12 +403,18 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             ->setPrimaryKeysNames(ProtobufHelper::arrayToRepeatedString(['id']));
 
         // create query builder
-        $qb = new TablePreviewFilterQueryBuilder($connection, $tableInfo, $columnConverter);
+        $qb = new ExportQueryBuilder($connection, $tableInfo, $columnConverter);
 
         // build query
         $this->expectException($exceptionClass);
         $this->expectExceptionMessage($exceptionMessage);
-        $qb->buildQueryFromCommand($previewCommand, 'some_schema');
+        $qb->buildQueryFromCommand(
+            $previewCommand->getFilters(),
+            $previewCommand->getOrderBy(),
+            $previewCommand->getColumns(),
+            'some_schema',
+            ''
+        );
     }
 
     public function provideFailedData(): Generator
@@ -399,19 +423,22 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
-                'limit' => 0,
-                'changeSince' => '',
-                'changeUntil' => '',
                 'columns' => ['id', 'name'],
-                'fulltextSearch' => '',
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'name',
-                        'operator' => Operator::ne,
-                        'values' => ['foo'],
-                        'dataType' => DataType::BIGINT,
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'limit' => 0,
+                    'changeSince' => '',
+                    'changeUntil' => '',
+
+                    'fulltextSearch' => '',
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'name',
+                            'operator' => Operator::ne,
+                            'values' => ['foo'],
+                            'dataType' => DataType::BIGINT,
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [],
             ]),
             QueryBuilderException::class,
@@ -421,19 +448,22 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
-                'limit' => 0,
-                'changeSince' => '',
-                'changeUntil' => '',
                 'columns' => ['id', 'name'],
-                'fulltextSearch' => 'word',
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'name',
-                        'operator' => Operator::eq,
-                        'values' => ['foo'],
-                        'dataType' => DataType::STRING,
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'limit' => 0,
+                    'changeSince' => '',
+                    'changeUntil' => '',
+
+                    'fulltextSearch' => 'word',
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'name',
+                            'operator' => Operator::eq,
+                            'values' => ['foo'],
+                            'dataType' => DataType::STRING,
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [],
             ]),
             QueryBuilderException::class,
@@ -443,18 +473,21 @@ class TablePreviewFilterQueryBuilderTest extends TestCase
             new PreviewTableCommand([
                 'path' => ['some_schema'],
                 'tableName' => 'some_table',
-                'limit' => 0,
-                'changeSince' => '',
-                'changeUntil' => '',
                 'columns' => ['id', 'name'],
-                'fulltextSearch' => '',
-                'whereFilters' => [
-                    new TableWhereFilter([
-                        'columnsName' => 'name',
-                        'operator' => Operator::gt,
-                        'values' => ['foo', 'bar'],
-                    ]),
-                ],
+                'filters' => new ExportFilters([
+                    'limit' => 0,
+                    'changeSince' => '',
+                    'changeUntil' => '',
+
+                    'fulltextSearch' => '',
+                    'whereFilters' => [
+                        new TableWhereFilter([
+                            'columnsName' => 'name',
+                            'operator' => Operator::gt,
+                            'values' => ['foo', 'bar'],
+                        ]),
+                    ],
+                ]),
                 'orderBy' => [],
             ]),
             QueryBuilderException::class,

@@ -15,7 +15,6 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
 use Keboola\StorageDriver\Command\Table\TableExportToFileResponse;
@@ -24,7 +23,7 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\TableReflectionResponseTransformer;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilderFactory;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
@@ -34,13 +33,13 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
     public const DEFAULT_MAX_OBJECT_SIZE = '50M';
 
     private TeradataSessionManager $manager;
-    private TableExportFilterQueryBuilderFactory $queryBuilderFactory;
+
+    private ExportQueryBuilderFactory $queryBuilderFactory;
 
     public function __construct(
         TeradataSessionManager $manager,
-        TableExportFilterQueryBuilderFactory $queryBuilderFactory
-    )
-    {
+        ExportQueryBuilderFactory $queryBuilderFactory
+    ) {
         $this->manager = $manager;
         $this->queryBuilderFactory = $queryBuilderFactory;
     }
@@ -87,8 +86,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         );
 
         // validate exportOptions
-        $requestExportOptions = $command->getExportOptions();
-        $this->validateExportOptions($requestExportOptions);
+        $requestExportOptions = $command->getExportOptions() ?? new ExportOptions;
 
         $exportOptions = $this->createOptions(
             $credentials,
@@ -105,11 +103,17 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         $db = $this->manager->createSession($credentials);
 
         $database = ProtobufHelper::repeatedStringToArray($source->getPath())[0];
-        $queryBuilder = $this->queryBuilderFactory->create($db);
-        $queryData = $queryBuilder->buildQueryFromCommand($command, $database, $source->getTableName());
+        $queryBuilder = $this->queryBuilderFactory->create($db, null);
+        $queryData = $queryBuilder->buildQueryFromCommand(
+            $requestExportOptions->getFilters(),
+            $requestExportOptions->getOrderBy(),
+            $requestExportOptions->getColumnsToExport(),
+            $database,
+            $source->getTableName()
+        );
         /** @var array<string> $queryDataBindings */
         $queryDataBindings = $queryData->getBindings();
-        $sql = $queryBuilder::processSqlWithBindingParameters(
+        $sql = $queryBuilder->replaceNamedParametersWithValues(
             $queryData->getQuery(),
             $queryDataBindings,
             $queryData->getTypes(),
@@ -174,40 +178,5 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             self::DEFAULT_BUFFER_SIZE,
             self::DEFAULT_MAX_OBJECT_SIZE
         );
-    }
-
-    private function validateExportOptions(?ExportOptions $requestExportOptions): void
-    {
-        if ($requestExportOptions) {
-            $columnsToExport = ProtobufHelper::repeatedStringToArray($requestExportOptions->getColumnsToExport());
-            assert(
-                $columnsToExport === array_unique($columnsToExport),
-                'TableExportToFileCommand.exportOptions.columnsToExport has non unique names'
-            );
-
-            if ($requestExportOptions->getChangeSince() !== '') {
-                assert(
-                    is_numeric($requestExportOptions->getChangeSince()),
-                    'TableExportToFileCommand.exportOptions.changeSince must be numeric timestamp'
-                );
-            }
-            if ($requestExportOptions->getChangeUntil() !== '') {
-                assert(
-                    is_numeric($requestExportOptions->getChangeUntil()),
-                    'TableExportToFileCommand.exportOptions.changeUntil must be numeric timestamp'
-                );
-            }
-
-            /**
-             * @var int $index
-             * @var OrderBy $orderBy
-             */
-            foreach ($requestExportOptions->getOrderBy() as $index => $orderBy) {
-                assert($orderBy->getColumnName() !== '', sprintf(
-                    'TableExportToFileCommand.exportOptions.orderBy.%d.columnName is required',
-                    $index,
-                ));
-            }
-        }
     }
 }
