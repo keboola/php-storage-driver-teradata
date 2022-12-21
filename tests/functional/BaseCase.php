@@ -141,16 +141,16 @@ class BaseCase extends TestCase
         ));
 
         return (new GenericBackendCredentials())
-            ->setHost((string)getenv('TERADATA_HOST'))
-            ->setPrincipal((string)getenv('TERADATA_USERNAME'))
-            ->setSecret((string)getenv('TERADATA_PASSWORD'))
-            ->setPort((int)getenv('TERADATA_PORT'))
+            ->setHost((string) getenv('TERADATA_HOST'))
+            ->setPrincipal((string) getenv('TERADATA_USERNAME'))
+            ->setSecret((string) getenv('TERADATA_PASSWORD'))
+            ->setPort((int) getenv('TERADATA_PORT'))
             ->setMeta($any);
     }
 
     protected function getRootDatabase(): string
     {
-        return (string)getenv('TERADATA_ROOT_DATABASE');
+        return (string) getenv('TERADATA_ROOT_DATABASE');
     }
 
     /**
@@ -401,9 +401,8 @@ class BaseCase extends TestCase
      */
     protected function createTestBucket(
         GenericBackendCredentials $projectCredentials,
-        CreateProjectResponse     $projectResponse
-    ): array
-    {
+        CreateProjectResponse $projectResponse
+    ): array {
         $bucket = md5($this->getName()) . '_Test_bucket';
 
         $handler = new CreateBucketHandler($this->sessionManager);
@@ -448,9 +447,8 @@ class BaseCase extends TestCase
      */
     protected function createTestWorkspace(
         GenericBackendCredentials $projectCredentials,
-        CreateProjectResponse     $projectResponse
-    ): array
-    {
+        CreateProjectResponse $projectResponse
+    ): array {
         $handler = new CreateWorkspaceHandler($this->sessionManager);
         $command = (new CreateWorkspaceCommand())
             ->setStackPrefix($this->getStackPrefix())
@@ -477,10 +475,9 @@ class BaseCase extends TestCase
 
     protected function createTestTable(
         GenericBackendCredentials $credentials,
-        string                    $database,
-        ?string                   $tableName = null
-    ): string
-    {
+        string $database,
+        ?string $tableName = null
+    ): string {
         if ($tableName === null) {
             $tableName = md5($this->getName()) . '_Test_table';
         }
@@ -534,7 +531,7 @@ class BaseCase extends TestCase
 
     protected static function isDebug(): bool
     {
-        return (bool)getenv('DEBUG');
+        return (bool) getenv('DEBUG');
     }
 
     protected function getS3Client(string $key, string $secret, string $region): S3Client
@@ -624,7 +621,7 @@ class BaseCase extends TestCase
     }
 
     /**
-     * @param array{columns: string, rows: array<int, string>} $insertGroups
+     * @param array{columns: string[], rows: string[]} $insertGroups
      */
     protected function fillTableWithData(string $databaseName, string $tableName, array $insertGroups): void
     {

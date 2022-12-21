@@ -69,7 +69,11 @@ class PrimaryKeyTest extends BaseCase
             'primaryKeysNames' => [],
         ];
         $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
-        $this->fillTableWithData($bucketDatabaseName, $tableName, ['columns' => ['col1', 'col2', 'col3'], 'rows' => ['1,2,3', '4,5,6']]);
+        $this->fillTableWithData(
+            $bucketDatabaseName,
+            $tableName,
+            ['columns' => ['col1', 'col2', 'col3'], 'rows' => ['1,2,3', '4,5,6']]
+        );
 
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
@@ -112,7 +116,7 @@ class PrimaryKeyTest extends BaseCase
         $this->assertEquals([], $ref->getPrimaryKeysNames());
     }
 
-    public function testDuplicates()
+    public function testDuplicates(): void
     {
         $tableName = md5($this->getName()) . '_Test_table';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -139,7 +143,11 @@ class PrimaryKeyTest extends BaseCase
             'primaryKeysNames' => [],
         ];
         $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
-        $this->fillTableWithData($bucketDatabaseName, $tableName, ['columns' => ['col1', 'col2', 'col3'], 'rows' => ['1,5,6', '1,5,6']]);
+        $this->fillTableWithData(
+            $bucketDatabaseName,
+            $tableName,
+            ['columns' => ['col1', 'col2', 'col3'], 'rows' => ['1,5,6', '1,5,6']]
+        );
 
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
@@ -164,7 +172,7 @@ class PrimaryKeyTest extends BaseCase
         );
     }
 
-    public function testPKExists()
+    public function testPKExists(): void
     {
         $tableName = md5($this->getName()) . '_Test_table';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
@@ -215,7 +223,7 @@ class PrimaryKeyTest extends BaseCase
         );
     }
 
-    public function testColumnIsNullable()
+    public function testColumnIsNullable(): void
     {
         $tableName = md5($this->getName()) . '_Test_table';
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();

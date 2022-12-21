@@ -26,7 +26,7 @@ final class AddPKHandler implements DriverCommandHandlerInterface
     /**
      * @inheritDoc
      * @param GenericBackendCredentials $credentials
-     * @param AddColumnCommand $command
+     * @param AddPrimaryKeyCommand $command
      */
     public function __invoke(
         Message $credentials,
@@ -42,7 +42,9 @@ final class AddPKHandler implements DriverCommandHandlerInterface
         assert($command->getTableName() !== '', 'AddPrimaryKeyCommand.tableName is required');
         assert($command->getPrimaryKeysNames()->count() > 1, 'AddPrimaryKeyCommand.primaryKeysNames is required and cannot be empty');
 
+        /** @var string[] $desiredPks */
         $desiredPks = iterator_to_array($command->getPrimaryKeysNames());
+        /** @var string $dbName */
         $dbName = $command->getPath()[0];
         try {
             $db = $this->manager->createSession($credentials);
@@ -50,6 +52,7 @@ final class AddPKHandler implements DriverCommandHandlerInterface
             $qb = new TeradataTableQueryBuilder();
             $duplicatesCheckSql = $qb->getCommandForDuplicates($dbName, $command->getTableName(), $desiredPks);
 
+            /** @var string $maxRowsForPKs */
             $maxRowsForPKs = $db->fetchOne($duplicatesCheckSql);
             if ((int) $maxRowsForPKs > 1) {
                 throw CannotAddPrimaryKeyException::createForDuplicates();

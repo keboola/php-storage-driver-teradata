@@ -37,6 +37,7 @@ final class DropPKHandler implements DriverCommandHandlerInterface
         assert($command->getPath()->count() === 1, 'DropPrimaryKeyCommand.path is required and size must equal 1');
         assert($command->getTableName() !== '', 'DropPrimaryKeyCommand.tableName is required');
 
+        /** @var string $dbName */
         $dbName = $command->getPath()[0];
         try {
             $db = $this->manager->createSession($credentials);
