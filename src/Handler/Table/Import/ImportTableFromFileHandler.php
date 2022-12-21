@@ -12,6 +12,7 @@ use Keboola\Db\ImportExport\Backend\Teradata\TeradataImportOptions;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\FullImporter;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\IncrementalImporter;
 use Keboola\Db\ImportExport\Backend\Teradata\ToStage\ToStageImporter;
+use Keboola\Db\ImportExport\ImportOptionsInterface;
 use Keboola\Db\ImportExport\Storage\S3\SourceFile;
 use Keboola\FileStorage\Path\RelativePath;
 use Keboola\FileStorage\S3\S3Provider;
@@ -19,6 +20,7 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportStrategy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
@@ -98,7 +100,8 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         if (!is_null($meta)) {
             assert($meta instanceof TableImportFromFileCommand\TeradataTableImportMeta);
         }
-        $teradataImportOptions = $this->createOptions($importOptions, $credentials, $meta);
+        // meta is not used for now, but will be helpful in future, eg with NOS
+        $teradataImportOptions = $this->createOptions($importOptions, $credentials);
 
         $stagingTable = null;
         $db = $this->manager->createSession($credentials);
@@ -211,10 +214,12 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
 
     private function createOptions(
         ImportOptions $options,
-        GenericBackendCredentials $credentials,
-        ?TableImportFromFileCommand\TeradataTableImportMeta $meta
-    ): TeradataImportOptions
-    {
+        GenericBackendCredentials $credentials
+    ): TeradataImportOptions {
+        $strategyMapping = [
+            ImportStrategy::STRING_TABLE => ImportOptionsInterface::USING_TYPES_STRING,
+            ImportStrategy::USER_DEFINED_TABLE => ImportOptionsInterface::USING_TYPES_USER
+        ];
         return new TeradataImportOptions(
             $credentials->getHost(),
             $credentials->getPrincipal(),
@@ -223,7 +228,8 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
             ProtobufHelper::repeatedStringToArray($options->getConvertEmptyValuesToNullOnColumns()),
             $options->getImportType() === ImportType::INCREMENTAL,
             $options->getTimestampColumn() === '_timestamp',
-            $options->getNumberOfIgnoredLines()
+            $options->getNumberOfIgnoredLines(),
+            $strategyMapping[$options->getImportStrategy()]
         );
     }
 }
