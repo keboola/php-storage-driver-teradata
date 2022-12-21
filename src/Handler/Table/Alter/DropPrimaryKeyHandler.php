@@ -11,7 +11,7 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 
-final class DropPKHandler implements DriverCommandHandlerInterface
+final class DropPrimaryKeyHandler implements DriverCommandHandlerInterface
 {
     private TeradataSessionManager $manager;
 
@@ -39,18 +39,14 @@ final class DropPKHandler implements DriverCommandHandlerInterface
 
         /** @var string $dbName */
         $dbName = $command->getPath()[0];
-        try {
-            $db = $this->manager->createSession($credentials);
 
-            $qb = new TeradataTableQueryBuilder();
+        $db = $this->manager->createSession($credentials);
 
-            $addPKSQL = $qb->getDropPrimaryKeyCommand($dbName, $command->getTableName());
-            $db->executeStatement($addPKSQL);
-        } finally {
-            if (isset($db)) {
-                $db->close();
-            }
-        }
+        $qb = new TeradataTableQueryBuilder();
+
+        $addPKSQL = $qb->getDropPrimaryKeyCommand($dbName, $command->getTableName());
+        $db->executeStatement($addPKSQL);
+
 
         return null;
     }

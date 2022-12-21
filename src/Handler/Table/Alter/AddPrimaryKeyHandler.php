@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\Teradata\Handler\Table\Alter;
 
 use Google\Protobuf\Internal\Message;
-use Keboola\StorageDriver\Command\Table\AddColumnCommand;
 use Keboola\StorageDriver\Command\Table\AddPrimaryKeyCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -14,7 +13,7 @@ use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
-final class AddPKHandler implements DriverCommandHandlerInterface
+final class AddPrimaryKeyHandler implements DriverCommandHandlerInterface
 {
     private TeradataSessionManager $manager;
 
@@ -46,38 +45,34 @@ final class AddPKHandler implements DriverCommandHandlerInterface
         $desiredPks = iterator_to_array($command->getPrimaryKeysNames());
         /** @var string $dbName */
         $dbName = $command->getPath()[0];
-        try {
-            $db = $this->manager->createSession($credentials);
 
-            $qb = new TeradataTableQueryBuilder();
-            $duplicatesCheckSql = $qb->getCommandForDuplicates($dbName, $command->getTableName(), $desiredPks);
+        $db = $this->manager->createSession($credentials);
 
-            /** @var string $maxRowsForPKs */
-            $maxRowsForPKs = $db->fetchOne($duplicatesCheckSql);
-            if ((int) $maxRowsForPKs > 1) {
-                throw CannotAddPrimaryKeyException::createForDuplicates();
-            }
+        $qb = new TeradataTableQueryBuilder();
+        $duplicatesCheckSql = $qb->getCommandForDuplicates($dbName, $command->getTableName(), $desiredPks);
 
-            $reflection = new TeradataTableReflection($db, $dbName, $command->getTableName());
+        /** @var string $maxRowsForPKs */
+        $maxRowsForPKs = $db->fetchOne($duplicatesCheckSql);
+        if ((int) $maxRowsForPKs > 1) {
+            throw CannotAddPrimaryKeyException::createForDuplicates();
+        }
 
-            if ($reflection->getPrimaryKeysNames() !== []) {
-                throw CannotAddPrimaryKeyException::createForExistingPK();
-            }
+        $reflection = new TeradataTableReflection($db, $dbName, $command->getTableName());
 
-            /** @var TeradataColumn $columnDefinition */
-            foreach ($reflection->getColumnsDefinitions() as $columnDefinition) {
-                if (in_array($columnDefinition->getColumnName(), $desiredPks) && $columnDefinition->getColumnDefinition()->isNullable()) {
-                    throw CannotAddPrimaryKeyException::createForNullableColumn($columnDefinition->getColumnName());
-                }
-            }
+        if ($reflection->getPrimaryKeysNames() !== []) {
+            throw CannotAddPrimaryKeyException::createForExistingPK();
+        }
 
-            $addPKSQL = $qb->getAddPrimaryKeyCommand($dbName, $command->getTableName(), $desiredPks);
-            $db->executeStatement($addPKSQL);
-        } finally {
-            if (isset($db)) {
-                $db->close();
+        /** @var TeradataColumn $columnDefinition */
+        foreach ($reflection->getColumnsDefinitions() as $columnDefinition) {
+            if (in_array($columnDefinition->getColumnName(), $desiredPks) && $columnDefinition->getColumnDefinition()->isNullable()) {
+                throw CannotAddPrimaryKeyException::createForNullableColumn($columnDefinition->getColumnName());
             }
         }
+
+        $addPKSQL = $qb->getAddPrimaryKeyCommand($dbName, $command->getTableName(), $desiredPks);
+        $db->executeStatement($addPKSQL);
+
 
         return null;
     }

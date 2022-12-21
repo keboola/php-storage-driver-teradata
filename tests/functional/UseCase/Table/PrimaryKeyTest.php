@@ -12,9 +12,9 @@ use Keboola\StorageDriver\Command\Table\AddPrimaryKeyCommand;
 use Keboola\StorageDriver\Command\Table\DropPrimaryKeyCommand;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
-use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddPKHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddPrimaryKeyHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\CannotAddPrimaryKeyException;
-use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropPKHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropPrimaryKeyHandler;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
 class PrimaryKeyTest extends BaseCase
@@ -87,7 +87,7 @@ class PrimaryKeyTest extends BaseCase
             ->setPath($path)
             ->setTableName($tableName)
             ->setPrimaryKeysNames($pkNames);
-        $addPKHandler = new AddPKHandler($this->sessionManager);
+        $addPKHandler = new AddPrimaryKeyHandler($this->sessionManager);
         $addPKHandler(
             $this->projectCredentials,
             $addPKCommand,
@@ -103,7 +103,7 @@ class PrimaryKeyTest extends BaseCase
         $dropPKCommand = (new DropPrimaryKeyCommand())
             ->setPath($path)
             ->setTableName($tableName);
-        $dropPKHandler = new DropPKHandler($this->sessionManager);
+        $dropPKHandler = new DropPrimaryKeyHandler($this->sessionManager);
         $dropPKHandler(
             $this->projectCredentials,
             $dropPKCommand,
@@ -161,7 +161,7 @@ class PrimaryKeyTest extends BaseCase
             ->setPath($path)
             ->setTableName($tableName)
             ->setPrimaryKeysNames($pkNames);
-        $addPKHandler = new AddPKHandler($this->sessionManager);
+        $addPKHandler = new AddPrimaryKeyHandler($this->sessionManager);
 
         $this->expectException(CannotAddPrimaryKeyException::class);
         $this->expectExceptionMessage('Selected columns contain duplicities');
@@ -212,7 +212,7 @@ class PrimaryKeyTest extends BaseCase
             ->setPath($path)
             ->setTableName($tableName)
             ->setPrimaryKeysNames($pkNames);
-        $addPKHandler = new AddPKHandler($this->sessionManager);
+        $addPKHandler = new AddPrimaryKeyHandler($this->sessionManager);
 
         $this->expectException(CannotAddPrimaryKeyException::class);
         $this->expectExceptionMessage('Primary key already exists');
@@ -263,7 +263,7 @@ class PrimaryKeyTest extends BaseCase
             ->setPath($path)
             ->setTableName($tableName)
             ->setPrimaryKeysNames($pkNames);
-        $addPKHandler = new AddPKHandler($this->sessionManager);
+        $addPKHandler = new AddPrimaryKeyHandler($this->sessionManager);
 
         $this->expectException(CannotAddPrimaryKeyException::class);
         $this->expectExceptionMessage('Selected column col2 is nullable');
