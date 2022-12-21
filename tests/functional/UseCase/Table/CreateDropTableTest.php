@@ -14,11 +14,11 @@ use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
+use Keboola\StorageDriver\Command\Table\TableColumnShared;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
-use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 
 class CreateDropTableTest extends BaseCase
 {
@@ -55,22 +55,22 @@ class CreateDropTableTest extends BaseCase
 
         $metaIsLatinEnabled = new Any();
         $metaIsLatinEnabled->pack(
-            (new CreateTableCommand\TableColumn\TeradataTableColumnMeta())->setIsLatin(true)
+            (new TableColumnShared\TeradataTableColumnMeta())->setIsLatin(true)
         );
 
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
-        $columns = new RepeatedField(GPBType::MESSAGE, CreateTableCommand\TableColumn::class);
-        $columns[] = (new CreateTableCommand\TableColumn())
+        $columns = new RepeatedField(GPBType::MESSAGE, TableColumnShared::class);
+        $columns[] = (new TableColumnShared())
             ->setName('id')
             ->setType(Teradata::TYPE_INTEGER);
-        $columns[] = (new CreateTableCommand\TableColumn())
+        $columns[] = (new TableColumnShared())
             ->setName('name')
             ->setType(Teradata::TYPE_VARCHAR)
             ->setLength('50')
             ->setNullable(true)
             ->setDefault("'Some Default'");
-        $columns[] = (new CreateTableCommand\TableColumn())
+        $columns[] = (new TableColumnShared())
             ->setName('large')
             ->setType(Teradata::TYPE_CLOB)
             ->setLength('2097087999') // the biggest length for latin chars, bigger than for unicode chars

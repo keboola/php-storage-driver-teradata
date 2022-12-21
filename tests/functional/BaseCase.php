@@ -6,7 +6,6 @@ namespace Keboola\StorageDriver\FunctionalTests;
 
 use Aws\S3\S3Client;
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Exception;
 use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
@@ -16,10 +15,11 @@ use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
+use Keboola\StorageDriver\Command\Table\TableColumnShared;
+use Keboola\StorageDriver\Command\Table\TableColumnShared\TeradataTableColumnMeta;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\FunctionalTests\UseCase\Table\ExportTableToFileTest;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
@@ -481,22 +481,22 @@ class BaseCase extends TestCase
 
         $metaIsLatinEnabled = new Any();
         $metaIsLatinEnabled->pack(
-            (new CreateTableCommand\TableColumn\TeradataTableColumnMeta())->setIsLatin(true)
+            (new TeradataTableColumnMeta())->setIsLatin(true)
         );
 
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $database;
-        $columns = new RepeatedField(GPBType::MESSAGE, CreateTableCommand\TableColumn::class);
-        $columns[] = (new CreateTableCommand\TableColumn())
+        $columns = new RepeatedField(GPBType::MESSAGE, TableColumnShared::class);
+        $columns[] = (new TableColumnShared())
             ->setName('id')
             ->setType(Teradata::TYPE_INTEGER);
-        $columns[] = (new CreateTableCommand\TableColumn())
+        $columns[] = (new TableColumnShared())
             ->setName('name')
             ->setType(Teradata::TYPE_VARCHAR)
             ->setLength('50')
             ->setNullable(true)
             ->setDefault("'Some Default'");
-        $columns[] = (new CreateTableCommand\TableColumn())
+        $columns[] = (new TableColumnShared())
             ->setName('large')
             ->setType(Teradata::TYPE_VARCHAR)
             ->setLength('10000')
