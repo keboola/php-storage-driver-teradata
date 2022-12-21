@@ -13,6 +13,7 @@ use Keboola\StorageDriver\Command\Table\DropPrimaryKeyCommand;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddPKHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Alter\CannotAddPrimaryKeyException;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropPKHandler;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
@@ -68,7 +69,7 @@ class PrimaryKeyTest extends BaseCase
             'primaryKeysNames' => [],
         ];
         $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
-        $this->fillTableWithData($bucketDatabaseName, $tableName, ['columns' => ['col1', 'col2', 'col3'], 'rows'=> ['1,2,3', '4,5,6']]);
+        $this->fillTableWithData($bucketDatabaseName, $tableName, ['columns' => ['col1', 'col2', 'col3'], 'rows' => ['1,2,3', '4,5,6']]);
 
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
@@ -109,5 +110,159 @@ class PrimaryKeyTest extends BaseCase
         $db = $this->getConnection($this->projectCredentials);
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $tableName);
         $this->assertEquals([], $ref->getPrimaryKeysNames());
+    }
+
+    public function testDuplicates()
+    {
+        $tableName = md5($this->getName()) . '_Test_table';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+
+        // CREATE TABLE
+        $tableStructure = [
+            'columns' => [
+                'col1' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'col2' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'col3' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+            ],
+            'primaryKeysNames' => [],
+        ];
+        $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
+        $this->fillTableWithData($bucketDatabaseName, $tableName, ['columns' => ['col1', 'col2', 'col3'], 'rows' => ['1,5,6', '1,5,6']]);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+
+        $pkNames = new RepeatedField(GPBType::STRING);
+        $pkNames[] = 'col2';
+        $pkNames[] = 'col3';
+
+        // add PK
+        $addPKCommand = (new AddPrimaryKeyCommand())
+            ->setPath($path)
+            ->setTableName($tableName)
+            ->setPrimaryKeysNames($pkNames);
+        $addPKHandler = new AddPKHandler($this->sessionManager);
+
+        $this->expectException(CannotAddPrimaryKeyException::class);
+        $this->expectExceptionMessage('Selected columns contain duplicities');
+        $addPKHandler(
+            $this->projectCredentials,
+            $addPKCommand,
+            []
+        );
+    }
+
+    public function testPKExists()
+    {
+        $tableName = md5($this->getName()) . '_Test_table';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+
+        // CREATE TABLE
+        $tableStructure = [
+            'columns' => [
+                'col1' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'col2' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'col3' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+            ],
+            'primaryKeysNames' => ['col2'],
+        ];
+        $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+
+        $pkNames = new RepeatedField(GPBType::STRING);
+        $pkNames[] = 'col2';
+        $pkNames[] = 'col3';
+
+        // add PK
+        $addPKCommand = (new AddPrimaryKeyCommand())
+            ->setPath($path)
+            ->setTableName($tableName)
+            ->setPrimaryKeysNames($pkNames);
+        $addPKHandler = new AddPKHandler($this->sessionManager);
+
+        $this->expectException(CannotAddPrimaryKeyException::class);
+        $this->expectExceptionMessage('Primary key already exists');
+        $addPKHandler(
+            $this->projectCredentials,
+            $addPKCommand,
+            []
+        );
+    }
+
+    public function testColumnIsNullable()
+    {
+        $tableName = md5($this->getName()) . '_Test_table';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+
+        // CREATE TABLE
+        $tableStructure = [
+            'columns' => [
+                'col1' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'col2' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'col3' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+            ],
+            'primaryKeysNames' => [],
+        ];
+        $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
+
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+
+        $pkNames = new RepeatedField(GPBType::STRING);
+        $pkNames[] = 'col2';
+        $pkNames[] = 'col3';
+
+        // add PK
+        $addPKCommand = (new AddPrimaryKeyCommand())
+            ->setPath($path)
+            ->setTableName($tableName)
+            ->setPrimaryKeysNames($pkNames);
+        $addPKHandler = new AddPKHandler($this->sessionManager);
+
+        $this->expectException(CannotAddPrimaryKeyException::class);
+        $this->expectExceptionMessage('Selected column col2 is nullable');
+        $addPKHandler(
+            $this->projectCredentials,
+            $addPKCommand,
+            []
+        );
     }
 }
