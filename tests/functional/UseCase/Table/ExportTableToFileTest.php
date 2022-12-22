@@ -11,6 +11,7 @@ use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
+use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared;
@@ -45,6 +46,22 @@ class ExportTableToFileTest extends BaseCase
 
     private ExportQueryBuilderFactory $tableExportQueryBuilderFactory;
 
+    private function clearFiles(string $exportDir): S3Client
+    {
+        // clear files
+        $s3Client = $this->getS3Client(
+            (string) getenv('AWS_ACCESS_KEY_ID'),
+            (string) getenv('AWS_SECRET_ACCESS_KEY'),
+            (string) getenv('AWS_REGION')
+        );
+        $this->clearS3BucketDir(
+            $s3Client,
+            (string) getenv('AWS_S3_BUCKET'),
+            $exportDir
+        );
+        return $s3Client;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -63,6 +80,138 @@ class ExportTableToFileTest extends BaseCase
     {
         parent::tearDown();
         $this->cleanTestProject();
+    }
+
+    public function testExportTableWithTypes(): void
+    {
+        $tableName = md5($this->getName()) . '_Test_table';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+        $exportDir = sprintf(
+            'export/%s/',
+            str_replace([' ', '"', '\''], ['-', '_', '_'], $this->getName())
+        );
+
+        // CREATE TABLE
+        $tableStructure = [
+            'columns' => [
+                'id' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'int' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'decimal' => [
+                    'type' => Teradata::TYPE_DECIMAL,
+                    'length' => '10,2',
+                    'nullable' => true,
+                ],
+                'float' => [
+                    'type' => Teradata::TYPE_FLOAT,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'date' => [
+                    'type' => Teradata::TYPE_DATE,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'time' => [
+                    'type' => Teradata::TYPE_TIME,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                '_timestamp' => [
+                    'type' => Teradata::TYPE_TIMESTAMP,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'varchar' => [
+                    'type' => Teradata::TYPE_VARCHAR,
+                    'length' => '200',
+                    'nullable' => true,
+                ],
+                'decimal_varchar' => [
+                    'type' => Teradata::TYPE_VARCHAR,
+                    'length' => '200',
+                    'nullable' => true,
+                ],
+            ],
+            'primaryKeysNames' => ['id'],
+        ];
+        $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
+
+        // FILL DATA
+        $insertGroups = [
+            // phpcs:ignore
+            'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar', 'decimal_varchar'],
+            'rows' => [
+                // phpcs:ignore
+                "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', '2022-01-01 12:00:01', 'Variable character 1', '100.10'",
+                sprintf(
+                    "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '2022-01-02 12:00:02', '%s', '100.20'",
+                    str_repeat('VeryLongString123456', 5)
+                ),
+                '3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL',
+            ],
+        ];
+        $this->fillTableWithData($bucketDatabaseName, $tableName, $insertGroups);
+
+        $exportOptions = new ExportOptions([
+            'isCompressed' => false,
+            //phpcs:ignore
+            'columnsToExport' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar', 'decimal_varchar'],
+            'filters' => new ImportExportShared\ExportFilters([
+                'changeSince' => '1641038401',
+                'changeUntil' => '1641038402',
+            ]),
+        ]);
+        $this->clearFiles($exportDir);
+
+        // export command
+        $cmd = new TableExportToFileCommand();
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $cmd->setSource(
+            (new ImportExportShared\Table())
+                ->setPath($path)
+                ->setTableName($tableName)
+        );
+
+        $cmd->setFileProvider(FileProvider::S3);
+        $cmd->setFileFormat(FileFormat::CSV);
+        $cmd->setExportOptions($exportOptions);
+
+        $exportMeta = new Any();
+        $exportMeta->pack(
+            (new TableExportToFileCommand\TeradataTableExportMeta())
+                ->setExportAdapter(TableExportToFileCommand\TeradataTableExportMeta\ExportAdapter::TPT)
+        );
+        $cmd->setMeta($exportMeta);
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath($exportDir)
+        );
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+
+        $handler = new ExportTableToFileHandler($this->sessionManager, $this->tableExportQueryBuilderFactory);
+        $response = $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+        $this->assertInstanceOf(TableExportToFileResponse::class, $response);
     }
 
     /**
@@ -87,22 +236,10 @@ class ExportTableToFileTest extends BaseCase
         // create table
         $db = $this->getConnection($this->projectCredentials);
         $sourceTableDef = $this->createSourceTable($bucketDatabaseName, $sourceTableName, $db);
-
-        // clear files
-        $s3Client = $this->getS3Client(
-            (string) getenv('AWS_ACCESS_KEY_ID'),
-            (string) getenv('AWS_SECRET_ACCESS_KEY'),
-            (string) getenv('AWS_REGION')
-        );
-        $this->clearS3BucketDir(
-            $s3Client,
-            (string) getenv('AWS_S3_BUCKET'),
-            $exportDir
-        );
+        $s3Client = $this->clearFiles($exportDir);
 
         // export command
         $cmd = new TableExportToFileCommand();
-
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
         $cmd->setSource(
@@ -253,16 +390,7 @@ class ExportTableToFileTest extends BaseCase
         );
 
         // clear files
-        $s3Client = $this->getS3Client(
-            (string) getenv('AWS_ACCESS_KEY_ID'),
-            (string) getenv('AWS_SECRET_ACCESS_KEY'),
-            (string) getenv('AWS_REGION')
-        );
-        $this->clearS3BucketDir(
-            $s3Client,
-            (string) getenv('AWS_S3_BUCKET'),
-            $exportDir
-        );
+        $s3Client = $this->clearFiles($exportDir);
 
         // export command
         $cmd = new TableExportToFileCommand();
