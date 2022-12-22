@@ -15,6 +15,8 @@ use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilder;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
@@ -26,14 +28,10 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
 
     private TeradataSessionManager $manager;
 
-    private ExportQueryBuilderFactory $queryBuilderFactory;
-
     public function __construct(
-        TeradataSessionManager $manager,
-        ExportQueryBuilderFactory $queryBuilderFactory
+        TeradataSessionManager $manager
     ) {
         $this->manager = $manager;
-        $this->queryBuilderFactory = $queryBuilderFactory;
     }
 
     /**
@@ -67,7 +65,10 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             ))->getColumnsDefinitions();
 
             // build sql
-            $queryBuilder = $this->queryBuilderFactory->create($db);
+            $queryBuilder = new ExportQueryBuilder(
+                $db,
+                new ColumnConverter(),
+            );
             $queryData = $queryBuilder->buildQueryFromCommand(
                 $command->getFilters(),
                 $command->getOrderBy(),

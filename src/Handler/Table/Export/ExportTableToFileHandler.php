@@ -23,6 +23,8 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\TableReflectionResponseTransformer;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilder;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
@@ -34,14 +36,10 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
 
     private TeradataSessionManager $manager;
 
-    private ExportQueryBuilderFactory $queryBuilderFactory;
-
     public function __construct(
-        TeradataSessionManager $manager,
-        ExportQueryBuilderFactory $queryBuilderFactory
+        TeradataSessionManager $manager
     ) {
         $this->manager = $manager;
-        $this->queryBuilderFactory = $queryBuilderFactory;
     }
 
     /**
@@ -109,7 +107,10 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             $source->getTableName(),
         ))->getColumnsDefinitions();
 
-        $queryBuilder = $this->queryBuilderFactory->create($db);
+        $queryBuilder = new ExportQueryBuilder(
+            $db,
+            new ColumnConverter(),
+        );
         $queryData = $queryBuilder->buildQueryFromCommand(
             $requestExportOptions->getFilters(),
             $requestExportOptions->getOrderBy(),

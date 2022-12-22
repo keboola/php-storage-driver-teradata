@@ -22,7 +22,6 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
-use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Throwable;
 
 class PreviewTableTest extends BaseCase
@@ -30,8 +29,6 @@ class PreviewTableTest extends BaseCase
     protected GenericBackendCredentials $projectCredentials;
 
     protected CreateBucketResponse $bucketResponse;
-
-    private ExportQueryBuilderFactory $tableFilterQueryBuilderFactory;
 
     protected function setUp(): void
     {
@@ -43,8 +40,6 @@ class PreviewTableTest extends BaseCase
 
         [$bucketResponse, $connection] = $this->createTestBucket($projectCredentials, $projectResponse);
         $this->bucketResponse = $bucketResponse;
-
-        $this->tableFilterQueryBuilderFactory = new ExportQueryBuilderFactory();
     }
 
     protected function tearDown(): void
@@ -746,7 +741,7 @@ class PreviewTableTest extends BaseCase
      */
     private function previewTable(string $databaseName, string $tableName, array $commandInput): PreviewTableResponse
     {
-        $handler = new PreviewTableHandler($this->sessionManager, $this->tableFilterQueryBuilderFactory);
+        $handler = new PreviewTableHandler($this->sessionManager);
 
         $command = new PreviewTableCommand();
 

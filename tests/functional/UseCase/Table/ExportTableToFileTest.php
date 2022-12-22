@@ -31,7 +31,6 @@ use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Export\ExportTableToFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
-use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -43,8 +42,6 @@ class ExportTableToFileTest extends BaseCase
     protected GenericBackendCredentials $projectCredentials;
 
     protected CreateBucketResponse $bucketResponse;
-
-    private ExportQueryBuilderFactory $tableExportQueryBuilderFactory;
 
     private function clearFiles(string $exportDir): S3Client
     {
@@ -72,8 +69,6 @@ class ExportTableToFileTest extends BaseCase
 
         [$bucketResponse,] = $this->createTestBucket($projectCredentials, $projectResponse);
         $this->bucketResponse = $bucketResponse;
-
-        $this->tableExportQueryBuilderFactory = new ExportQueryBuilderFactory();
     }
 
     protected function tearDown(): void
@@ -205,7 +200,7 @@ class ExportTableToFileTest extends BaseCase
         );
         $cmd->setFileCredentials($credentials);
 
-        $handler = new ExportTableToFileHandler($this->sessionManager, $this->tableExportQueryBuilderFactory);
+        $handler = new ExportTableToFileHandler($this->sessionManager);
         $response = $handler(
             $this->projectCredentials,
             $cmd,
@@ -278,7 +273,7 @@ class ExportTableToFileTest extends BaseCase
         );
         $cmd->setFileCredentials($credentials);
 
-        $handler = new ExportTableToFileHandler($this->sessionManager, $this->tableExportQueryBuilderFactory);
+        $handler = new ExportTableToFileHandler($this->sessionManager);
         $response = $handler(
             $this->projectCredentials,
             $cmd,
@@ -433,7 +428,7 @@ class ExportTableToFileTest extends BaseCase
         );
         $cmd->setFileCredentials($credentials);
 
-        $handler = new ExportTableToFileHandler($this->sessionManager, $this->tableExportQueryBuilderFactory);
+        $handler = new ExportTableToFileHandler($this->sessionManager);
         $response = $handler(
             $this->projectCredentials,
             $cmd,
