@@ -177,8 +177,16 @@ class ExportTableToFileTest extends BaseCase
         $this->assertNotNull($files);
         $this->assertCount(1, $files);
         if ($expectedResultFileSize !== null) {
-            $this->assertGreaterThanOrEqual($expectedResultFileSize[0], $files[0]['Size'], 'File is smaller than expected.');
-            $this->assertLessThanOrEqual($expectedResultFileSize[1], $files[0]['Size'], 'File is bigger than expected.');
+            $this->assertGreaterThanOrEqual(
+                $expectedResultFileSize[0],
+                $files[0]['Size'],
+                'File is smaller than expected.'
+            );
+            $this->assertLessThanOrEqual(
+                $expectedResultFileSize[1],
+                $files[0]['Size'],
+                'File is bigger than expected.'
+            );
         }
 
         // check data
