@@ -20,8 +20,8 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Oper
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
-use Keboola\StorageDriver\Teradata\QueryBuilder\QueryBuilderException;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilder;
+use Keboola\StorageDriver\Teradata\QueryBuilder\QueryBuilderException;
 use PHPUnit\Framework\TestCase;
 
 class ExportQueryBuilderTest extends TestCase

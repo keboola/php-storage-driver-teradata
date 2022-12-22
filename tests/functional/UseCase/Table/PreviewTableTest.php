@@ -737,7 +737,7 @@ class PreviewTableTest extends BaseCase
      * @phpcs:ignore
      * @param array{
      *     columns: array<string>,
-     *     filters: ExportFilters,
+     *     filters?: ExportFilters,
      *     orderBy?: ExportOrderBy[],
      * } $commandInput
      */
