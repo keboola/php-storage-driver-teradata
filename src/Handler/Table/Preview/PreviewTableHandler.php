@@ -9,33 +9,23 @@ use Google\Protobuf\Internal\Message;
 use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\NullValue;
 use Google\Protobuf\Value;
-use Keboola\Datatype\Definition\Teradata;
-use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
-use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
-use Keboola\StorageDriver\Command\Info\ObjectType;
-use Keboola\StorageDriver\Command\Info\TableInfo;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOrderBy;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\OrderBy;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
-use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
+use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
 class PreviewTableHandler implements DriverCommandHandlerInterface
 {
-    // TODO truncated: orezat primo v query na 16384 znaku (viz ExasolExportQueryBuilder::processSelectStatement)
-    //   (ale je tam zaroven podminka, ze exportni format musi byt JSON)
-    //public const STRING_MAX_LENGTH = 50;
-
     public const DEFAULT_LIMIT = 100;
     public const MAX_LIMIT = 1000;
 
     private TeradataSessionManager $manager;
+
     private ExportQueryBuilderFactory $queryBuilderFactory;
 
     public function __construct(
@@ -70,16 +60,22 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             $db = $this->manager->createSession($credentials);
             /** @var string $databaseName */
             $databaseName = $command->getPath()[0];
+            $columnsDefinitions = (new TeradataTableReflection(
+                $db,
+                $databaseName,
+                $command->getTableName(),
+            ))->getColumnsDefinitions();
 
             // build sql
-            $tableInfo = $this->getTableInfoResponseIfNeeded($credentials, $command, $databaseName);
-            $queryBuilder = $this->queryBuilderFactory->create($db, $tableInfo);
+            $queryBuilder = $this->queryBuilderFactory->create($db);
             $queryData = $queryBuilder->buildQueryFromCommand(
                 $command->getFilters(),
                 $command->getOrderBy(),
                 $command->getColumns(),
+                $columnsDefinitions,
                 $databaseName,
-                $command->getTableName()
+                $command->getTableName(),
+                true
             );
 
             // select table
@@ -97,36 +93,27 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
 
             // set rows
             $rows = new RepeatedField(GPBType::MESSAGE, PreviewTableResponse\Row::class);
-            foreach ($result->iterateAssociative() as $line) {
-                // set row
-                $row = new PreviewTableResponse\Row();
-                $rowColumns = new RepeatedField(GPBType::MESSAGE, PreviewTableResponse\Row\Column::class);
-                /** @var ?scalar $itemValue */
-                foreach ($line as $itemKey => $itemValue) {
-                    // set row columns
+            foreach ($result->iterateAssociative() as $row) {
+                $responseRow = new PreviewTableResponse\Row();
+                $responseRowColumns = new RepeatedField(GPBType::MESSAGE, PreviewTableResponse\Row\Column::class);
+                /** @var string $columnName */
+                foreach ($command->getColumns() as $columnName) {
                     $value = new Value();
-                    $truncated = false;
-                    if ($itemValue === null) {
+                    /** @var ?scalar $columnValue */
+                    $columnValue = array_shift($row);
+                    if ($columnValue === null) {
                         $value->setNullValue(NullValue::NULL_VALUE);
                     } else {
-                        // preview returns all data as string
-                        // TODO truncated: rewrite to SQL
-                        //if (mb_strlen((string) $itemValue) > self::STRING_MAX_LENGTH) {
-                        //    $truncated = true;
-                        //    $value->setStringValue(mb_substr((string) $itemValue, 0, self::STRING_MAX_LENGTH));
-                        //} else {
-                            $value->setStringValue((string) $itemValue);
-                        //}
+                        $value->setStringValue((string) $columnValue);
                     }
 
-                    $rowColumns[] = (new PreviewTableResponse\Row\Column())
-                        ->setColumnName($itemKey)
+                    $responseRowColumns[] = (new PreviewTableResponse\Row\Column())
+                        ->setColumnName($columnName)
                         ->setValue($value)
-                        ->setIsTruncated($truncated);
-
-                    $row->setColumns($rowColumns);
+                        ->setIsTruncated(array_shift($row) === '1');
                 }
-                $rows[] = $row;
+                $responseRow->setColumns($responseRowColumns);
+                $rows[] = $responseRow;
             }
             $response->setRows($rows);
         } finally {
@@ -135,33 +122,6 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
             }
         }
         return $response;
-    }
-
-    /**
-     * fulltext search need table info data
-     */
-    private function getTableInfoResponseIfNeeded(
-        GenericBackendCredentials $credentials,
-        PreviewTableCommand $command,
-        string $databaseName
-    ): ?TableInfo {
-        if ($command->getFilters() !== null && $command->getFilters()->getFulltextSearch() !== '') {
-            $objectInfoHandler = (new ObjectInfoHandler($this->manager));
-            $tableInfoCommand = (new ObjectInfoCommand())
-                ->setExpectedObjectType(ObjectType::TABLE)
-                ->setPath(ProtobufHelper::arrayToRepeatedString([
-                    $databaseName,
-                    $command->getTableName(),
-                ]));
-            /** @var ObjectInfoResponse $response */
-            $response = $objectInfoHandler($credentials, $tableInfoCommand, []);
-
-            assert($response instanceof ObjectInfoResponse);
-            assert($response->getObjectType() === ObjectType::TABLE);
-
-            return $response->getTableInfo();
-        }
-        return null;
     }
 
     private function validateFilters(PreviewTableCommand $command): void

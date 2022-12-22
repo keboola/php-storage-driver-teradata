@@ -8,16 +8,26 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Query\QueryException;
 use Google\Protobuf\Internal\RepeatedField;
+use Keboola\Datatype\Definition\BaseType;
+use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOrderBy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOrderBy\Order;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\TableBackendUtils\Column\ColumnCollection;
+use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
 abstract class CommonFilterQueryBuilder
 {
+    public const DEFAULT_CAST_SIZE = 16384;
+    private const IEEE_TYPES = [
+        Teradata::TYPE_FLOAT,
+        Teradata::TYPE_DOUBLE_PRECISION,
+        Teradata::TYPE_REAL,
+    ];
     public const OPERATOR_SINGLE_VALUE = [
         Operator::eq => '=',
         Operator::ne => '<>',
@@ -32,6 +42,7 @@ abstract class CommonFilterQueryBuilder
     ];
 
     protected Connection $connection;
+
     protected ColumnConverter $columnConverter;
 
     public function __construct(
@@ -40,6 +51,31 @@ abstract class CommonFilterQueryBuilder
     ) {
         $this->connection = $connection;
         $this->columnConverter = $columnConverter;
+    }
+
+    private function addSelectLargeString(QueryBuilder $query, string $selectColumnExpresion, string $column): void
+    {
+        //casted value
+        $query->addSelect(
+            sprintf(
+                'CAST(SUBSTRING(CAST(%s as VARCHAR(%d)), 0, %d) as VARCHAR(%d)) AS %s',
+                $selectColumnExpresion,
+                self::DEFAULT_CAST_SIZE,
+                self::DEFAULT_CAST_SIZE,
+                self::DEFAULT_CAST_SIZE,
+                TeradataQuote::quoteSingleIdentifier($column)
+            )
+        );
+        //flag if is cast
+        $query->addSelect(
+            sprintf(
+                '(CASE WHEN LENGTH(CAST(%s as VARCHAR(%d))) > %s THEN 1 ELSE 0 END) AS %s',
+                TeradataQuote::quoteSingleIdentifier($column),
+                self::DEFAULT_CAST_SIZE,
+                self::DEFAULT_CAST_SIZE,
+                TeradataQuote::quoteSingleIdentifier(uniqid($column))
+            )
+        );
     }
 
     protected function processChangedConditions(string $changeSince, string $changeUntil, QueryBuilder $query): void
@@ -168,8 +204,12 @@ abstract class CommonFilterQueryBuilder
     /**
      * @param string[] $columns
      */
-    protected function processSelectStatement(array $columns, QueryBuilder $query): void
-    {
+    protected function processSelectStatement(
+        array $columns,
+        QueryBuilder $query,
+        ColumnCollection $tableColumnsDefinitions,
+        bool $truncateLargeColumns
+    ): void {
         if (count($columns) === 0) {
             $query->addSelect('*');
             return;
@@ -178,41 +218,65 @@ abstract class CommonFilterQueryBuilder
         foreach ($columns as $column) {
             $selectColumnExpresion = TeradataQuote::quoteSingleIdentifier($column);
 
-            // TODO truncate - preview does not contains export format
-            //if ($options->shouldTruncateLargeColumns()) {
-            //    $this->processSelectWithLargeColumnTruncation($query, $selectColumnExpresion, $column);
-            //    return;
-            //}
+            if ($truncateLargeColumns) {
+                /** @var TeradataColumn[] $defs */
+                $defs = iterator_to_array($tableColumnsDefinitions);
+                /** @var TeradataColumn $def */
+                $def = array_values(array_filter(
+                    $defs,
+                    fn(TeradataColumn $c) => $c->getColumnName() === $column
+                ))[0];
+                $this->processSelectWithLargeColumnTruncation(
+                    $query,
+                    $selectColumnExpresion,
+                    $column,
+                    $def->getColumnDefinition()
+                );
+                continue;
+            }
             $query->addSelect($selectColumnExpresion);
         }
     }
 
-    // TODO truncate - preview does not contains export format
-    /*private function processSelectWithLargeColumnTruncation(
+    private function processSelectWithLargeColumnTruncation(
         QueryBuilder $query,
         string $selectColumnExpresion,
-        string $column
+        string $column,
+        Teradata $def
     ): void {
-        //casted value
-        $query->addSelect(
-            sprintf(
-                'CAST(SUBSTRING(%s, 0, %d) as VARCHAR(%d)) AS %s',
-                $selectColumnExpresion,
-                self::DEFAULT_CAST_SIZE,
-                self::DEFAULT_CAST_SIZE,
-                TeradataQuote::quoteSingleIdentifier($column)
-            )
-        );
+        if ($def->getBasetype() === BaseType::STRING) {
+            $this->addSelectLargeString($query, $selectColumnExpresion, $column);
+            return;
+        }
+        if (in_array($def->getType(), self::IEEE_TYPES, true)) {
+            // dont cast IEEE-754 types as they would be exported in scientific notation
+            $query->addSelect(
+                sprintf(
+                    '%s AS %s',
+                    $selectColumnExpresion,
+                    TeradataQuote::quoteSingleIdentifier($column)
+                )
+            );
+        } else {
+            //cast value to string
+            $query->addSelect(
+                sprintf(
+                    'CAST(%s as VARCHAR(%d)) AS %s',
+                    $selectColumnExpresion,
+                    self::DEFAULT_CAST_SIZE,
+                    TeradataQuote::quoteSingleIdentifier($column)
+                )
+            );
+        }
+
         //flag if is cast
         $query->addSelect(
             sprintf(
-                '(IF LENGTH(%s) > %s THEN 1 ELSE 0 ENDIF) AS %s',
-                TeradataQuote::quoteSingleIdentifier($column),
-                self::DEFAULT_CAST_SIZE,
+                '\'0\' AS %s',
                 TeradataQuote::quoteSingleIdentifier(uniqid($column))
             )
         );
-    }*/
+    }
 
     protected function processLimitStatement(int $limit, QueryBuilder $query): void
     {

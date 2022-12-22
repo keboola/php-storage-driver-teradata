@@ -102,14 +102,22 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         // run
         $db = $this->manager->createSession($credentials);
 
-        $database = ProtobufHelper::repeatedStringToArray($source->getPath())[0];
-        $queryBuilder = $this->queryBuilderFactory->create($db, null);
+        $databaseName = ProtobufHelper::repeatedStringToArray($source->getPath())[0];
+        $columnsDefinitions = (new TeradataTableReflection(
+            $db,
+            $databaseName,
+            $source->getTableName(),
+        ))->getColumnsDefinitions();
+
+        $queryBuilder = $this->queryBuilderFactory->create($db);
         $queryData = $queryBuilder->buildQueryFromCommand(
             $requestExportOptions->getFilters(),
             $requestExportOptions->getOrderBy(),
             $requestExportOptions->getColumnsToExport(),
-            $database,
-            $source->getTableName()
+            $columnsDefinitions,
+            $databaseName,
+            $source->getTableName(),
+            false
         );
         /** @var array<string> $queryDataBindings */
         $queryDataBindings = $queryData->getBindings();
@@ -137,10 +145,10 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
 
         return (new TableExportToFileResponse())
             ->setTableInfo(TableReflectionResponseTransformer::transformTableReflectionToResponse(
-                $database,
+                $databaseName,
                 new TeradataTableReflection(
                     $db,
-                    $database,
+                    $databaseName,
                     $source->getTableName()
                 )
             ));

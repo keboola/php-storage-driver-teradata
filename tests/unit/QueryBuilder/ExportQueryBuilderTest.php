@@ -11,6 +11,7 @@ use Exception;
 use Generator;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
+use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportFilters;
@@ -22,6 +23,9 @@ use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilder;
 use Keboola\StorageDriver\Teradata\QueryBuilder\QueryBuilderException;
+use Keboola\TableBackendUtils\Column\ColumnCollection;
+use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
+use Keboola\TableBackendUtils\Connection\Teradata\TeradataPlatform;
 use PHPUnit\Framework\TestCase;
 
 class ExportQueryBuilderTest extends TestCase
@@ -40,55 +44,46 @@ class ExportQueryBuilderTest extends TestCase
         $connection = $this->createMock(Connection::class);
         $connection->method('getExpressionBuilder')
             ->willReturn(new ExpressionBuilder($this->createMock(Connection::class)));
+        $connection->method('getDatabasePlatform')
+            ->willReturn(new TeradataPlatform());
 
         $columnConverter = new ColumnConverter();
 
         // define table info
-        $tableInfoColumns = new RepeatedField(GPBType::MESSAGE, TableInfo\TableColumn::class);
-        $tableInfoColumns[] = new TableInfo\TableColumn([
-            'name' => 'id',
-            'type' => 'INT',
+        $tableInfoColumns = [];
+        $tableInfoColumns[] = new TeradataColumn('id', new Teradata('INT', [
             'length' => '',
             'nullable' => false,
             'default' => '',
-        ]);
-        $tableInfoColumns[] = new TableInfo\TableColumn([
-            'name' => 'name',
-            'type' => 'VARCHAR',
+        ]));
+        $tableInfoColumns[] = new TeradataColumn('name', new Teradata('VARCHAR', [
             'length' => '100',
             'nullable' => true,
             'default' => '',
-        ]);
-        $tableInfoColumns[] = new TableInfo\TableColumn([
-            'name' => 'height',
-            'type' => 'DECIMAL',
+        ]));
+        $tableInfoColumns[] = new TeradataColumn('height', new Teradata('DECIMAL', [
             'length' => '4,2',
             'nullable' => true,
             'default' => '',
-        ]);
-        $tableInfoColumns[] = new TableInfo\TableColumn([
-            'name' => 'birth_at',
-            'type' => 'DATE',
+        ]));
+        $tableInfoColumns[] = new TeradataColumn('birth_at', new Teradata('DATE', [
             'length' => '',
             'nullable' => true,
             'default' => '',
-        ]);
-        $tableInfo = (new TableInfo())
-            ->setPath(ProtobufHelper::arrayToRepeatedString(['some_schema']))
-            ->setTableName('some_table')
-            ->setColumns($tableInfoColumns)
-            ->setPrimaryKeysNames(ProtobufHelper::arrayToRepeatedString(['id']));
+        ]));
 
         // create query builder
-        $qb = new ExportQueryBuilder($connection, $tableInfo, $columnConverter);
+        $qb = new ExportQueryBuilder($connection, $columnConverter);
 
         // build query
         $queryData = $qb->buildQueryFromCommand(
             $previewCommand->getFilters(),
             $previewCommand->getOrderBy(),
             $previewCommand->getColumns(),
+            new ColumnCollection($tableInfoColumns),
             'some_schema',
-            'some_table'
+            'some_table',
+            false
         );
 
         $this->assertSame(
@@ -367,43 +362,30 @@ class ExportQueryBuilderTest extends TestCase
 
         $columnConverter = new ColumnConverter();
         // define table info
-        $tableInfoColumns = new RepeatedField(GPBType::MESSAGE, TableInfo\TableColumn::class);
-        $tableInfoColumns[] = new TableInfo\TableColumn([
-            'name' => 'id',
-            'type' => 'INT',
+        $tableInfoColumns = [];
+        $tableInfoColumns[] = new TeradataColumn('id', new Teradata('INT', [
             'length' => '',
             'nullable' => false,
             'default' => '',
-        ]);
-        $tableInfoColumns[] = new TableInfo\TableColumn([
-            'name' => 'name',
-            'type' => 'VARCHAR',
+        ]));
+        $tableInfoColumns[] = new TeradataColumn('name', new Teradata('VARCHAR', [
             'length' => '100',
             'nullable' => true,
             'default' => '',
-        ]);
-        $tableInfoColumns[] = new TableInfo\TableColumn([
-            'name' => 'height',
-            'type' => 'DECIMAL',
+        ]));
+        $tableInfoColumns[] = new TeradataColumn('height', new Teradata('DECIMAL', [
             'length' => '4,2',
             'nullable' => true,
             'default' => '',
-        ]);
-        $tableInfoColumns[] = new TableInfo\TableColumn([
-            'name' => 'birth_at',
-            'type' => 'DATE',
+        ]));
+        $tableInfoColumns[] = new TeradataColumn('birth_at', new Teradata('DATE', [
             'length' => '',
             'nullable' => true,
             'default' => '',
-        ]);
-        $tableInfo = (new TableInfo())
-            ->setPath(ProtobufHelper::arrayToRepeatedString(['some_schema']))
-            ->setTableName('some_table')
-            ->setColumns($tableInfoColumns)
-            ->setPrimaryKeysNames(ProtobufHelper::arrayToRepeatedString(['id']));
+        ]));
 
         // create query builder
-        $qb = new ExportQueryBuilder($connection, $tableInfo, $columnConverter);
+        $qb = new ExportQueryBuilder($connection, $columnConverter);
 
         // build query
         $this->expectException($exceptionClass);
@@ -412,8 +394,10 @@ class ExportQueryBuilderTest extends TestCase
             $previewCommand->getFilters(),
             $previewCommand->getOrderBy(),
             $previewCommand->getColumns(),
+            new ColumnCollection($tableInfoColumns),
             'some_schema',
-            ''
+            '',
+            true
         );
     }
 

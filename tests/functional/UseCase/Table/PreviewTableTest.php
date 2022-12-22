@@ -18,13 +18,11 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableResponse;
-use Keboola\StorageDriver\Command\Table\TableColumnShared;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Preview\PreviewTableHandler;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
-use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
 class PreviewTableTest extends BaseCase
@@ -659,7 +657,9 @@ class PreviewTableTest extends BaseCase
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'limit' => 2000,
+                'filters' => new ExportFilters([
+                    'limit' => 2000,
+                ]),
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
@@ -673,7 +673,9 @@ class PreviewTableTest extends BaseCase
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'changeSince' => '2022-11-01 12:00:00 UTC',
+                'filters' => new ExportFilters([
+                    'changeSince' => '2022-11-01 12:00:00 UTC',
+                ]),
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
@@ -687,7 +689,9 @@ class PreviewTableTest extends BaseCase
         try {
             $this->previewTable($bucketDatabaseName, $tableName, [
                 'columns' => ['id', 'int'],
-                'changeUntil' => '2022-11-01 12:00:00 UTC',
+                'filters' => new ExportFilters([
+                    'changeUntil' => '2022-11-01 12:00:00 UTC',
+                ]),
             ]);
             $this->fail('This should never happen');
         } catch (Throwable $e) {
@@ -731,7 +735,6 @@ class PreviewTableTest extends BaseCase
             );
         }
     }
-
 
     /**
      * @phpcs:ignore
@@ -803,6 +806,7 @@ class PreviewTableTest extends BaseCase
             // check columns
             /** @var PreviewTableResponse\Row\Column[] $columns */
             $columns = $row->getColumns();
+            // there is twice much columns for preview as each have truncate flag
             $this->assertCount(count($expectedRow), $columns);
 
             foreach ($columns as $column) {

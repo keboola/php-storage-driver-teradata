@@ -9,45 +9,46 @@ use Doctrine\DBAL\Query\QueryException;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\BaseType;
 use Keboola\Datatype\Definition\Teradata;
-use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportFilters;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\TableBackendUtils\Column\ColumnCollection;
+use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use LogicException;
 
 class ExportQueryBuilder extends CommonFilterQueryBuilder
 {
-//    public const DEFAULT_CAST_SIZE = 16384;
-
-    private ?TableInfo $tableInfo;
-
     public function __construct(
         Connection $connection,
-        ?TableInfo $tableInfo,
         ColumnConverter $columnConverter
     ) {
-        $this->tableInfo = $tableInfo;
-
         parent::__construct($connection, $columnConverter);
     }
 
     public function buildQueryFromCommand(
         ?ExportFilters $filters,
         RepeatedField $orderBy,
-        RepeatedField $columns,
+        RepeatedField $columnsToUse,
+        ColumnCollection $tableColumnsDefinitions,
         string $schemaName,
-        string $tableName
+        string $tableName,
+        bool $truncateLargeColumns
     ): QueryBuilderResponse {
 
         $query = new QueryBuilder($this->connection);
 
         if ($filters !== null) {
             $this->assertFilterCombination($filters);
-            $this->processFilters($filters, $query);
+            $this->processFilters($filters, $query, $tableColumnsDefinitions);
         }
 
         $this->processOrderStatement($orderBy, $query);
-        $this->processSelectStatement(ProtobufHelper::repeatedStringToArray($columns), $query);
+        $this->processSelectStatement(
+            ProtobufHelper::repeatedStringToArray($columnsToUse),
+            $query,
+            $tableColumnsDefinitions,
+            $truncateLargeColumns
+        );
         $this->processFromStatement($schemaName, $tableName, $query);
 
         $sql = $query->getSQL();
@@ -59,7 +60,7 @@ class ExportQueryBuilder extends CommonFilterQueryBuilder
             $sql,
             $query->getParameters(),
             $types,
-            ProtobufHelper::repeatedStringToArray($columns),
+            ProtobufHelper::repeatedStringToArray($columnsToUse),
         );
     }
 
@@ -95,22 +96,20 @@ class ExportQueryBuilder extends CommonFilterQueryBuilder
         return (new Teradata($type))->getBasetype();
     }
 
-    private function processFilters(ExportFilters $filters, QueryBuilder $query): void
+    private function processFilters(ExportFilters $filters, QueryBuilder $query, ColumnCollection $tableColumnsDefinitions): void
     {
         $this->processChangedConditions($filters->getChangeSince(), $filters->getChangeUntil(), $query);
 
         try {
             if ($filters->getFulltextSearch() !== '') {
-                if ($this->tableInfo === null) {
-                    throw new LogicException('tableInfo variable has to be set to use fulltextSearch');
-                }
+
 
                 $tableInfoColumns = [];
-                /** @var TableInfo\TableColumn $column */
-                foreach ($this->tableInfo->getColumns() as $column) {
+                /** @var TeradataColumn $column */
+                foreach ($tableColumnsDefinitions as $column) {
                     // search only in STRING types
-                    if ($this->getBasetype($column->getType()) === BaseType::STRING) {
-                        $tableInfoColumns[] = $column->getName();
+                    if ($this->getBasetype($column->getColumnDefinition()->getType()) === BaseType::STRING) {
+                        $tableInfoColumns[] = $column->getColumnName();
                     }
                 }
 
