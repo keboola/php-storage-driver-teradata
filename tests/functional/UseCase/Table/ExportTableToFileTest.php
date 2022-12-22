@@ -68,14 +68,14 @@ class ExportTableToFileTest extends BaseCase
     /**
      * @dataProvider simpleExportProvider
      * @param array{exportOptions: ExportOptions} $input
-     * @param int[] $exportSize
-     * @param array<int, string>[]|null $exportData
+     * @param int[] $expectedResultFileSize
+     * @param array<int, string>[]|null $expectedResultData
      */
     public function testExportTableToFile(
         array $input,
-        ?array $exportSize,
-        ?array $exportData,
-        ?int $exportRowsCount = null
+        ?array $expectedResultFileSize,
+        ?array $expectedResultData,
+        ?int $expectedRowsCount = null
     ): void {
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $sourceTableName = md5($this->getName()) . '_Test_table_export';
@@ -176,24 +176,24 @@ class ExportTableToFileTest extends BaseCase
         );
         $this->assertNotNull($files);
         $this->assertCount(1, $files);
-        if ($exportSize !== null) {
-            $this->assertGreaterThanOrEqual($exportSize[0], $files[0]['Size'], 'File is smaller than expected.');
-            $this->assertLessThanOrEqual($exportSize[1], $files[0]['Size'], 'File is bigger than expected.');
+        if ($expectedResultFileSize !== null) {
+            $this->assertGreaterThanOrEqual($expectedResultFileSize[0], $files[0]['Size'], 'File is smaller than expected.');
+            $this->assertLessThanOrEqual($expectedResultFileSize[1], $files[0]['Size'], 'File is bigger than expected.');
         }
 
         // check data
-        if ($exportData !== null) {
+        if ($expectedResultData !== null) {
             $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
             $this->assertEqualsArrays(
-                $exportData,
+                $expectedResultData,
                 // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
                 $csvData
             );
         }
         // check rows count
-        if ($exportRowsCount !== null) {
+        if ($expectedRowsCount !== null) {
             $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
-            $this->assertCount($exportRowsCount, $csvData);
+            $this->assertCount($expectedRowsCount, $csvData);
         }
 
         // cleanup
