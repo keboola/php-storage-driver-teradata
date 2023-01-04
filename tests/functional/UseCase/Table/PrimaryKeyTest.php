@@ -12,8 +12,8 @@ use Keboola\StorageDriver\Command\Table\AddPrimaryKeyCommand;
 use Keboola\StorageDriver\Command\Table\DropPrimaryKeyCommand;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Shared\Driver\Exception\Command\CannotAddPrimaryKeyException;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddPrimaryKeyHandler;
-use Keboola\StorageDriver\Teradata\Handler\Table\Alter\CannotAddPrimaryKeyException;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropPrimaryKeyHandler;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
