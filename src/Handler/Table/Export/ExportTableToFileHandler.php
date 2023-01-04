@@ -128,7 +128,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             $queryData->getTypes(),
         );
 
-        // quote apostrophe
+        // quote apostrophe - query is a subquery wrapped in apostrophes in TPT script - it need to be fixed
         $sql = str_replace("'", "''", $sql);
         // add semicolon
         $sql .= ';';
