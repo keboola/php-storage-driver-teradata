@@ -9,7 +9,6 @@ use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
 use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Table\AddColumnCommand;
-use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\TableColumnShared;
 use Keboola\StorageDriver\Command\Table\TableColumnShared\TeradataTableColumnMeta;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;

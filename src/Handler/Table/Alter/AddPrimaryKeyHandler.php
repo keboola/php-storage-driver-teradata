@@ -8,6 +8,7 @@ use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Table\AddPrimaryKeyCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Shared\Driver\Exception\Command\CannotAddPrimaryKeyException;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;

@@ -16,7 +16,7 @@
         "keboola/db-import-export": "^1.17",
         "google/protobuf": "^3.21",
         "keboola/php-file-storage-utils": "^0.2.5",
-        "keboola/storage-driver-common": "^1.6.0",
+        "keboola/storage-driver-common": "dev-jirka-ter-59-exceptions-for-pk as 1.6.0",
         "keboola/table-backend-utils": "^1.14.1"
     },
     "require-dev": {
