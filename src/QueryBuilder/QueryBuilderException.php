@@ -9,7 +9,7 @@ use Keboola\StorageDriver\Contract\Driver\Exception\NonRetryableExceptionInterfa
 use Keboola\StorageDriver\Shared\Driver\Exception\Exception;
 use Throwable;
 
-final class TableFilterQueryBuilderException extends Exception implements
+final class QueryBuilderException extends Exception implements
     ApplicationExceptionInterface,
     NonRetryableExceptionInterface
 {

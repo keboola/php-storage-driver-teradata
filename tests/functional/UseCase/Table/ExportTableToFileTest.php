@@ -10,16 +10,19 @@ use Generator;
 use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
-use http\Message\Body;
 use Keboola\CsvOptions\CsvOptions;
+use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\TableWhereFilter\Operator;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
 use Keboola\StorageDriver\Command\Table\TableExportToFileResponse;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
@@ -40,6 +43,22 @@ class ExportTableToFileTest extends BaseCase
 
     protected CreateBucketResponse $bucketResponse;
 
+    private function clearFiles(string $exportDir): S3Client
+    {
+        // clear files
+        $s3Client = $this->getS3Client(
+            (string) getenv('AWS_ACCESS_KEY_ID'),
+            (string) getenv('AWS_SECRET_ACCESS_KEY'),
+            (string) getenv('AWS_REGION')
+        );
+        $this->clearS3BucketDir(
+            $s3Client,
+            (string) getenv('AWS_S3_BUCKET'),
+            $exportDir
+        );
+        return $s3Client;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -58,11 +77,150 @@ class ExportTableToFileTest extends BaseCase
         $this->cleanTestProject();
     }
 
+    public function testExportTableWithTypes(): void
+    {
+        $tableName = md5($this->getName()) . '_Test_table';
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+        $exportDir = sprintf(
+            'export/%s/',
+            str_replace([' ', '"', '\''], ['-', '_', '_'], $this->getName())
+        );
+
+        // CREATE TABLE
+        $tableStructure = [
+            'columns' => [
+                'id' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => false,
+                ],
+                'int' => [
+                    'type' => Teradata::TYPE_INTEGER,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'decimal' => [
+                    'type' => Teradata::TYPE_DECIMAL,
+                    'length' => '10,2',
+                    'nullable' => true,
+                ],
+                'float' => [
+                    'type' => Teradata::TYPE_FLOAT,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'date' => [
+                    'type' => Teradata::TYPE_DATE,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'time' => [
+                    'type' => Teradata::TYPE_TIME,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                '_timestamp' => [
+                    'type' => Teradata::TYPE_TIMESTAMP,
+                    'length' => '',
+                    'nullable' => true,
+                ],
+                'varchar' => [
+                    'type' => Teradata::TYPE_VARCHAR,
+                    'length' => '200',
+                    'nullable' => true,
+                ],
+                'decimal_varchar' => [
+                    'type' => Teradata::TYPE_VARCHAR,
+                    'length' => '200',
+                    'nullable' => true,
+                ],
+            ],
+            'primaryKeysNames' => ['id'],
+        ];
+        $this->createTable($bucketDatabaseName, $tableName, $tableStructure);
+
+        // FILL DATA
+        $insertGroups = [
+            // phpcs:ignore
+            'columns' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar', 'decimal_varchar'],
+            'rows' => [
+                // phpcs:ignore
+                "1, 100, 100.23, 100.23456, '2022-01-01', '12:00:01', '2022-01-01 12:00:01', 'Variable character 1', '100.10'",
+                sprintf(
+                    "2, 200, 200.23, 200.23456, '2022-01-02', '12:00:02', '2022-01-02 12:00:02', '%s', '100.20'",
+                    str_repeat('VeryLongString123456', 5)
+                ),
+                '3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL',
+            ],
+        ];
+        $this->fillTableWithData($bucketDatabaseName, $tableName, $insertGroups);
+
+        $exportOptions = new ExportOptions([
+            'isCompressed' => false,
+            //phpcs:ignore
+            'columnsToExport' => ['id', 'int', 'decimal', 'float', 'date', 'time', '_timestamp', 'varchar', 'decimal_varchar'],
+            'filters' => new ImportExportShared\ExportFilters([
+                'changeSince' => '1641038401',
+                'changeUntil' => '1641038402',
+            ]),
+        ]);
+        $this->clearFiles($exportDir);
+
+        // export command
+        $cmd = new TableExportToFileCommand();
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $cmd->setSource(
+            (new ImportExportShared\Table())
+                ->setPath($path)
+                ->setTableName($tableName)
+        );
+
+        $cmd->setFileProvider(FileProvider::S3);
+        $cmd->setFileFormat(FileFormat::CSV);
+        $cmd->setExportOptions($exportOptions);
+
+        $exportMeta = new Any();
+        $exportMeta->pack(
+            (new TableExportToFileCommand\TeradataTableExportMeta())
+                ->setExportAdapter(TableExportToFileCommand\TeradataTableExportMeta\ExportAdapter::TPT)
+        );
+        $cmd->setMeta($exportMeta);
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath($exportDir)
+        );
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+
+        $handler = new ExportTableToFileHandler($this->sessionManager);
+        $response = $handler(
+            $this->projectCredentials,
+            $cmd,
+            []
+        );
+        $this->assertInstanceOf(TableExportToFileResponse::class, $response);
+    }
+
     /**
      * @dataProvider simpleExportProvider
+     * @param array{exportOptions: ExportOptions} $input
+     * @param int[] $expectedResultFileSize
+     * @param array<int, string>[]|null $expectedResultData
      */
-    public function testExportTableToFile(bool $isCompressed, int $exportSize): void
-    {
+    public function testExportTableToFile(
+        array $input,
+        ?array $expectedResultFileSize,
+        ?array $expectedResultData,
+        ?int $expectedRowsCount = null
+    ): void {
         $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
         $sourceTableName = md5($this->getName()) . '_Test_table_export';
         $exportDir = sprintf(
@@ -73,22 +231,10 @@ class ExportTableToFileTest extends BaseCase
         // create table
         $db = $this->getConnection($this->projectCredentials);
         $sourceTableDef = $this->createSourceTable($bucketDatabaseName, $sourceTableName, $db);
-
-        // clear files
-        $s3Client = $this->getS3Client(
-            (string) getenv('AWS_ACCESS_KEY_ID'),
-            (string) getenv('AWS_SECRET_ACCESS_KEY'),
-            (string) getenv('AWS_REGION')
-        );
-        $this->clearS3BucketDir(
-            $s3Client,
-            (string) getenv('AWS_S3_BUCKET'),
-            $exportDir
-        );
+        $s3Client = $this->clearFiles($exportDir);
 
         // export command
         $cmd = new TableExportToFileCommand();
-
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
         $cmd->setSource(
@@ -101,9 +247,9 @@ class ExportTableToFileTest extends BaseCase
 
         $cmd->setFileFormat(FileFormat::CSV);
 
-        $exportOptions = new ExportOptions();
-        $exportOptions->setIsCompressed($isCompressed);
-        $cmd->setExportOptions($exportOptions);
+        if ($input['exportOptions'] instanceof ExportOptions) {
+            $cmd->setExportOptions($input['exportOptions']);
+        }
 
         $exportMeta = new Any();
         $exportMeta->pack(
@@ -154,7 +300,7 @@ class ExportTableToFileTest extends BaseCase
         $this->assertSame($sourceTableDef->getColumnsNames(), $columnsNames);
 
         // check files
-        /** @var array<int, array<string, mixed>> $files */
+        /** @var array<int, array{Key: string, Size: int}> $files */
         $files = $this->listS3BucketDirFiles(
             $s3Client,
             (string) getenv('AWS_S3_BUCKET'),
@@ -162,7 +308,33 @@ class ExportTableToFileTest extends BaseCase
         );
         $this->assertNotNull($files);
         $this->assertCount(1, $files);
-        $this->assertEquals($exportSize, $files[0]['Size']);
+        if ($expectedResultFileSize !== null) {
+            $this->assertGreaterThanOrEqual(
+                $expectedResultFileSize[0],
+                $files[0]['Size'],
+                'File is smaller than expected.'
+            );
+            $this->assertLessThanOrEqual(
+                $expectedResultFileSize[1],
+                $files[0]['Size'],
+                'File is bigger than expected.'
+            );
+        }
+
+        // check data
+        if ($expectedResultData !== null) {
+            $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
+            $this->assertEqualsArrays(
+                $expectedResultData,
+                // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
+                $csvData
+            );
+        }
+        // check rows count
+        if ($expectedRowsCount !== null) {
+            $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
+            $this->assertCount($expectedRowsCount, $csvData);
+        }
 
         // cleanup
         $db = $this->getConnection($this->projectCredentials);
@@ -213,16 +385,7 @@ class ExportTableToFileTest extends BaseCase
         );
 
         // clear files
-        $s3Client = $this->getS3Client(
-            (string) getenv('AWS_ACCESS_KEY_ID'),
-            (string) getenv('AWS_SECRET_ACCESS_KEY'),
-            (string) getenv('AWS_REGION')
-        );
-        $this->clearS3BucketDir(
-            $s3Client,
-            (string) getenv('AWS_S3_BUCKET'),
-            $exportDir
-        );
+        $s3Client = $this->clearFiles($exportDir);
 
         // export command
         $cmd = new TableExportToFileCommand();
@@ -289,138 +452,220 @@ class ExportTableToFileTest extends BaseCase
         $db->close();
     }
 
-    public function testExportTableToFileLimitColumns(): void
-    {
-        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
-        $sourceTableName = md5($this->getName()) . '_Test_table_export';
-        $exportDir = sprintf(
-            'export/%s/',
-            str_replace([' ', '"', '\''], ['-', '_', '_'], $this->getName())
-        );
-
-        // create table
-        $db = $this->getConnection($this->projectCredentials);
-        $sourceTableDef = $this->createSourceTable($bucketDatabaseName, $sourceTableName, $db);
-
-        // clear files
-        $s3Client = $this->getS3Client(
-            (string) getenv('AWS_ACCESS_KEY_ID'),
-            (string) getenv('AWS_SECRET_ACCESS_KEY'),
-            (string) getenv('AWS_REGION')
-        );
-        $this->clearS3BucketDir(
-            $s3Client,
-            (string) getenv('AWS_S3_BUCKET'),
-            $exportDir
-        );
-
-        // export command
-        $cmd = new TableExportToFileCommand();
-
-        $path = new RepeatedField(GPBType::STRING);
-        $path[] = $bucketDatabaseName;
-        $cmd->setSource(
-            (new ImportExportShared\Table())
-                ->setPath($path)
-                ->setTableName($sourceTableName)
-        );
-        $cmd->setFileProvider(FileProvider::S3);
-        $cmd->setFileFormat(FileFormat::CSV);
-
-        $columnsToExport = new RepeatedField(GPBType::STRING);
-        $columnsToExport[] = 'col1';
-        $columnsToExport[] = 'col2';
-        // we did skip col3
-
-        $exportOptions = new ExportOptions();
-        $exportOptions->setIsCompressed(false);
-        $exportOptions->setColumnsToExport($columnsToExport);
-        $cmd->setExportOptions($exportOptions);
-
-        $exportMeta = new Any();
-        $exportMeta->pack(
-            (new TableExportToFileCommand\TeradataTableExportMeta())
-                ->setExportAdapter(TableExportToFileCommand\TeradataTableExportMeta\ExportAdapter::TPT)
-        );
-        $cmd->setMeta($exportMeta);
-
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath($exportDir)
-        );
-
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
-
-        $handler = new ExportTableToFileHandler($this->sessionManager);
-        $response = $handler(
-            $this->projectCredentials,
-            $cmd,
-            []
-        );
-
-        $this->assertInstanceOf(TableExportToFileResponse::class, $response);
-
-        $exportedTableInfo = $response->getTableInfo();
-        $this->assertNotNull($exportedTableInfo);
-
-        $this->assertSame($sourceTableName, $exportedTableInfo->getTableName());
-        $this->assertSame([$bucketDatabaseName], ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPath()));
-        $this->assertSame(
-            $sourceTableDef->getPrimaryKeysNames(),
-            ProtobufHelper::repeatedStringToArray($exportedTableInfo->getPrimaryKeysNames())
-        );
-        /** @var TableInfo\TableColumn[] $columns */
-        $columns = iterator_to_array($exportedTableInfo->getColumns()->getIterator());
-        $columnsNames = array_map(
-            static fn(TableInfo\TableColumn $col) => $col->getName(),
-            $columns
-        );
-        $this->assertSame($sourceTableDef->getColumnsNames(), $columnsNames);
-
-        // check files
-        /** @var array<int, array{Key: string}> $files */
-        $files = $this->listS3BucketDirFiles(
-            $s3Client,
-            (string) getenv('AWS_S3_BUCKET'),
-            $exportDir
-        );
-        $this->assertNotNull($files);
-        $this->assertCount(1, $files);
-
-        $csvData = $this->getObjectAsCsvArray($s3Client, $files[0]['Key']);
-        $this->assertEqualsArrays(
-            [
-                ['   1', '   2'],
-                ['   2', '   3'],
-                ['   3', '   3'],
-            ],
-            // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
-            $csvData
-        );
-
-        // cleanup
-        $db = $this->getConnection($this->projectCredentials);
-        $this->dropSourceTable($sourceTableDef->getSchemaName(), $sourceTableDef->getTableName(), $db);
-        $db->close();
-    }
-
     public function simpleExportProvider(): Generator
     {
         yield 'plain csv' => [
-            false, // compression
-            63, // bytes
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                ]),
+            ],
+            [123, 123], // expected bytes
+            [ // expected data
+                ['1', '2', '4', '2022-01-01 12:00:01.000000'],
+                ['2', '3', '4', '2022-01-02 12:00:02.000000'],
+                ['3', '3', '3', '2022-01-03 12:00:03.000000'],
+            ],
         ];
         yield 'gzipped csv' => [
-            true, // compression
-            46, // bytes
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => true,
+                ]),
+            ],
+            [70, 80], // expected bytes
+            null, // expected data - it's gzip file, not csv
+        ];
+        yield 'filter columns' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1', 'col2'],
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['1', '2'],
+                ['2', '3'],
+                ['3', '3'],
+            ],
+        ];
+        // TODO unable to use ORDER BY because of error: Row size or Sort Key size overflow
+//        yield 'filter order by' => [
+//            [ // input
+//                'exportOptions' => new ExportOptions([
+//                    'isCompressed' => false,
+//                    'columnsToExport' => ['col1', 'col2'],
+//                    'orderBy' => [
+//                        new OrderBy([
+//                            'columnName' => 'col1',
+//                            'order' => Order::DESC,
+//                        ]),
+//                    ],
+//                ]),
+//            ],
+//            null, // expected bytes
+//            [ // expected data
+//                ['3'],
+//                ['2'],
+//                ['1'],
+//            ],
+//        ];
+        // TODO unable to use ORDER BY because of error: Row size or Sort Key size overflow
+//        yield 'filter order by with dataType' => [
+//            [ // input
+//                'exportOptions' => new ExportOptions([
+//                    'isCompressed' => false,
+//                    'columnsToExport' => ['col1'],
+//                    'orderBy' => [
+//                        new OrderBy([
+//                            'columnName' => 'col1',
+//                            'order' => Order::DESC,
+//                            'dataType' => DataType::INTEGER,
+//                        ]),
+//                    ],
+//                ]),
+//            ],
+//            null, // expected bytes
+//            [ // expected data
+//                ['3'],
+//                ['2'],
+//                ['1'],
+//            ],
+//        ];
+        // TODO add ORDER BY after it works and fill in expected data
+        yield 'filter limit' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'limit' => 2,
+                    ]),
+                ]),
+            ],
+            null, // expected bytes
+            null, // expected data - result rows are unsorted, so only count rows
+            2, // expected rows count
+        ];
+        yield 'filter changedSince + changedUntil' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1', '_timestamp'],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'changeSince' => '1641038401',
+                        'changeUntil' => '1641038402',
+                    ]),
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['1', '2022-01-01 12:00:01.000000'],
+            ],
+        ];
+        yield 'filter simple where' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'whereFilters' => [
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::ge,
+                                'values' => ['3'],
+                            ]),
+                        ],
+                    ]),
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['2'],
+                ['3'],
+            ],
+        ];
+        yield 'filter simple where with multiple values' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'whereFilters' => [
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::eq,
+                                'values' => ['3', '4'],
+                            ]),
+                        ],
+                    ]),
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['2'],
+                ['3'],
+            ],
+        ];
+        yield 'filter multiple where' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'whereFilters' => [
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::ge,
+                                'values' => ['3'],
+                            ]),
+                            new TableWhereFilter([
+                                'columnsName' => 'col3',
+                                'operator' => Operator::lt,
+                                'values' => ['4'],
+                            ]),
+                        ],
+                    ]),
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['3'],
+            ],
+        ];
+        yield 'filter where with dataType' => [
+            [ // input
+                'exportOptions' => new ExportOptions([
+                    'isCompressed' => false,
+                    'columnsToExport' => ['col1'],
+                    'filters' => new ImportExportShared\ExportFilters([
+                        'whereFilters' => [
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::gt,
+                                'values' => ['2.9'],
+                                'dataType' => DataType::REAL,
+                            ]),
+                            new TableWhereFilter([
+                                'columnsName' => 'col2',
+                                'operator' => Operator::lt,
+                                'values' => ['3.1'],
+                                'dataType' => DataType::REAL,
+                            ]),
+                            new TableWhereFilter([
+                                'columnsName' => 'col3',
+                                'operator' => Operator::eq,
+                                'values' => ['4'],
+                            ]),
+                        ],
+                    ]),
+                ]),
+            ],
+            null, // expected bytes
+            [ // expected data
+                ['2'],
+            ],
         ];
     }
 
@@ -454,8 +699,9 @@ class ExportTableToFileTest extends BaseCase
                 TeradataColumn::createGenericColumn('col1'),
                 TeradataColumn::createGenericColumn('col2'),
                 TeradataColumn::createGenericColumn('col3'),
+                TeradataColumn::createTimestampColumn(),
             ]),
-            []
+            ['col1'],
         );
         $qb = new TeradataTableQueryBuilder();
         $sql = $qb->getCreateTableCommand(
@@ -468,15 +714,18 @@ class ExportTableToFileTest extends BaseCase
 
         // init some values
         foreach ([
-            ['1', '2', '4'],
-            ['2', '3', '4'],
-            ['3', '3', '3'],
-        ] as $i) {
+                     ['1', '2', '4', '2022-01-01 12:00:01'],
+                     ['2', '3', '4', '2022-01-02 12:00:02'],
+                     ['3', '3', '3', '2022-01-03 12:00:03'],
+                 ] as $i) {
             $db->executeStatement(sprintf(
                 'INSERT INTO %s.%s VALUES (%s)',
                 TeradataQuote::quoteSingleIdentifier($databaseName),
                 TeradataQuote::quoteSingleIdentifier($tableName),
-                implode(',', $i)
+                implode(',', array_map(
+                    static fn($val) => TeradataQuote::quote($val),
+                    $i,
+                )),
             ));
         }
 

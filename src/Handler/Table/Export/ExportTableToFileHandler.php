@@ -7,7 +7,7 @@ namespace Keboola\StorageDriver\Teradata\Handler\Table\Export;
 use Google\Protobuf\Internal\Message;
 use Keboola\Db\ImportExport\Backend\Teradata\Exporter;
 use Keboola\Db\ImportExport\Storage\S3\DestinationFile;
-use Keboola\Db\ImportExport\Storage\Teradata\Table;
+use Keboola\Db\ImportExport\Storage\Teradata\SelectSource;
 use Keboola\Db\ImportExport\Storage\Teradata\TeradataExportOptions;
 use Keboola\FileStorage\Path\RelativePath;
 use Keboola\FileStorage\S3\S3Provider;
@@ -23,6 +23,9 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\TableReflectionResponseTransformer;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilder;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
 
@@ -33,8 +36,9 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
 
     private TeradataSessionManager $manager;
 
-    public function __construct(TeradataSessionManager $manager)
-    {
+    public function __construct(
+        TeradataSessionManager $manager
+    ) {
         $this->manager = $manager;
     }
 
@@ -79,10 +83,9 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             'TableExportToFileCommand.fileCredentials is required to be S3Credentials.'
         );
 
-        $requestExportOptions = $command->getExportOptions();
-        $columnsToExport = $requestExportOptions && $requestExportOptions->getColumnsToExport() !== []
-            ? ProtobufHelper::repeatedStringToArray($requestExportOptions->getColumnsToExport())
-            : [];
+        // validate exportOptions
+        $requestExportOptions = $command->getExportOptions() ?? new ExportOptions;
+
         $exportOptions = $this->createOptions(
             $credentials,
             $requestExportOptions
@@ -97,13 +100,42 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         // run
         $db = $this->manager->createSession($credentials);
 
-        $database = ProtobufHelper::repeatedStringToArray($source->getPath())[0];
-        $sourceRef = new Table(
-            $database,
+        $databaseName = ProtobufHelper::repeatedStringToArray($source->getPath())[0];
+        $columnsDefinitions = (new TeradataTableReflection(
+            $db,
+            $databaseName,
             $source->getTableName(),
-            $columnsToExport
+        ))->getColumnsDefinitions();
+
+        $queryBuilder = new ExportQueryBuilder(
+            $db,
+            new ColumnConverter(),
+        );
+        $queryData = $queryBuilder->buildQueryFromCommand(
+            $requestExportOptions->getFilters(),
+            $requestExportOptions->getOrderBy(),
+            $requestExportOptions->getColumnsToExport(),
+            $columnsDefinitions,
+            $databaseName,
+            $source->getTableName(),
+            false
+        );
+        /** @var array<string> $queryDataBindings */
+        $queryDataBindings = $queryData->getBindings();
+        $sql = $queryBuilder->replaceNamedParametersWithValues(
+            $queryData->getQuery(),
+            $queryDataBindings,
+            $queryData->getTypes(),
         );
 
+        // quote apostrophe - query is a subquery wrapped in apostrophes in TPT script - it need to be fixed
+        $sql = str_replace("'", "''", $sql);
+        // add semicolon
+        $sql .= ';';
+
+        $sourceRef = new SelectSource(
+            $sql,
+        );
         $destinationRef = $this->getDestinationFile($command->getFilePath(), $fileCredentials);
 
         (new Exporter($db))->exportTable(
@@ -114,10 +146,10 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
 
         return (new TableExportToFileResponse())
             ->setTableInfo(TableReflectionResponseTransformer::transformTableReflectionToResponse(
-                $database,
+                $databaseName,
                 new TeradataTableReflection(
                     $db,
-                    $database,
+                    $databaseName,
                     $source->getTableName()
                 )
             ));

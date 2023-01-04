@@ -17,8 +17,10 @@ use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Command\Table\AddColumnCommand;
+use Keboola\StorageDriver\Command\Table\AddPrimaryKeyCommand;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
 use Keboola\StorageDriver\Command\Table\DropColumnCommand;
+use Keboola\StorageDriver\Command\Table\DropPrimaryKeyCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\PreviewTableCommand;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
@@ -45,6 +47,8 @@ use Keboola\StorageDriver\Teradata\Handler\Info\ObjectInfoHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddColumnHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddPrimaryKeyHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropPrimaryKeyHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropColumnHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
@@ -57,7 +61,8 @@ use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandl
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\DropObject\DropWorkspaceObjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\ResetPassword\ResetWorkspacePasswordHandler;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableFilterQueryBuilderFactory;
+use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilderFactory;
+use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 
 class TeradataDriverClient implements ClientInterface
 {
@@ -71,8 +76,10 @@ class TeradataDriverClient implements ClientInterface
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         $manager = new TeradataSessionManager();
-        $queryBuilderFactory = new TableFilterQueryBuilderFactory();
-        $handler = $this->getHandler($command, $manager, $queryBuilderFactory);
+        $handler = $this->getHandler(
+            $command,
+            $manager
+        );
         try {
             $response = $handler(
                 $credentials,
@@ -88,8 +95,7 @@ class TeradataDriverClient implements ClientInterface
 
     private function getHandler(
         Message $command,
-        TeradataSessionManager $manager,
-        ?TableFilterQueryBuilderFactory $queryBuilderFactory = null
+        TeradataSessionManager $manager
     ): DriverCommandHandlerInterface {
         switch (true) {
             case $command instanceof InitBackendCommand:
@@ -121,8 +127,7 @@ class TeradataDriverClient implements ClientInterface
             case $command instanceof TableImportFromFileCommand:
                 return new ImportTableFromFileHandler($manager);
             case $command instanceof PreviewTableCommand:
-                assert($queryBuilderFactory instanceof TableFilterQueryBuilderFactory);
-                return new PreviewTableHandler($manager, $queryBuilderFactory);
+                return new PreviewTableHandler($manager);
             case $command instanceof TableExportToFileCommand:
                 return new ExportTableToFileHandler($manager);
             case $command instanceof CreateWorkspaceCommand:
@@ -141,6 +146,10 @@ class TeradataDriverClient implements ClientInterface
                 return new AddColumnHandler($manager);
             case $command instanceof DropColumnCommand:
                 return new DropColumnHandler($manager);
+            case $command instanceof AddPrimaryKeyCommand:
+                return new AddPrimaryKeyHandler($manager);
+            case $command instanceof DropPrimaryKeyCommand:
+                return new DropPrimaryKeyHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));
