@@ -71,7 +71,7 @@ abstract class CommonFilterQueryBuilder
             sprintf(
                 '(CASE WHEN LENGTH(CAST(%s as VARCHAR(%d))) > %s THEN 1 ELSE 0 END) AS %s',
                 TeradataQuote::quoteSingleIdentifier($column),
-                self::DEFAULT_CAST_SIZE,
+                self::DEFAULT_CAST_SIZE + 1, // cast to one extra character to recognize difference
                 self::DEFAULT_CAST_SIZE,
                 TeradataQuote::quoteSingleIdentifier(uniqid($column))
             )
