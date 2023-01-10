@@ -70,6 +70,7 @@ class PreviewTableHandler implements DriverCommandHandlerInterface
                 new ColumnConverter(),
             );
             $queryData = $queryBuilder->buildQueryFromCommand(
+                ExportQueryBuilder::MODE_SELECT,
                 $command->getFilters(),
                 $command->getOrderBy(),
                 $command->getColumns(),

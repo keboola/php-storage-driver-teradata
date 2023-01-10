@@ -112,6 +112,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             new ColumnConverter(),
         );
         $queryData = $queryBuilder->buildQueryFromCommand(
+            ExportQueryBuilder::MODE_SELECT,
             $requestExportOptions->getFilters(),
             $requestExportOptions->getOrderBy(),
             $requestExportOptions->getColumnsToExport(),
