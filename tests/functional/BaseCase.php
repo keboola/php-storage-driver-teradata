@@ -623,10 +623,22 @@ class BaseCase extends TestCase
     /**
      * @param array{columns: string[], rows: string[]} $insertGroups
      */
-    protected function fillTableWithData(string $databaseName, string $tableName, array $insertGroups): void
-    {
+    protected function fillTableWithData(
+        string $databaseName,
+        string $tableName,
+        array $insertGroups,
+        bool $truncate = false
+    ): void {
         try {
             $db = $this->getConnection($this->projectCredentials);
+
+            if ($truncate) {
+                $db->executeStatement(sprintf(
+                    'DELETE %s.%s ALL',
+                    TeradataQuote::quoteSingleIdentifier($databaseName),
+                    TeradataQuote::quoteSingleIdentifier($tableName),
+                ));
+            }
 
             foreach ($insertGroups['rows'] as $insertRow) {
                 $insertSql = sprintf(
