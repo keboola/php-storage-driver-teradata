@@ -77,6 +77,7 @@ class ExportQueryBuilderTest extends TestCase
 
         // build query
         $queryData = $qb->buildQueryFromCommand(
+            ExportQueryBuilder::MODE_SELECT,
             $previewCommand->getFilters(),
             $previewCommand->getOrderBy(),
             $previewCommand->getColumns(),
@@ -391,6 +392,7 @@ class ExportQueryBuilderTest extends TestCase
         $this->expectException($exceptionClass);
         $this->expectExceptionMessage($exceptionMessage);
         $qb->buildQueryFromCommand(
+            ExportQueryBuilder::MODE_SELECT,
             $previewCommand->getFilters(),
             $previewCommand->getOrderBy(),
             $previewCommand->getColumns(),

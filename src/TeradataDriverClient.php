@@ -19,6 +19,7 @@ use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Command\Table\AddColumnCommand;
 use Keboola\StorageDriver\Command\Table\AddPrimaryKeyCommand;
 use Keboola\StorageDriver\Command\Table\CreateTableCommand;
+use Keboola\StorageDriver\Command\Table\DeleteTableRowsCommand;
 use Keboola\StorageDriver\Command\Table\DropColumnCommand;
 use Keboola\StorageDriver\Command\Table\DropPrimaryKeyCommand;
 use Keboola\StorageDriver\Command\Table\DropTableCommand;
@@ -48,6 +49,7 @@ use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddColumnHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\AddPrimaryKeyHandler;
+use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DeleteTableRowsHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropPrimaryKeyHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Alter\DropColumnHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
@@ -150,6 +152,8 @@ class TeradataDriverClient implements ClientInterface
                 return new AddPrimaryKeyHandler($manager);
             case $command instanceof DropPrimaryKeyCommand:
                 return new DropPrimaryKeyHandler($manager);
+            case $command instanceof DeleteTableRowsCommand:
+                return new DeleteTableRowsHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));

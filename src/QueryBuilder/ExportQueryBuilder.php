@@ -18,6 +18,9 @@ use LogicException;
 
 class ExportQueryBuilder extends CommonFilterQueryBuilder
 {
+    public const MODE_SELECT = 'SELECT';
+    public const MODE_DELETE = 'DELETE';
+
     public function __construct(
         Connection $connection,
         ColumnConverter $columnConverter
@@ -25,7 +28,12 @@ class ExportQueryBuilder extends CommonFilterQueryBuilder
         parent::__construct($connection, $columnConverter);
     }
 
+    /**
+     * @param self::MODE_* $mode
+     * @throws QueryBuilderException
+     */
     public function buildQueryFromCommand(
+        string $mode,
         ?ExportFilters $filters,
         RepeatedField $orderBy,
         RepeatedField $columnsToUse,
@@ -42,14 +50,29 @@ class ExportQueryBuilder extends CommonFilterQueryBuilder
             $this->processFilters($filters, $query, $tableColumnsDefinitions);
         }
 
-        $this->processOrderStatement($orderBy, $query);
-        $this->processSelectStatement(
-            ProtobufHelper::repeatedStringToArray($columnsToUse),
-            $query,
-            $tableColumnsDefinitions,
-            $truncateLargeColumns
-        );
-        $this->processFromStatement($schemaName, $tableName, $query);
+        switch ($mode) {
+            case self::MODE_SELECT:
+                $this->processOrderStatement($orderBy, $query);
+                $this->processSelectStatement(
+                    ProtobufHelper::repeatedStringToArray($columnsToUse),
+                    $query,
+                    $tableColumnsDefinitions,
+                    $truncateLargeColumns
+                );
+                $query->from(sprintf(
+                    '%s.%s',
+                    TeradataQuote::quoteSingleIdentifier($schemaName),
+                    TeradataQuote::quoteSingleIdentifier($tableName),
+                ));
+                break;
+            case self::MODE_DELETE:
+                $query->delete(sprintf(
+                    '%s.%s',
+                    TeradataQuote::quoteSingleIdentifier($schemaName),
+                    TeradataQuote::quoteSingleIdentifier($tableName)
+                ));
+                break;
+        }
 
         $sql = $query->getSQL();
 
