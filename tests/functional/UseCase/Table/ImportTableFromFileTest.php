@@ -35,6 +35,7 @@ use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
+use Throwable;
 
 class ImportTableFromFileTest extends ImportBaseCase
 {
@@ -711,6 +712,7 @@ class ImportTableFromFileTest extends ImportBaseCase
     {
         $destinationTableName = md5($this->getName()) . '_Test_table_final';
 
+        // phpcs:ignore
         $columnNames = ['FID', 'NAZEV', 'Y', 'X', 'KONTAKT', 'SUBKATEGORIE', 'KATEGORIE', 'Column6', 'Column7', 'Column8', 'Column9', 'GlobalID'];
 
         // tested bucket has 100MB, imported CSV has 86MB -> it loads data to staging (takes 86MB) table
@@ -746,7 +748,7 @@ class ImportTableFromFileTest extends ImportBaseCase
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
 
-        foreach ($columnNames as $name){
+        foreach ($columnNames as $name) {
             $columns[] = $name;
         }
 
@@ -793,14 +795,14 @@ class ImportTableFromFileTest extends ImportBaseCase
         );
 
         $handler = new ImportTableFromFileHandler($this->sessionManager);
-        /** @var TableImportResponse $response */
+
         try {
             $handler(
                 $this->projectCredentials,
                 $cmd,
                 []
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->assertInstanceOf(NoSpaceException::class, $e);
             $this->assertEquals(ExceptionInterface::ERR_RESOURCE_FULL, $e->getCode());
             $this->assertEquals('Database is full. Cannot insert data or create new objects.', $e->getMessage());

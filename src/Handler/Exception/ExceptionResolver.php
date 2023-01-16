@@ -9,7 +9,7 @@ use ReflectionClass;
 
 class ExceptionResolver
 {
-    public static function resolveException(\Throwable $e)
+    public static function resolveException(\Throwable $e): \Throwable
     {
         $exceptionClass = new ReflectionClass($e);
 
