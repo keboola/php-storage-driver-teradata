@@ -12,7 +12,7 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
-use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\Handler\Exception\ExceptionResolver;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
@@ -58,14 +58,17 @@ final class CreateBucketHandler implements DriverCommandHandlerInterface
         );
 
         $db = $this->manager->createSession($credentials);
-
-        $db->executeStatement(sprintf(
-            'CREATE DATABASE %s AS '
-            . 'PERMANENT = %s, SPOOL = %s;',
-            TeradataQuote::quoteSingleIdentifier($newBucketDatabaseName),
-            $permSpace,
-            $spoolSpace
-        ));
+        try {
+            $db->executeStatement(sprintf(
+                'CREATE DATABASE %s AS '
+                . 'PERMANENT = %s, SPOOL = %s;',
+                TeradataQuote::quoteSingleIdentifier($newBucketDatabaseName),
+                $permSpace,
+                $spoolSpace
+            ));
+        } catch (\Throwable $e) {
+            throw ExceptionResolver::resolveException($e);
+        }
 
         // grant select to read only role
         $db->executeStatement(sprintf(

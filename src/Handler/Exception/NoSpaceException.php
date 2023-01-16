@@ -7,18 +7,18 @@ use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 
 class NoSpaceException extends Exception
 {
-    public function __construct(string $msg)
+    public function __construct(string $msg, \Throwable $e)
     {
-        return parent::__construct($msg, ExceptionInterface::ERR_RESOURCE_FULL);
+        parent::__construct($msg, ExceptionInterface::ERR_RESOURCE_FULL, $e);
     }
 
-    public static function createForFullDB(): self
+    public static function createForFullDB(\Throwable $e): self
     {
-        return new self('DB is full');
+        return new self('Database is full. Cannot insert data or create new objects.', $e);
     }
 
-    public static function createForFullParent(): self
+    public static function createForFullParent(\Throwable $e): self
     {
-        return new self('Cannot create database bacause parent database is full');
+        return new self('Cannot create database because parent database is full.', $e);
     }
 }

@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Workspace;
 
+use Google\Protobuf\Any;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
+use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Command\Workspace\DropWorkspaceCommand;
+use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
+use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -257,5 +262,35 @@ class CreateDropWorkspaceTest extends BaseCase
         $this->assertFalse($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
 
         $projectDb->close();
+    }
+
+    public function testCreateTooBigWorkspace(): void
+    {
+        // try to set WS space 10 peta bytes -> will fail, hopefuly
+        $meta = new Any();
+        $meta->pack(
+            (new CreateWorkspaceCommand\CreateWorkspaceTeradataMeta())->setPermSpace('10e15')->setSpoolSpace('10e15')
+        );
+        $handler = new CreateWorkspaceHandler($this->sessionManager);
+        $command = (new CreateWorkspaceCommand())
+            ->setStackPrefix($this->getStackPrefix())
+            ->setProjectId($this->getProjectId())
+            ->setWorkspaceId($this->getWorkspaceId())
+            ->setProjectUserName($this->projectResponse->getProjectUserName())
+            ->setProjectRoleName($this->projectResponse->getProjectRoleName())
+            ->setProjectReadOnlyRoleName($this->projectResponse->getProjectReadOnlyRoleName())
+            ->setMeta($meta);
+        try {
+            $handler(
+                $this->projectCredentials,
+                $command,
+                []
+            );
+            $this->fail('should fail');
+        } catch (Throwable $e) {
+            $this->assertInstanceOf(NoSpaceException::class, $e);
+            $this->assertEquals(ExceptionInterface::ERR_RESOURCE_FULL, $e->getCode());
+            $this->assertEquals('Cannot create database because parent database is full.', $e->getMessage());
+        }
     }
 }

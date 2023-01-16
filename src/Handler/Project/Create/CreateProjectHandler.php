@@ -13,6 +13,7 @@ use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Shared\Utils\Password;
+use Keboola\StorageDriver\Teradata\Handler\Exception\ExceptionResolver;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
@@ -91,19 +92,22 @@ final class CreateProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($newProjectRoleName),
             TeradataQuote::quoteSingleIdentifier($credentials->getPrincipal()),
         ));
-
-        $db->executeStatement(sprintf(
-            'CREATE USER %s FROM %s AS '
-            . 'PERMANENT = %s, SPOOL = %s, '
-            . 'PASSWORD = %s, DEFAULT DATABASE=%s, DEFAULT ROLE=%s;',
-            TeradataQuote::quoteSingleIdentifier($newProjectUsername),
-            TeradataQuote::quoteSingleIdentifier($databaseName),
-            $permSpace,
-            $spoolSpace,
-            TeradataQuote::quoteSingleIdentifier($newProjectPassword),
-            TeradataQuote::quoteSingleIdentifier($newProjectUsername),
-            TeradataQuote::quoteSingleIdentifier($newProjectRoleName)
-        ));
+        try {
+            $db->executeStatement(sprintf(
+                'CREATE USER %s FROM %s AS '
+                . 'PERMANENT = %s, SPOOL = %s, '
+                . 'PASSWORD = %s, DEFAULT DATABASE=%s, DEFAULT ROLE=%s;',
+                TeradataQuote::quoteSingleIdentifier($newProjectUsername),
+                TeradataQuote::quoteSingleIdentifier($databaseName),
+                $permSpace,
+                $spoolSpace,
+                TeradataQuote::quoteSingleIdentifier($newProjectPassword),
+                TeradataQuote::quoteSingleIdentifier($newProjectUsername),
+                TeradataQuote::quoteSingleIdentifier($newProjectRoleName)
+            ));
+        } catch (\Throwable $e) {
+            throw ExceptionResolver::resolveException($e);
+        }
         /* GRANT project RO role to project USER with admin option so project can GRANT it to workspace USER
          * we cannot GRANT it to project/ws ROLE, because TD has limit of nesting to 1
          * ROLE1 -> ROLE2 is ok, but adding ROLE2 -> ROLE3 fails
