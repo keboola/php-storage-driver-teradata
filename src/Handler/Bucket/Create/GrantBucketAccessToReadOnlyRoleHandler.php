@@ -5,20 +5,15 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\Teradata\Handler\Bucket\Create;
 
 use Google\Protobuf\Internal\Message;
-use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
-use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
-use Keboola\StorageDriver\Command\Bucket\GrandReadOnlyRoleToBucketCommand;
-use Keboola\StorageDriver\Command\Workspace\GrantWorkspaceAccessToProjectCommand;
+use Keboola\StorageDriver\Command\Bucket\GrantBucketAccessToReadOnlyRoleCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\Shared\BackendSupportsInterface;
-use Keboola\StorageDriver\Shared\Driver\MetaHelper;
-use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Exception\ExceptionResolver;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
+use Throwable;
 
-final class GrantBucketToRO implements DriverCommandHandlerInterface
+final class GrantBucketAccessToReadOnlyRoleHandler implements DriverCommandHandlerInterface
 {
     private TeradataSessionManager $manager;
 
@@ -37,7 +32,7 @@ final class GrantBucketToRO implements DriverCommandHandlerInterface
         array $features
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
-        assert($command instanceof GrandReadOnlyRoleToBucketCommand);
+        assert($command instanceof GrantBucketAccessToReadOnlyRoleCommand);
 
 
         $db = $this->manager->createSession($credentials);
@@ -47,7 +42,7 @@ final class GrantBucketToRO implements DriverCommandHandlerInterface
                 TeradataQuote::quoteSingleIdentifier($command->getBucketObjectName()),
                 TeradataQuote::quoteSingleIdentifier($command->getProjectReadOnlyRoleName()),
             ));
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw ExceptionResolver::resolveException($e);
         }
 

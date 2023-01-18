@@ -9,7 +9,7 @@ use Keboola\StorageDriver\Command\Backend\InitBackendCommand;
 use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
-use Keboola\StorageDriver\Command\Bucket\GrandReadOnlyRoleToBucketCommand;
+use Keboola\StorageDriver\Command\Bucket\GrantBucketAccessToReadOnlyRoleCommand;
 use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
@@ -40,7 +40,7 @@ use Keboola\StorageDriver\Shared\Driver\Exception\CommandNotSupportedException;
 use Keboola\StorageDriver\Teradata\Handler\Backend\Init\InitBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Backend\Remove\RemoveBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
-use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\GrantBucketToRO;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\GrantBucketAccessToReadOnlyRoleHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Share\ShareBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\UnShare\UnShareBucketHandler;
@@ -65,8 +65,6 @@ use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandl
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\DropObject\DropWorkspaceObjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\ResetPassword\ResetWorkspacePasswordHandler;
-use Keboola\StorageDriver\Teradata\QueryBuilder\TableExportFilterQueryBuilderFactory;
-use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 
 class TeradataDriverClient implements ClientInterface
 {
@@ -156,8 +154,8 @@ class TeradataDriverClient implements ClientInterface
                 return new DropPrimaryKeyHandler($manager);
             case $command instanceof DeleteTableRowsCommand:
                 return new DeleteTableRowsHandler($manager);
-            case $command instanceof GrandReadOnlyRoleToBucketCommand:
-                return new GrantBucketToRO($manager);
+            case $command instanceof GrantBucketAccessToReadOnlyRoleCommand:
+                return new GrantBucketAccessToReadOnlyRoleHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));
