@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Project;
 
+use Google\Protobuf\Any;
+use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
+use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
+use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
 use Keboola\StorageDriver\Teradata\TeradataAccessRight;
+use Throwable;
 
 class CreateDropProjectTest extends BaseCase
 {
@@ -87,5 +93,34 @@ class CreateDropProjectTest extends BaseCase
         $this->assertFalse($this->isUserExists($db, $response->getProjectUserName()));
         $this->assertFalse($this->isRoleExists($db, $response->getProjectRoleName()));
         $this->assertFalse($this->isRoleExists($db, $response->getProjectReadOnlyRoleName()));
+    }
+
+    public function testCreateTooBigProject(): void
+    {
+        $handler = new CreateProjectHandler($this->sessionManager);
+        $meta = new Any();
+        $meta->pack(
+            (new CreateProjectCommand\CreateProjectTeradataMeta())
+                ->setRootDatabase($this->getRootDatabase())
+                ->setPermSpace('10e15')
+                ->setSpoolSpace('10e15')
+        );
+        $command = (new CreateProjectCommand())
+            ->setProjectId($this->getProjectId())
+            ->setStackPrefix($this->getStackPrefix())
+            ->setMeta($meta);
+
+        try {
+            $handler(
+                $this->getCredentials(),
+                $command,
+                []
+            );
+            $this->fail('should fail');
+        } catch (Throwable $e) {
+            $this->assertInstanceOf(NoSpaceException::class, $e);
+            $this->assertEquals(ExceptionInterface::ERR_RESOURCE_FULL, $e->getCode());
+            $this->assertEquals('Cannot create database because parent database is full.', $e->getMessage());
+        }
     }
 }

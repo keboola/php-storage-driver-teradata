@@ -24,6 +24,7 @@ use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\Handler\Exception\ExceptionResolver;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
@@ -79,7 +80,10 @@ class ImportTableFromTableHandler implements DriverCommandHandlerInterface
                 $teradataImportOptions,
                 $sourceMapping
             );
-        } finally {
+        } catch (\Throwable $e){
+            throw ExceptionResolver::resolveException($e);
+        }
+        finally {
             if ($stagingTable !== null) {
                 try {
                     $db->executeStatement(

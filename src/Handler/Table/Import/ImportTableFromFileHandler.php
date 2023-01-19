@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\Teradata\Handler\Table\Import;
 
+use Doctrine\DBAL\Exception;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\Message;
 use Google\Protobuf\Internal\RepeatedField;
@@ -28,6 +29,8 @@ use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\Handler\Exception\ExceptionResolver;
+use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
 use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
@@ -153,7 +156,7 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
                 $importState
             );
         } catch (Throwable $e) {
-            throw $e;
+            throw ExceptionResolver::resolveException($e);
         } finally {
             if ($stagingTable !== null) {
                 try {

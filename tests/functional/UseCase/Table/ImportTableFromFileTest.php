@@ -10,7 +10,9 @@ use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
+use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
@@ -22,17 +24,25 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use Keboola\StorageDriver\Command\Table\TableImportResponse;
+use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
+use Keboola\TableBackendUtils\Column\ColumnCollection;
+use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
+use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
+use Throwable;
 
 class ImportTableFromFileTest extends ImportBaseCase
 {
     protected GenericBackendCredentials $projectCredentials;
 
     protected CreateBucketResponse $bucketResponse;
+    protected CreateProjectResponse $projectResponse;
 
     protected function setUp(): void
     {
@@ -41,6 +51,7 @@ class ImportTableFromFileTest extends ImportBaseCase
 
         [$projectCredentials, $projectResponse] = $this->createTestProject();
         $this->projectCredentials = $projectCredentials;
+        $this->projectResponse = $projectResponse;
 
         [$bucketResponse,] = $this->createTestBucket($projectCredentials, $projectResponse);
         $this->bucketResponse = $bucketResponse;
@@ -695,5 +706,111 @@ class ImportTableFromFileTest extends ImportBaseCase
         );
 
         $this->assertEqualsArrays($expectedIds, array_map(fn($item) => trim($item[$columnName]), $data));
+    }
+
+    public function testImportBigDataToSmallBucket(): void
+    {
+        $destinationTableName = md5($this->getName()) . '_Test_table_final';
+
+        // phpcs:ignore
+        $columnNames = ['FID', 'NAZEV', 'Y', 'X', 'KONTAKT', 'SUBKATEGORIE', 'KATEGORIE', 'Column6', 'Column7', 'Column8', 'Column9', 'GlobalID'];
+
+        // tested bucket has 100MB, imported CSV has 86MB -> it loads data to staging (takes 86MB) table
+        // and then to final (trying to allocate another 86MB => fail)
+        $bucketDatabaseName = $this->bucketResponse->getCreateBucketObjectName();
+        $db = $this->getConnection($this->projectCredentials);
+
+        // init destination table with structure of big_table.csv
+        $tableDestDef = new TeradataTableDefinition(
+            $bucketDatabaseName,
+            $destinationTableName,
+            false,
+            new ColumnCollection([
+                ...array_map(fn($colName) => TeradataColumn::createGenericColumn($colName), $columnNames),
+                TeradataColumn::createGenericColumn('_timestamp'),
+            ]),
+            []
+        );
+        $qb = new TeradataTableQueryBuilder();
+        $sql = $qb->getCreateTableCommand(
+            $tableDestDef->getSchemaName(),
+            $tableDestDef->getTableName(),
+            $tableDestDef->getColumnsDefinitions(),
+            $tableDestDef->getPrimaryKeysNames(),
+        );
+        $db->executeStatement($sql);
+
+        // command for file import
+        $cmd = new TableImportFromFileCommand();
+        $path = new RepeatedField(GPBType::STRING);
+        $path[] = $bucketDatabaseName;
+        $cmd->setFileProvider(FileProvider::S3);
+        $cmd->setFileFormat(FileFormat::CSV);
+        $columns = new RepeatedField(GPBType::STRING);
+
+        foreach ($columnNames as $name) {
+            $columns[] = $name;
+        }
+
+        $formatOptions = new Any();
+        $formatOptions->pack(
+            (new TableImportFromFileCommand\CsvTypeOptions())
+                ->setColumnsNames($columns)
+                ->setDelimiter(CsvOptions::DEFAULT_DELIMITER)
+                ->setEnclosure(CsvOptions::DEFAULT_ENCLOSURE)
+                ->setEscapedBy(CsvOptions::DEFAULT_ESCAPED_BY)
+                ->setSourceType(TableImportFromFileCommand\CsvTypeOptions\SourceType::SINGLE_FILE)
+                ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP)
+        );
+        $cmd->setFormatTypeOptions($formatOptions);
+        $cmd->setFilePath(
+            (new FilePath())
+                ->setRoot((string) getenv('AWS_S3_BUCKET'))
+                ->setPath('export')
+                ->setFileName('big_table.csv.gz')
+        );
+        $credentials = new Any();
+        $credentials->pack(
+            (new S3Credentials())
+                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
+                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
+                ->setRegion((string) getenv('AWS_REGION'))
+        );
+        $cmd->setFileCredentials($credentials);
+        $cmd->setDestination(
+            (new Table())
+                ->setPath($path)
+                ->setTableName($destinationTableName)
+        );
+        $dedupCols = new RepeatedField(GPBType::STRING);
+        $cmd->setImportOptions(
+            (new ImportOptions())
+                ->setImportType(ImportType::FULL)
+                ->setDedupType(DedupType::UPDATE_DUPLICATES)
+                ->setDedupColumnsNames($dedupCols)
+                ->setConvertEmptyValuesToNullOnColumns(new RepeatedField(GPBType::STRING))
+                ->setNumberOfIgnoredLines(1)
+                ->setImportStrategy(ImportStrategy::STRING_TABLE)
+                ->setTimestampColumn('_timestamp')
+        );
+
+        $handler = new ImportTableFromFileHandler($this->sessionManager);
+
+        try {
+            $handler(
+                $this->projectCredentials,
+                $cmd,
+                []
+            );
+        } catch (Throwable $e) {
+            $this->assertInstanceOf(NoSpaceException::class, $e);
+            $this->assertEquals(ExceptionInterface::ERR_RESOURCE_FULL, $e->getCode());
+            $this->assertEquals('Database is full. Cannot insert data or create new objects.', $e->getMessage());
+        }
+
+        // cleanup
+        $qb = new TeradataTableQueryBuilder();
+        $qb->getDropTableCommand($tableDestDef->getSchemaName(), $tableDestDef->getTableName());
+        $db->close();
     }
 }

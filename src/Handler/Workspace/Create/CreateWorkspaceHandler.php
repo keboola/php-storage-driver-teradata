@@ -13,6 +13,7 @@ use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Shared\Utils\Password;
+use Keboola\StorageDriver\Teradata\Handler\Exception\ExceptionResolver;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
@@ -89,19 +90,23 @@ final class CreateWorkspaceHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($command->getProjectUserName()),
         ));
 
-        // create workspace
-        $db->executeStatement(sprintf(
-            'CREATE USER %s FROM %s AS '
-            . 'PERMANENT = %s, SPOOL = %s, '
-            . 'PASSWORD = %s, DEFAULT DATABASE=%s, DEFAULT ROLE=%s;',
-            TeradataQuote::quoteSingleIdentifier($newWsUserName),
-            TeradataQuote::quoteSingleIdentifier($databaseName),
-            $permSpace,
-            $spoolSpace,
-            TeradataQuote::quoteSingleIdentifier($newWsPassword),
-            TeradataQuote::quoteSingleIdentifier($newWsUserName),
-            TeradataQuote::quoteSingleIdentifier($newWsRoleName)
-        ));
+
+        try {// create workspace
+            $db->executeStatement(sprintf(
+                'CREATE USER %s FROM %s AS '
+                . 'PERMANENT = %s, SPOOL = %s, '
+                . 'PASSWORD = %s, DEFAULT DATABASE=%s, DEFAULT ROLE=%s;',
+                TeradataQuote::quoteSingleIdentifier($newWsUserName),
+                TeradataQuote::quoteSingleIdentifier($databaseName),
+                $permSpace,
+                $spoolSpace,
+                TeradataQuote::quoteSingleIdentifier($newWsPassword),
+                TeradataQuote::quoteSingleIdentifier($newWsUserName),
+                TeradataQuote::quoteSingleIdentifier($newWsRoleName)
+            ));
+        } catch (\Throwable $e) {
+            throw ExceptionResolver::resolveException($e);
+        }
 
         // grant workspace role to workspace user
         $db->executeStatement(sprintf(
