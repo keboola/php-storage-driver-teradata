@@ -83,7 +83,7 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
             'SELECT Child AS child FROM DBC.ChildrenVX WHERE Parent = %s',
             TeradataQuote::quote($databaseName)
         ));
-        foreach ($childDb as $child) {
+        foreach ($childDBs as $child) {
             yield (new ObjectInfo())
                 ->setObjectType(ObjectType::DATABASE)
                 ->setObjectName($child);
@@ -108,7 +108,7 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
                 ->setObjectType(ObjectType::VIEW)
                 ->setObjectName($view);
         }
-        yield from $this->getChildSchemas($db, $databaseName);
+        yield from $this->getChildDBs($db, $databaseName);
     }
 
     /**
