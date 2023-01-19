@@ -33,6 +33,14 @@ final class GrantBucketAccessToReadOnlyRoleHandler implements DriverCommandHandl
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof GrantBucketAccessToReadOnlyRoleCommand);
+        assert(
+            $command->getProjectReadOnlyRoleName() !== '',
+            'GrantBucketAccessToReadOnlyRoleCommand.projectReadOnlyRoleName is required'
+        );
+        assert(
+            $command->getBucketObjectName() !== '',
+            'GrantBucketAccessToReadOnlyRoleCommand.bucketObjectName is required'
+        );
 
 
         $db = $this->manager->createSession($credentials);
