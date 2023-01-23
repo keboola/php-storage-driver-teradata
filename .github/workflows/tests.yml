@@ -21,7 +21,7 @@ jobs:
           GITHUB_OAUTH_TOKEN: ${{ secrets.BUILD_GITHUB_OAUTH_TOKEN }}
         run: docker-compose build
 
-      - name: Prepare stubs
+      - name: Prepare S3 stubs
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
@@ -29,7 +29,28 @@ jobs:
           AWS_REGION: ${{ secrets.S3_AWS_REGION }}
         run: docker-compose run --rm production composer loadS3
 
-      - name: Run Tests
+      - name: Prepare ABS stubs
+        env:
+          ABS_ACCOUNT_KEY: ${{ secrets.ABS_ACCOUNT_KEY }}
+          ABS_ACCOUNT_NAME: ${{ secrets.ABS_ACCOUNT_NAME }}
+          ABS_SAS_TOKEN: ${{ secrets.ABS_SAS_TOKEN }}
+          ABS_CONTAINER_NAME: ${{ secrets.ABS_CONTAINER_NAME }}
+        run: docker-compose run --rm production composer loadAbs
+
+      - name: Run Tests on ABS
+        env:
+          TERADATA_HOST: ${{ secrets.TERADATA_HOST }}
+          TERADATA_USERNAME: ${{ secrets.TERADATA_USERNAME }}
+          TERADATA_PASSWORD: ${{ secrets.TERADATA_PASSWORD }}
+          TERADATA_PORT: 1025
+          TERADATA_ROOT_DATABASE: ci_driver_teradata
+          ABS_ACCOUNT_KEY: ${{ secrets.ABS_ACCOUNT_KEY }}
+          ABS_ACCOUNT_NAME: ${{ secrets.ABS_ACCOUNT_NAME }}
+          ABS_SAS_TOKEN: ${{ secrets.ABS_SAS_TOKEN }}
+          ABS_CONTAINER_NAME: ${{ secrets.ABS_CONTAINER_NAME }}
+        run: docker-compose run --rm -e STORAGE_TYPE=ABS production composer ci
+
+      - name: Run Tests on S3
         env:
           TERADATA_HOST: ${{ secrets.TERADATA_HOST }}
           TERADATA_USERNAME: ${{ secrets.TERADATA_USERNAME }}
@@ -40,4 +61,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET: ${{ secrets.S3_BUCKET }}
           AWS_REGION: ${{ secrets.S3_AWS_REGION }}
-        run: docker-compose run --rm production composer ci
+        run: docker-compose run --rm -e STORAGE_TYPE=S3 production composer ci
