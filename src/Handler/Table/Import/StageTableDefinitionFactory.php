@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\Teradata\Handler\Table\Import;
 
 use Keboola\Datatype\Definition\Teradata;
-use Keboola\Db\ImportExport\Backend\Teradata\Helper\BackendHelper;
+use Keboola\Db\ImportExport\Backend\Helper\BackendHelper;
 use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand\SourceTableMapping\ColumnMapping;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;

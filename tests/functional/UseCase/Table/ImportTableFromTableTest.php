@@ -11,29 +11,25 @@ use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\Datatype\Definition\Teradata;
-use Keboola\Db\ImportExport\Backend\Snowflake\Helper\DateTimeHelper;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\DedupType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportStrategy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportType;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use Keboola\StorageDriver\Command\Table\TableImportFromTableCommand;
 use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageTrait;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromTableHandler;
-use Keboola\StorageDriver\Teradata\TeradataAccessRight;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
@@ -44,6 +40,8 @@ use Throwable;
 
 class ImportTableFromTableTest extends ImportBaseCase
 {
+    use StorageTrait;
+
     protected GenericBackendCredentials $projectCredentials;
 
     protected CreateBucketResponse $bucketResponse;
@@ -502,7 +500,6 @@ class ImportTableFromTableTest extends ImportBaseCase
         $cmd = new TableImportFromFileCommand();
         $sourcePath = new RepeatedField(GPBType::STRING);
         $sourcePath[] = $bigBucketDatabaseName;
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
 
@@ -521,20 +518,7 @@ class ImportTableFromTableTest extends ImportBaseCase
                 ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP)
         );
         $cmd->setFormatTypeOptions($formatOptions);
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath('export')
-                ->setFileName('big_table.csv.gz')
-        );
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, 'export', 'big_table.csv.gz');
         $cmd->setDestination(
             (new Table())
                 ->setPath($sourcePath)

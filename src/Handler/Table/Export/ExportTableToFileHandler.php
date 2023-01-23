@@ -6,11 +6,15 @@ namespace Keboola\StorageDriver\Teradata\Handler\Table\Export;
 
 use Google\Protobuf\Internal\Message;
 use Keboola\Db\ImportExport\Backend\Teradata\Exporter;
-use Keboola\Db\ImportExport\Storage\S3\DestinationFile;
+use Keboola\Db\ImportExport\Storage\ABS;
+use Keboola\Db\ImportExport\Storage\DestinationFileInterface;
+use Keboola\Db\ImportExport\Storage\S3;
 use Keboola\Db\ImportExport\Storage\Teradata\SelectSource;
 use Keboola\Db\ImportExport\Storage\Teradata\TeradataExportOptions;
+use Keboola\FileStorage\Abs\AbsProvider;
 use Keboola\FileStorage\Path\RelativePath;
 use Keboola\FileStorage\S3\S3Provider;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ABSCredentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ExportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
@@ -25,9 +29,9 @@ use Keboola\StorageDriver\Teradata\Handler\MetaHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\TableReflectionResponseTransformer;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ColumnConverter;
 use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilder;
-use Keboola\StorageDriver\Teradata\QueryBuilder\ExportQueryBuilderFactory;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
+use LogicException;
 
 class ExportTableToFileHandler implements DriverCommandHandlerInterface
 {
@@ -65,8 +69,8 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         assert(!empty($source->getTableName()), 'TableExportToFileCommand.source.tableName is required');
 
         assert(
-            $command->getFileProvider() === FileProvider::S3,
-            'Only S3 is supported TableExportToFileCommand.fileProvider.'
+            in_array($command->getFileProvider(), [FileProvider::S3, FileProvider::ABS], true),
+            'Only S3|ABS is supported TableExportToFileCommand.fileProvider.'
         );
 
         assert(
@@ -79,8 +83,8 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
         assert($any !== null, 'TableExportToFileCommand.fileCredentials is required.');
         $fileCredentials = $any->unpack();
         assert(
-            $fileCredentials instanceof S3Credentials,
-            'TableExportToFileCommand.fileCredentials is required to be S3Credentials.'
+            $fileCredentials instanceof S3Credentials || $fileCredentials instanceof ABSCredentials,
+            'TableExportToFileCommand.fileCredentials is required to be S3Credentials|ABSCredentials.'
         );
 
         // validate exportOptions
@@ -156,23 +160,46 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             ));
     }
 
+    /**
+     * @param S3Credentials|ABSCredentials $fileCredentials
+     */
     private function getDestinationFile(
         FilePath $filePath,
-        S3Credentials $fileCredentials
-    ): DestinationFile {
-        $relativePath = RelativePath::create(
-            new S3Provider(),
-            $filePath->getRoot(),
-            $filePath->getPath(),
-            $filePath->getFileName(),
-        );
-        return new DestinationFile(
-            $fileCredentials->getKey(),
-            $fileCredentials->getSecret(),
-            $fileCredentials->getRegion(),
-            $relativePath->getRoot(),
-            $relativePath->getPathnameWithoutRoot()
-        );
+        Message $fileCredentials
+    ): DestinationFileInterface {
+        if ($fileCredentials instanceof S3Credentials) {
+            $relativePath = RelativePath::create(
+                new S3Provider(),
+                $filePath->getRoot(),
+                $filePath->getPath(),
+                $filePath->getFileName(),
+            );
+            return new S3\DestinationFile(
+                $fileCredentials->getKey(),
+                $fileCredentials->getSecret(),
+                $fileCredentials->getRegion(),
+                $relativePath->getRoot(),
+                $relativePath->getPathnameWithoutRoot()
+            );
+        }
+
+        if ($fileCredentials instanceof AbsCredentials) {
+            $relativePath = RelativePath::create(
+                new AbsProvider(),
+                $filePath->getRoot(),
+                $filePath->getPath(),
+                $filePath->getFileName()
+            );
+            return new ABS\DestinationFile(
+                $filePath->getRoot(),
+                $relativePath->getPathnameWithoutRoot(),
+                $fileCredentials->getSasToken(),
+                $fileCredentials->getAccountName(),
+                $fileCredentials->getAccountKey(),
+            );
+        }
+
+        throw new LogicException('Unknown storage of destination file.');
     }
 
     private function createOptions(

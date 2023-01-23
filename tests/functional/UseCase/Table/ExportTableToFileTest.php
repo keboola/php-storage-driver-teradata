@@ -28,6 +28,8 @@ use Keboola\StorageDriver\Command\Table\TableExportToFileResponse;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageTrait;
+use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageType;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
 use Keboola\StorageDriver\Teradata\Handler\Table\Export\ExportTableToFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
@@ -39,6 +41,8 @@ use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 
 class ExportTableToFileTest extends BaseCase
 {
+    use StorageTrait;
+
     protected GenericBackendCredentials $projectCredentials;
 
     protected CreateBucketResponse $bucketResponse;
@@ -176,7 +180,6 @@ class ExportTableToFileTest extends BaseCase
                 ->setTableName($tableName)
         );
 
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $cmd->setExportOptions($exportOptions);
 
@@ -186,19 +189,7 @@ class ExportTableToFileTest extends BaseCase
                 ->setExportAdapter(TableExportToFileCommand\TeradataTableExportMeta\ExportAdapter::TPT)
         );
         $cmd->setMeta($exportMeta);
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath($exportDir)
-        );
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, $exportDir);
 
         $handler = new ExportTableToFileHandler($this->sessionManager);
         $response = $handler(
@@ -243,8 +234,6 @@ class ExportTableToFileTest extends BaseCase
                 ->setTableName($sourceTableName)
         );
 
-        $cmd->setFileProvider(FileProvider::S3);
-
         $cmd->setFileFormat(FileFormat::CSV);
 
         if ($input['exportOptions'] instanceof ExportOptions) {
@@ -258,20 +247,7 @@ class ExportTableToFileTest extends BaseCase
         );
         $cmd->setMeta($exportMeta);
 
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath($exportDir)
-        );
-
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, $exportDir);
 
         $handler = new ExportTableToFileHandler($this->sessionManager);
         $response = $handler(
@@ -398,8 +374,6 @@ class ExportTableToFileTest extends BaseCase
                 ->setTableName($sourceTableName)
         );
 
-        $cmd->setFileProvider(FileProvider::S3);
-
         $cmd->setFileFormat(FileFormat::CSV);
 
         $exportOptions = new ExportOptions();
@@ -413,20 +387,7 @@ class ExportTableToFileTest extends BaseCase
         );
         $cmd->setMeta($exportMeta);
 
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath($exportDir)
-        );
-
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, $exportDir);
 
         $handler = new ExportTableToFileHandler($this->sessionManager);
         $response = $handler(
@@ -780,7 +741,6 @@ class ExportTableToFileTest extends BaseCase
 
         // import data to table
         $cmd = new TableImportFromFileCommand();
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
 
         $columns = new RepeatedField(GPBType::STRING);
@@ -801,21 +761,7 @@ class ExportTableToFileTest extends BaseCase
         );
         $cmd->setFormatTypeOptions($formatOptions);
 
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath($sourceFilePath)
-                ->setFileName($sourceFileName)
-        );
-
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, $sourceFilePath, $sourceFileName);
 
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $destinationDatabaseName;

@@ -10,23 +10,19 @@ use Google\Protobuf\Any;
 use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
-use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\DedupType;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportStrategy;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions\ImportType;
-use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\Table;
 use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use Keboola\StorageDriver\Command\Table\TableImportResponse;
 use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
+use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageTrait;
 use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
@@ -39,6 +35,8 @@ use Throwable;
 
 class ImportTableFromFileTest extends ImportBaseCase
 {
+    use StorageTrait;
+
     protected GenericBackendCredentials $projectCredentials;
 
     protected CreateBucketResponse $bucketResponse;
@@ -83,7 +81,6 @@ class ImportTableFromFileTest extends ImportBaseCase
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
         $columns[] = 'col1';
@@ -100,20 +97,7 @@ class ImportTableFromFileTest extends ImportBaseCase
                 ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::NONE)
         );
         $cmd->setFormatTypeOptions($formatOptions);
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath('import')
-                ->setFileName('a_b_c-3row.csv')
-        );
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, 'import', 'a_b_c-3row.csv');
         $cmd->setDestination(
             (new Table())
                 ->setPath($path)
@@ -167,7 +151,6 @@ class ImportTableFromFileTest extends ImportBaseCase
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
         $columns[] = 'col1';
@@ -184,20 +167,7 @@ class ImportTableFromFileTest extends ImportBaseCase
                 ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::NONE)
         );
         $cmd->setFormatTypeOptions($formatOptions);
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath('import')
-                ->setFileName('a_b_c-3row.csv')
-        );
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, 'import', 'a_b_c-3row.csv');
         $cmd->setDestination(
             (new Table())
                 ->setPath($path)
@@ -264,7 +234,6 @@ class ImportTableFromFileTest extends ImportBaseCase
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
         $columns[] = 'col1';
@@ -281,20 +250,7 @@ class ImportTableFromFileTest extends ImportBaseCase
                 ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::NONE)
         );
         $cmd->setFormatTypeOptions($formatOptions);
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath('import')
-                ->setFileName('a_b_c-3row.csv')
-        );
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, 'import', 'a_b_c-3row.csv');
         $cmd->setDestination(
             (new Table())
                 ->setPath($path)
@@ -390,7 +346,6 @@ class ImportTableFromFileTest extends ImportBaseCase
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
         $columns[] = 'id';
@@ -417,29 +372,19 @@ class ImportTableFromFileTest extends ImportBaseCase
         );
         $cmd->setFormatTypeOptions($formatOptions);
         if ($compression === TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP) {
-            $cmd->setFilePath(
-                (new FilePath())
-                    ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                    ->setPath('sliced/accounts-gzip')
-                    ->setFileName('S3.accounts-gzip.csvmanifest')
+            $this->setFilePathAndCredentials(
+                $cmd,
+                'sliced/accounts-gzip',
+                '%MANIFEST_PREFIX%accounts-gzip.csvmanifest',
             );
         } else {
             // no compression
-            $cmd->setFilePath(
-                (new FilePath())
-                    ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                    ->setPath('sliced/accounts')
-                    ->setFileName('S3.accounts.csvmanifest')
+            $this->setFilePathAndCredentials(
+                $cmd,
+                'sliced/accounts',
+                '%MANIFEST_PREFIX%accounts.csvmanifest',
             );
         }
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
         $cmd->setDestination(
             (new Table())
                 ->setPath($path)
@@ -515,7 +460,6 @@ class ImportTableFromFileTest extends ImportBaseCase
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
         $columns[] = 'id';
@@ -541,20 +485,7 @@ class ImportTableFromFileTest extends ImportBaseCase
                 ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::NONE)
         );
         $cmd->setFormatTypeOptions($formatOptions);
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath('sliced/accounts')
-                ->setFileName('S3.accounts.csvmanifest')
-        );
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, 'sliced/accounts', '%MANIFEST_PREFIX%accounts.csvmanifest');
         $cmd->setDestination(
             (new Table())
                 ->setPath($path)
@@ -613,7 +544,6 @@ class ImportTableFromFileTest extends ImportBaseCase
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
         $columns[] = 'id';
@@ -639,20 +569,7 @@ class ImportTableFromFileTest extends ImportBaseCase
                 ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP)
         );
         $cmd->setFormatTypeOptions($formatOptions);
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath('sliced/accounts-gzip')
-                ->setFileName('S3.accounts-gzip.csvmanifest')
-        );
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, 'sliced/accounts-gzip', '%MANIFEST_PREFIX%accounts-gzip.csvmanifest');
         $cmd->setDestination(
             (new Table())
                 ->setPath($path)
@@ -744,7 +661,6 @@ class ImportTableFromFileTest extends ImportBaseCase
         $cmd = new TableImportFromFileCommand();
         $path = new RepeatedField(GPBType::STRING);
         $path[] = $bucketDatabaseName;
-        $cmd->setFileProvider(FileProvider::S3);
         $cmd->setFileFormat(FileFormat::CSV);
         $columns = new RepeatedField(GPBType::STRING);
 
@@ -763,20 +679,7 @@ class ImportTableFromFileTest extends ImportBaseCase
                 ->setCompression(TableImportFromFileCommand\CsvTypeOptions\Compression::GZIP)
         );
         $cmd->setFormatTypeOptions($formatOptions);
-        $cmd->setFilePath(
-            (new FilePath())
-                ->setRoot((string) getenv('AWS_S3_BUCKET'))
-                ->setPath('export')
-                ->setFileName('big_table.csv.gz')
-        );
-        $credentials = new Any();
-        $credentials->pack(
-            (new S3Credentials())
-                ->setKey((string) getenv('AWS_ACCESS_KEY_ID'))
-                ->setSecret((string) getenv('AWS_SECRET_ACCESS_KEY'))
-                ->setRegion((string) getenv('AWS_REGION'))
-        );
-        $cmd->setFileCredentials($credentials);
+        $this->setFilePathAndCredentials($cmd, 'export', 'big_table.csv.gz');
         $cmd->setDestination(
             (new Table())
                 ->setPath($path)

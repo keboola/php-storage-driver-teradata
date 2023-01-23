@@ -11,6 +11,7 @@ services:
       - DEBUG
       - ABS_ACCOUNT_NAME
       - ABS_ACCOUNT_KEY
+      - ABS_SAS_TOKEN
       - ABS_CONTAINER_NAME
       - AWS_ACCESS_KEY_ID
       - AWS_SECRET_ACCESS_KEY

@@ -14,9 +14,13 @@ use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\FullImporter;
 use Keboola\Db\ImportExport\Backend\Teradata\ToFinalTable\IncrementalImporter;
 use Keboola\Db\ImportExport\Backend\Teradata\ToStage\ToStageImporter;
 use Keboola\Db\ImportExport\ImportOptionsInterface;
-use Keboola\Db\ImportExport\Storage\S3\SourceFile;
+use Keboola\Db\ImportExport\Storage\S3;
+use Keboola\Db\ImportExport\Storage\ABS;
+use Keboola\Db\ImportExport\Storage\SourceInterface;
+use Keboola\FileStorage\Abs\AbsProvider;
 use Keboola\FileStorage\Path\RelativePath;
 use Keboola\FileStorage\S3\S3Provider;
+use Keboola\StorageDriver\Command\Table\ImportExportShared\ABSCredentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
@@ -36,6 +40,7 @@ use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableDefinition;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
+use LogicException;
 use Throwable;
 
 class ImportTableFromFileHandler implements DriverCommandHandlerInterface
@@ -62,8 +67,8 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
 
         // validate
         assert(
-            $command->getFileProvider() === FileProvider::S3,
-            'Only S3 is supported TableImportFromFileCommand.fileProvider.'
+            in_array($command->getFileProvider(), [FileProvider::S3, FileProvider::ABS], true),
+            'Only S3|ABS is supported TableImportFromFileCommand.fileProvider.'
         );
         assert(
             $command->getFileFormat() === FileFormat::CSV,
@@ -82,8 +87,8 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         assert($any !== null, 'TableImportFromFileCommand.fileCredentials is required.');
         $fileCredentials = $any->unpack();
         assert(
-            $fileCredentials instanceof S3Credentials,
-            'TableImportFromFileCommand.fileCredentials is required to be S3Credentials.'
+            $fileCredentials instanceof S3Credentials || $fileCredentials instanceof ABSCredentials,
+            'TableImportFromFileCommand.fileCredentials is required to be S3Credentials|ABSCredentials.'
         );
         $destination = $command->getDestination();
         assert($destination !== null, 'TableImportFromFileCommand.destination is required.');
@@ -190,29 +195,57 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
         return $response;
     }
 
+    /**
+     * @param S3Credentials|ABSCredentials $fileCredentials
+     * @return SourceInterface
+     */
     private function getSourceFile(
         FilePath $filePath,
-        S3Credentials $fileCredentials,
+        Message $fileCredentials,
         CsvOptions $csvOptions,
         TableImportFromFileCommand\CsvTypeOptions $formatOptions
-    ): SourceFile {
-        $relativePath = RelativePath::create(
-            new S3Provider(),
-            $filePath->getRoot(),
-            $filePath->getPath(),
-            $filePath->getFileName()
-        );
-        return new SourceFile(
-            $fileCredentials->getKey(),
-            $fileCredentials->getSecret(),
-            $fileCredentials->getRegion(),
-            $relativePath->getRoot(),
-            $relativePath->getPathnameWithoutRoot(),
-            $csvOptions,
-            $formatOptions->getSourceType() === TableImportFromFileCommand\CsvTypeOptions\SourceType::SLICED_FILE,
-            ProtobufHelper::repeatedStringToArray($formatOptions->getColumnsNames()),
-            [] // <-- ignore primary keys here should be deprecated
-        );
+    ): SourceInterface {
+        if ($fileCredentials instanceof S3Credentials) {
+            $relativePath = RelativePath::create(
+                new S3Provider(),
+                $filePath->getRoot(),
+                $filePath->getPath(),
+                $filePath->getFileName()
+            );
+            return new S3\SourceFile(
+                $fileCredentials->getKey(),
+                $fileCredentials->getSecret(),
+                $fileCredentials->getRegion(),
+                $relativePath->getRoot(),
+                $relativePath->getPathnameWithoutRoot(),
+                $csvOptions,
+                $formatOptions->getSourceType() === TableImportFromFileCommand\CsvTypeOptions\SourceType::SLICED_FILE,
+                ProtobufHelper::repeatedStringToArray($formatOptions->getColumnsNames()),
+                [] // <-- ignore primary keys here should be deprecated
+            );
+        }
+
+        if ($fileCredentials instanceof AbsCredentials) {
+            $relativePath = RelativePath::create(
+                new AbsProvider(),
+                $filePath->getRoot(),
+                $filePath->getPath(),
+                $filePath->getFileName()
+            );
+            return new ABS\SourceFile(
+                $filePath->getRoot(),
+                $relativePath->getPathnameWithoutRoot(),
+                $fileCredentials->getSasToken(),
+                $fileCredentials->getAccountName(),
+                $csvOptions,
+                $formatOptions->getSourceType() === TableImportFromFileCommand\CsvTypeOptions\SourceType::SLICED_FILE,
+                ProtobufHelper::repeatedStringToArray($formatOptions->getColumnsNames()),
+                [], // <-- ignore primary keys here should be deprecated
+                $fileCredentials->getAccountKey(),
+            );
+        }
+
+        throw new LogicException('Unknown storage of source file.');
     }
 
     private function createOptions(
