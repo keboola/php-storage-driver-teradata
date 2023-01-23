@@ -60,8 +60,10 @@
             "@protobufTests",
             "@phpunit"
         ],
+        "loadAbs": "php ./tests/StubLoader/loader.php abs",
         "loadS3": "php ./tests/StubLoader/loader.php s3",
         "load-data": [
+            "@loadAbs",
             "@loadS3"
         ],
         "check": [
