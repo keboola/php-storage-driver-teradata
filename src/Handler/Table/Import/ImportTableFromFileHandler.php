@@ -245,6 +245,7 @@ class ImportTableFromFileHandler implements DriverCommandHandlerInterface
             );
         }
 
+        /** @phpstan-ignore-next-line safety check */
         throw new LogicException('Unknown storage of source file.');
     }
 

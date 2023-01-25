@@ -417,6 +417,7 @@ class ExportTableToFileTest extends BaseCase
 
         // check files
         if ($this->getStorageType() === StorageType::STORAGE_S3) {
+            /** @var array<int, array{Key: string, Size: int}> $files */
             $files = $this->listStorageDirFiles(
                 $exportDir
             );

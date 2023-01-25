@@ -199,6 +199,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
             );
         }
 
+        /** @phpstan-ignore-next-line safety check */
         throw new LogicException('Unknown storage of destination file.');
     }
 

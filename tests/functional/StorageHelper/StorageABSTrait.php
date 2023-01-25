@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Keboola\StorageDriver\FunctionalTests\StorageHelper;
 
 use Keboola\FileStorage\Abs\ClientFactory;
@@ -19,9 +21,6 @@ trait StorageABSTrait
         }
     }
 
-    /**
-     * @return ListBlobsResult
-     */
     public function listAbsContainerDirFiles(BlobRestProxy $client, string $container, string $dir): ListBlobsResult
     {
         $listOptions = new ListBlobsOptions();

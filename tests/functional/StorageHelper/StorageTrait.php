@@ -11,8 +11,8 @@ use Keboola\StorageDriver\Command\Table\ImportExportShared\ABSCredentials;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FilePath;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileProvider;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\S3Credentials;
-use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use Keboola\StorageDriver\Command\Table\TableExportToFileCommand;
+use Keboola\StorageDriver\Command\Table\TableImportFromFileCommand;
 use LogicException;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
 use MicrosoftAzure\Storage\Blob\Models\ListBlobsResult;
@@ -22,12 +22,13 @@ trait StorageTrait
     use StorageABSTrait;
     use StorageS3Trait;
 
-    /**
-     * @return StorageType::STORAGE_*
-     */
     public function getStorageType(): string
     {
-        return (string) getenv('STORAGE_TYPE');
+        $type = (string) getenv('STORAGE_TYPE');
+        if (!in_array($type, StorageType::STORAGES, true)) {
+            throw new LogicException(sprintf('Unknown STORAGE_TYPE "%s".', $this->getStorageType()));
+        }
+        return $type;
     }
 
     /**
@@ -116,7 +117,6 @@ trait StorageTrait
     }
 
     /**
-     * @param string $dir
      * @return array<int, array<string, mixed>>|ListBlobsResult
      */
     public function listStorageDirFiles(string $dir)
@@ -165,12 +165,16 @@ trait StorageTrait
         }
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getStorageFileAsCsvArray(string $fileName): array
     {
         $client = $this->getStorageClient();
 
         switch ($this->getStorageType()) {
             case StorageType::STORAGE_S3:
+                /** @var S3Client $client */
                 $body = $this->getS3ObjectContent(
                     $client,
                     (string) getenv('AWS_S3_BUCKET'),
@@ -178,6 +182,7 @@ trait StorageTrait
                 );
                 break;
             case StorageType::STORAGE_ABS:
+                /** @var BlobRestProxy $client */
                 $body = $this->getAbsBlobContent(
                     $client,
                     (string) getenv('ABS_CONTAINER_NAME'),
@@ -193,5 +198,4 @@ trait StorageTrait
         array_pop($csvData);
         return $csvData;
     }
-
 }

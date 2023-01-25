@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Keboola\StorageDriver\FunctionalTests\StorageHelper;
 
 use Aws\Exception\AwsException;
@@ -25,7 +27,7 @@ trait StorageS3Trait
             'Bucket' => $bucket,
             'Prefix' => $dir,
         ]);
-        /** @var array<int, array<string, mixed>> $contents */
+        /** @var array<int, array<string, mixed>>|null $contents */
         $contents = $result->get('Contents');
         return $contents ?? [];
     }
