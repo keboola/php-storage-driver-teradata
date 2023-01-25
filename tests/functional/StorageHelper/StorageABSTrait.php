@@ -6,6 +6,7 @@ use Keboola\FileStorage\Abs\ClientFactory;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
 use MicrosoftAzure\Storage\Blob\Models\ListBlobsOptions;
 use MicrosoftAzure\Storage\Blob\Models\ListBlobsResult;
+use UnexpectedValueException;
 
 trait StorageABSTrait
 {
@@ -38,5 +39,18 @@ trait StorageABSTrait
         return ClientFactory::createClientFromConnectionString(
             $connectionString
         );
+    }
+
+    private function getAbsBlobContent(BlobRestProxy $client, string $container, string $blob): string
+    {
+        $stream = $client
+            ->getBlob($container, $blob)
+            ->getContentStream();
+
+        $content = stream_get_contents($stream);
+        if ($content === false) {
+            throw new UnexpectedValueException('ABS blob content cannot be loaded');
+        }
+        return $content;
     }
 }

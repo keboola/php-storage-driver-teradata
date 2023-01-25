@@ -164,4 +164,34 @@ trait StorageTrait
                 throw new LogicException(sprintf('Unknown STORAGE_TYPE "%s".', $this->getStorageType()));
         }
     }
+
+    public function getStorageFileAsCsvArray(string $fileName): array
+    {
+        $client = $this->getStorageClient();
+
+        switch ($this->getStorageType()) {
+            case StorageType::STORAGE_S3:
+                $body = $this->getS3ObjectContent(
+                    $client,
+                    (string) getenv('AWS_S3_BUCKET'),
+                    $fileName,
+                );
+                break;
+            case StorageType::STORAGE_ABS:
+                $body = $this->getAbsBlobContent(
+                    $client,
+                    (string) getenv('ABS_CONTAINER_NAME'),
+                    $fileName,
+                );
+                break;
+            default:
+                throw new LogicException(sprintf('Unknown STORAGE_TYPE "%s".', $this->getStorageType()));
+        }
+
+        // parse as array
+        $csvData = array_map('str_getcsv', explode(PHP_EOL, $body));
+        array_pop($csvData);
+        return $csvData;
+    }
+
 }

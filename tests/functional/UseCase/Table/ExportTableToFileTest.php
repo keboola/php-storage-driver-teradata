@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Table;
 
-use Aws\S3\S3Client;
 use Doctrine\DBAL\Connection;
 use Generator;
 use Google\Protobuf\Any;
@@ -281,20 +280,20 @@ class ExportTableToFileTest extends BaseCase
                 );
             }
 
-            // TODO check data
-//            if ($expectedResultData !== null) {
-//                $csvData = $this->getObjectAsCsvArray($storageClient, $files[0]['Key']);
-//                $this->assertEqualsArrays(
-//                    $expectedResultData,
+            // check data
+            if ($expectedResultData !== null) {
+                $csvData = $this->getStorageFileAsCsvArray($files[0]['Key']);
+                $this->assertEqualsArrays(
+                    $expectedResultData,
                     // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
-//                    $csvData
-//                );
-//            }
-            // TODO check rows count
-//            if ($expectedRowsCount !== null) {
-//                $csvData = $this->getObjectAsCsvArray($storageClient, $files[0]['Key']);
-//                $this->assertCount($expectedRowsCount, $csvData);
-//            }
+                    $csvData
+                );
+            }
+            // check rows count
+            if ($expectedRowsCount !== null) {
+                $csvData = $this->getStorageFileAsCsvArray($files[0]['Key']);
+                $this->assertCount($expectedRowsCount, $csvData);
+            }
         } elseif ($this->getStorageType() === StorageType::STORAGE_ABS) {
             /** @var ListBlobsResult $blobsResult */
             $blobsResult = $this->listStorageDirFiles($exportDir);
@@ -312,8 +311,20 @@ class ExportTableToFileTest extends BaseCase
                     'File is bigger than expected.'
                 );
             }
-            // TODO check data
-            // TODO check rows count
+            // check data
+            if ($expectedResultData !== null) {
+                $csvData = $this->getStorageFileAsCsvArray($blobs[0]->getName());
+                $this->assertEqualsArrays(
+                    $expectedResultData,
+                    // data are not trimmed because IE lib doesn't do so. TD serves them in raw form prefixed by space
+                    $csvData
+                );
+            }
+            // check rows count
+            if ($expectedRowsCount !== null) {
+                $csvData = $this->getStorageFileAsCsvArray($blobs[0]->getName());
+                $this->assertCount($expectedRowsCount, $csvData);
+            }
         } else {
             $this->fail(sprintf('Unknown STORAGE_TYPE "%s"', $this->getStorageType()));
         }
@@ -859,21 +870,5 @@ class ExportTableToFileTest extends BaseCase
                 );
             }
         }
-    }
-
-    /**
-     * @return array<mixed>
-     */
-    private function getObjectAsCsvArray(S3Client $s3Client, string $key): array
-    {
-        /** @var array{Body: resource} $file */
-        $file = $s3Client->getObject([
-            'Bucket' => (string) getenv('AWS_S3_BUCKET'),
-            'Key' => $key,
-        ]);
-
-        $csvData = array_map('str_getcsv', explode(PHP_EOL, (string) $file['Body']));
-        array_pop($csvData);
-        return $csvData;
     }
 }

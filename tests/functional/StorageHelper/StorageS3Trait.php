@@ -2,7 +2,9 @@
 
 namespace Keboola\StorageDriver\FunctionalTests\StorageHelper;
 
+use Aws\Exception\AwsException;
 use Aws\S3\S3Client;
+use UnexpectedValueException;
 
 trait StorageS3Trait
 {
@@ -38,5 +40,20 @@ trait StorageS3Trait
             'region' => $region,
             'version' => '2006-03-01',
         ]);
+    }
+
+    private function getS3ObjectContent(S3Client $s3Client, string $bucket, string $key): string
+    {
+        try {
+            /** @var array{Body: resource} $file */
+            $file = $s3Client->getObject([
+                'Bucket' => $bucket,
+                'Key' => $key,
+            ]);
+        } catch (AwsException $e) {
+            throw new UnexpectedValueException(sprintf('S3 object content cannot be loaded: %s', $e->getMessage()));
+        }
+
+        return (string) $file['Body'];
     }
 }
