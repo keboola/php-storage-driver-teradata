@@ -534,51 +534,6 @@ class BaseCase extends TestCase
         return (bool) getenv('DEBUG');
     }
 
-    protected function getS3Client(string $key, string $secret, string $region): S3Client
-    {
-        return new S3Client([
-            'credentials' => [
-                'key' => $key,
-                'secret' => $secret,
-            ],
-            'region' => $region,
-            'version' => '2006-03-01',
-        ]);
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    protected function listS3BucketDirFiles(S3Client $client, string $bucket, string $dir): ?array
-    {
-        $result = $client->listObjects([
-            'Bucket' => $bucket,
-            'Prefix' => $dir,
-        ]);
-        /** @var array<int, array<string, mixed>> $contents */
-        $contents = $result->get('Contents');
-        return $contents;
-    }
-
-    protected function clearS3BucketDir(S3Client $client, string $bucket, string $dir): void
-    {
-        $objects = $this->listS3BucketDirFiles($client, $bucket, $dir);
-
-        if ($objects) {
-            $client->deleteObjects([
-                'Bucket' => $bucket,
-                'Delete' => [
-                    'Objects' => array_map(static function ($object) {
-                        return [
-                            'Key' => $object['Key'],
-                        ];
-                    }, $objects),
-                ],
-            ]);
-        }
-    }
-
-
     /**
      * @param array{columns: array<string, array<string, mixed>>, primaryKeysNames: array<int, string>} $structure
      */

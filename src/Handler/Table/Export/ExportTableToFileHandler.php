@@ -188,7 +188,7 @@ class ExportTableToFileHandler implements DriverCommandHandlerInterface
                 new AbsProvider(),
                 $filePath->getRoot(),
                 $filePath->getPath(),
-                $filePath->getFileName()
+                $filePath->getFileName(),
             );
             return new ABS\DestinationFile(
                 $filePath->getRoot(),
