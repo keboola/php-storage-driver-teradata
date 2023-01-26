@@ -75,8 +75,11 @@ trait StorageTrait
                     (new ABSCredentials())
                         ->setAccountName((string) getenv('ABS_ACCOUNT_NAME'))
                         ->setAccountKey((string) getenv('ABS_ACCOUNT_KEY'))
-                        // TODO generate it
-                        ->setSasToken((string) getenv('ABS_SAS_TOKEN'))
+                        ->setSasToken($this->getAbsCredentialsForContainer(
+                            (string) getenv('ABS_ACCOUNT_NAME'),
+                            (string) getenv('ABS_ACCOUNT_KEY'),
+                            (string) getenv('ABS_CONTAINER_NAME'),
+                        ))
                 );
                 $cmd->setFileCredentials($credentials);
                 break;

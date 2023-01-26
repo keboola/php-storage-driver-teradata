@@ -33,7 +33,6 @@ jobs:
         env:
           ABS_ACCOUNT_KEY: ${{ secrets.ABS_ACCOUNT_KEY }}
           ABS_ACCOUNT_NAME: ${{ secrets.ABS_ACCOUNT_NAME }}
-          ABS_SAS_TOKEN: ${{ secrets.ABS_SAS_TOKEN }}
           ABS_CONTAINER_NAME: ${{ secrets.ABS_CONTAINER_NAME }}
         run: docker-compose run --rm production composer loadAbs
 
@@ -46,7 +45,6 @@ jobs:
           TERADATA_ROOT_DATABASE: ci_driver_teradata
           ABS_ACCOUNT_KEY: ${{ secrets.ABS_ACCOUNT_KEY }}
           ABS_ACCOUNT_NAME: ${{ secrets.ABS_ACCOUNT_NAME }}
-          ABS_SAS_TOKEN: ${{ secrets.ABS_SAS_TOKEN }}
           ABS_CONTAINER_NAME: ${{ secrets.ABS_CONTAINER_NAME }}
         run: docker-compose run --rm -e STORAGE_TYPE=ABS production composer ci
 

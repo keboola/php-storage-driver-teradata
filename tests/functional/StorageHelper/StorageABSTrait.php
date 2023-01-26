@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\StorageHelper;
 
+use DateTime;
 use Keboola\FileStorage\Abs\ClientFactory;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
+use MicrosoftAzure\Storage\Blob\BlobSharedAccessSignatureHelper;
 use MicrosoftAzure\Storage\Blob\Models\ListBlobsOptions;
 use MicrosoftAzure\Storage\Blob\Models\ListBlobsResult;
+use MicrosoftAzure\Storage\Common\Internal\Resources;
 use UnexpectedValueException;
 
 trait StorageABSTrait
@@ -51,5 +54,25 @@ trait StorageABSTrait
             throw new UnexpectedValueException('ABS blob content cannot be loaded');
         }
         return $content;
+    }
+
+    protected function getAbsCredentialsForContainer(
+        string $accountName,
+        string $accountKey,
+        string $container,
+        string $permissions = 'rwl'
+    ): string {
+        $sasHelper = new BlobSharedAccessSignatureHelper(
+            $accountName,
+            $accountKey,
+        );
+        $expirationDate = (new DateTime())->modify('+1hour');
+        return $sasHelper->generateBlobServiceSharedAccessSignatureToken(
+            Resources::RESOURCE_TYPE_CONTAINER,
+            $container,
+            $permissions,
+            $expirationDate,
+            (new DateTime())
+        );
     }
 }
