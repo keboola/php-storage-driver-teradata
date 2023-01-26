@@ -304,9 +304,13 @@ class BaseCase extends TestCase
     {
         $handler = new CreateProjectHandler($this->sessionManager);
         $meta = new Any();
-        $meta->pack((new CreateProjectCommand\CreateProjectTeradataMeta())->setRootDatabase(
-            $this->getRootDatabase()
-        ));
+        $meta->pack(
+            (new CreateProjectCommand\CreateProjectTeradataMeta())->setRootDatabase(
+                $this->getRootDatabase()
+            )
+            ->setPermSpace('500e6')
+            ->setSpoolSpace('500e6')
+        );
         $command = (new CreateProjectCommand())
             ->setProjectId($this->getProjectId())
             ->setStackPrefix($this->getStackPrefix())
@@ -406,12 +410,19 @@ class BaseCase extends TestCase
         $bucket = md5($this->getName()) . '_Test_bucket';
 
         $handler = new CreateBucketHandler($this->sessionManager);
+        $meta = new Any();
+        $meta->pack(
+            (new CreateBucketCommand\CreateBucketTeradataMeta())
+                ->setPermSpace('50e6')
+                ->setSpoolSpace('50e6')
+        );
         $command = (new CreateBucketCommand())
             ->setStackPrefix($this->getStackPrefix())
             ->setProjectId($this->getProjectId())
             ->setBucketId($bucket)
             ->setProjectRoleName($projectResponse->getProjectRoleName())
-            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName());
+            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName())
+            ->setMeta($meta);
 
         $response = $handler(
             $projectCredentials,
@@ -450,13 +461,20 @@ class BaseCase extends TestCase
         CreateProjectResponse $projectResponse
     ): array {
         $handler = new CreateWorkspaceHandler($this->sessionManager);
+        $meta = new Any();
+        $meta->pack(
+            (new CreateWorkspaceCommand\CreateWorkspaceTeradataMeta())
+                ->setPermSpace('50e6')
+                ->setSpoolSpace('50e6')
+        );
         $command = (new CreateWorkspaceCommand())
             ->setStackPrefix($this->getStackPrefix())
             ->setProjectId($this->getProjectId())
             ->setWorkspaceId($this->getWorkspaceId())
             ->setProjectUserName($projectResponse->getProjectUserName())
             ->setProjectRoleName($projectResponse->getProjectRoleName())
-            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName());
+            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName())
+            ->setMeta($meta);
 
         $response = $handler(
             $projectCredentials,
