@@ -7,56 +7,140 @@ on:
       - master
   pull_request:
 
+env:
+  # Github
+  GITHUB_OAUTH_TOKEN: ${{ secrets.BUILD_GITHUB_OAUTH_TOKEN }}
+  # S3
+  AWS_ACCESS_KEY_ID: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
+  AWS_S3_BUCKET: ${{ secrets.S3_BUCKET }}
+  AWS_REGION: ${{ secrets.S3_AWS_REGION }}
+  # ABS
+  ABS_ACCOUNT_NAME: cidriverteradata
+  ABS_ACCOUNT_KEY: ${{ secrets.ABS_ACCOUNT_KEY }}
+  ABS_CONTAINER_NAME: driver-teradata
+  # Teradata
+  TERADATA_HOST: ${{ secrets.TERADATA_HOST }}
+  TERADATA_USERNAME: ${{ secrets.TERADATA_USERNAME }}
+  TERADATA_PASSWORD: ${{ secrets.TERADATA_PASSWORD }}
+  TERADATA_PORT: 1025
+  TERADATA_ROOT_DATABASE: ci_driver_teradata
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v1
-
-      - name: Build Image
+      -
+        name: Checkout Code
+        uses: actions/checkout@v3
+      -
+        name: Build Image
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
           GITHUB_OAUTH_TOKEN: ${{ secrets.BUILD_GITHUB_OAUTH_TOKEN }}
-        run: docker-compose build
+        run: |
+          docker-compose build --pull production
+          docker save -o /tmp/image.tar php-storage-driver-teradata_production:latest
+      -
+        name: Check
+        run: |
+          docker-compose run --rm production composer ci
+      -
+        name: Upload docker image
+        uses: actions/upload-artifact@v2
+        with:
+          name: image
+          path: /tmp/image.tar
 
-      - name: Prepare S3 stubs
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
-          AWS_S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_REGION: ${{ secrets.S3_AWS_REGION }}
-        run: docker-compose run --rm production composer loadS3
+  load-s3:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: image
+          path: /tmp
+      -
+        name: Load Docker image
+        run: |
+          docker load --input /tmp/image.tar
+      -
+        name: Load data to S3
+        run: |
+          docker-compose run --rm production composer loadS3
 
-      - name: Prepare ABS stubs
-        env:
-          ABS_ACCOUNT_KEY: ${{ secrets.ABS_ACCOUNT_KEY }}
-          ABS_ACCOUNT_NAME: ${{ secrets.ABS_ACCOUNT_NAME }}
-          ABS_CONTAINER_NAME: ${{ secrets.ABS_CONTAINER_NAME }}
-        run: docker-compose run --rm production composer loadAbs
+  load-abs:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: image
+          path: /tmp
+      -
+        name: Load Docker image
+        run: |
+          docker load --input /tmp/image.tar
+      -
+        name: Load data to ABS
+        run: |
+          docker-compose run --rm production composer loadAbs
 
-      - name: Run Tests on ABS
+  tests-s3:
+    runs-on: ubuntu-latest
+    needs: load-s3
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: image
+          path: /tmp
+      -
+        name: Load Docker image
+        run: |
+          docker load --input /tmp/image.tar
+      -
+        name: Tests S3
         env:
-          TERADATA_HOST: ${{ secrets.TERADATA_HOST }}
-          TERADATA_USERNAME: ${{ secrets.TERADATA_USERNAME }}
-          TERADATA_PASSWORD: ${{ secrets.TERADATA_PASSWORD }}
-          TERADATA_PORT: 1025
-          TERADATA_ROOT_DATABASE: ci_driver_teradata
-          ABS_ACCOUNT_KEY: ${{ secrets.ABS_ACCOUNT_KEY }}
-          ABS_ACCOUNT_NAME: ${{ secrets.ABS_ACCOUNT_NAME }}
-          ABS_CONTAINER_NAME: ${{ secrets.ABS_CONTAINER_NAME }}
-        run: docker-compose run --rm -e STORAGE_TYPE=ABS production composer ci
+          BUILD_PREFIX: s3
+        run: |
+          docker-compose run --rm production composer tests-s3
 
-      - name: Run Tests on S3
+  tests-abs:
+    runs-on: ubuntu-latest
+    needs: load-abs
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: image
+          path: /tmp
+      -
+        name: Load Docker image
+        run: |
+          docker load --input /tmp/image.tar
+      -
+        name: Tests ABS
         env:
-          TERADATA_HOST: ${{ secrets.TERADATA_HOST }}
-          TERADATA_USERNAME: ${{ secrets.TERADATA_USERNAME }}
-          TERADATA_PASSWORD: ${{ secrets.TERADATA_PASSWORD }}
-          TERADATA_PORT: 1025
-          TERADATA_ROOT_DATABASE: ci_driver_teradata
-          AWS_ACCESS_KEY_ID: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
-          AWS_S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          AWS_REGION: ${{ secrets.S3_AWS_REGION }}
-        run: docker-compose run --rm -e STORAGE_TYPE=S3 production composer ci
+          BUILD_PREFIX: abs
+        run: |
+          docker-compose run --rm production composer tests-abs

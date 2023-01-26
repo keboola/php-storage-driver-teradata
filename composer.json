@@ -50,15 +50,23 @@
         "lock": false
     },
     "scripts": {
-        "protobufTests": "rm -rf ./tests/generated/* && protoc $(find tests/proto -iname \"*.proto\") --php_out=tests/generated",
         "phplint": "parallel-lint -j 10 --exclude vendor --exclude bin .",
         "phpcs": "phpcs --extensions=php tests --ignore=./tests/generated/*",
         "phpcbf": "phpcbf --extensions=php tests --ignore=./tests/generated/*",
         "phpstan": "phpstan analyse --no-progress",
-        "phpunit": "rm -rf ./tests/generated/* && protoc $(find tests/proto -iname \"*.proto\") --php_out=tests/generated && phpunit",
+        "protobufTests": "rm -rf ./tests/generated/* && protoc $(find tests/proto -iname \"*.proto\") --php_out=tests/generated",
+        "tests-unit": "phpunit --colors=always --testsuite unit",
+        "tests-s3": "STORAGE_TYPE=S3 phpunit --colors=always --testsuite functional",
+        "tests-abs": "STORAGE_TYPE=ABS phpunit --colors=always --testsuite functional",
+        "tests-functional": [
+            "@protobufTests",
+            "@tests-s3",
+            "@tests-abs"
+        ],
         "tests": [
             "@protobufTests",
-            "@phpunit"
+            "@tests-unit",
+            "@tests-functional"
         ],
         "loadAbs": "php ./tests/StubLoader/loader.php abs",
         "loadS3": "php ./tests/StubLoader/loader.php s3",
@@ -75,7 +83,7 @@
         ],
         "ci": [
             "@check",
-            "@tests"
+            "@tests-unit"
         ]
     }
 }
