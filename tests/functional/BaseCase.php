@@ -416,8 +416,8 @@ class BaseCase extends TestCase
         $meta = new Any();
         $meta->pack(
             (new CreateBucketCommand\CreateBucketTeradataMeta())
-                ->setPermSpace('50e6')
-                ->setSpoolSpace('50e6')
+                ->setPermSpace('100e6')
+                ->setSpoolSpace('100e6')
         );
         $command = (new CreateBucketCommand())
             ->setStackPrefix($this->getStackPrefix())
