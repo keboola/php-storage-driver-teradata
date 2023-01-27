@@ -56,8 +56,8 @@
         "phpstan": "phpstan analyse --no-progress",
         "protobufTests": "rm -rf ./tests/generated/* && protoc $(find tests/proto -iname \"*.proto\") --php_out=tests/generated",
         "tests-unit": "phpunit --colors=always --testsuite unit",
-        "tests-s3": "STORAGE_TYPE=S3 phpunit --colors=always --testsuite functional",
-        "tests-abs": "STORAGE_TYPE=ABS phpunit --colors=always --testsuite functional",
+        "tests-s3": "STORAGE_TYPE=S3 BUILD_PREFIX=$BUILD_PREFIX phpunit --colors=always --testsuite functional",
+        "tests-abs": "STORAGE_TYPE=ABS BUILD_PREFIX=$BUILD_PREFIX phpunit --colors=always --testsuite functional",
         "tests-functional": [
             "@protobufTests",
             "@tests-s3",

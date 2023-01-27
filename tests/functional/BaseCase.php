@@ -400,6 +400,11 @@ class BaseCase extends TestCase
         $this->assertEquals($expected, $actual);
     }
 
+    protected function getBucketId(): string
+    {
+        return md5($this->getName() . $this->getStackPrefix()) . '_Test_bucket';
+    }
+
     /**
      * @return array{CreateBucketResponse, Connection}
      */
@@ -407,8 +412,6 @@ class BaseCase extends TestCase
         GenericBackendCredentials $projectCredentials,
         CreateProjectResponse $projectResponse
     ): array {
-        $bucket = md5($this->getName()) . '_Test_bucket';
-
         $handler = new CreateBucketHandler($this->sessionManager);
         $meta = new Any();
         $meta->pack(
@@ -419,7 +422,7 @@ class BaseCase extends TestCase
         $command = (new CreateBucketCommand())
             ->setStackPrefix($this->getStackPrefix())
             ->setProjectId($this->getProjectId())
-            ->setBucketId($bucket)
+            ->setBucketId($this->getBucketId())
             ->setProjectRoleName($projectResponse->getProjectRoleName())
             ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName())
             ->setMeta($meta);
@@ -450,7 +453,7 @@ class BaseCase extends TestCase
 
     protected function getWorkspaceId(): string
     {
-        return md5($this->getName()) . '_Test_workspace';
+        return md5($this->getName() . $this->getStackPrefix()) . '_Test_workspace';
     }
 
     /**
