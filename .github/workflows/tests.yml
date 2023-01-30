@@ -129,9 +129,7 @@ jobs:
 
   tests-abs:
     runs-on: ubuntu-latest
-    # run after tests-s3, not parralel
-    needs: [load-abs, tests-s3]
-    if: ${{ !cancelled() && success('load-abs') }}
+    needs: load-abs
     steps:
       -
         name: Checkout
