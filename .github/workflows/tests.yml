@@ -20,11 +20,17 @@ env:
   ABS_ACCOUNT_KEY: ${{ secrets.ABS_ACCOUNT_KEY }}
   ABS_CONTAINER_NAME: driver-teradata
   # Teradata
-  TERADATA_HOST: ${{ secrets.TERADATA_HOST }}
-  TERADATA_USERNAME: ${{ secrets.TERADATA_USERNAME }}
+  TERADATA_HOST: 20.105.40.100
+  TERADATA_USERNAME: ci_driver_teradata
   TERADATA_PASSWORD: ${{ secrets.TERADATA_PASSWORD }}
   TERADATA_PORT: 1025
   TERADATA_ROOT_DATABASE: ci_driver_teradata
+  # Teradata ABS
+  ABS_TERADATA_HOST: 20.67.225.211
+  ABS_TERADATA_USERNAME: ci_driver_teradata_abs
+  ABS_TERADATA_PASSWORD: ${{ secrets.ABS_TERADATA_PASSWORD }}
+  ABS_TERADATA_PORT: 1025
+  ABS_TERADATA_ROOT_DATABASE: ci_driver_teradata_abs
 
 jobs:
   build:
@@ -117,7 +123,7 @@ jobs:
       -
         name: Tests S3
         env:
-          BUILD_PREFIX: s3
+          BUILD_PREFIX: gh_s3
         run: |
           docker-compose run --rm production composer tests-s3
 
@@ -143,6 +149,6 @@ jobs:
       -
         name: Tests ABS
         env:
-          BUILD_PREFIX: abs
+          BUILD_PREFIX: gh_abs
         run: |
           docker-compose run --rm production composer tests-abs

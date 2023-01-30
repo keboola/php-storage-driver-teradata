@@ -23,6 +23,7 @@ use Keboola\StorageDriver\Command\Table\TableColumnShared\TeradataTableColumnMet
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageType;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
@@ -131,26 +132,57 @@ class BaseCase extends TestCase
     }
 
     /**
+     * @return array{0: string, 1: string, 2: string, 3: int, 4: string}
+     */
+    private function getConnectionParams(): array
+    {
+        $prefix = (string) getenv('BUILD_PREFIX');
+        $storage = (string) getenv('STORAGE_TYPE');
+
+        if (strpos($prefix, 'gh') === 0 && $storage === StorageType::STORAGE_ABS) {
+            return [
+                (string) getenv('ABS_TERADATA_HOST'),
+                (string) getenv('ABS_TERADATA_USERNAME'),
+                (string) getenv('ABS_TERADATA_PASSWORD'),
+                (int) getenv('ABS_TERADATA_PORT'),
+                (string) getenv('ABS_TERADATA_ROOT_DATABASE'),
+            ];
+        }
+
+        return [
+            (string) getenv('TERADATA_HOST'),
+            (string) getenv('TERADATA_USERNAME'),
+            (string) getenv('TERADATA_PASSWORD'),
+            (int) getenv('TERADATA_PORT'),
+            (string) getenv('TERADATA_ROOT_DATABASE'),
+        ];
+    }
+
+    /**
      * Get credentials from envs
      */
     protected function getCredentials(): GenericBackendCredentials
     {
+        [$host, $username, $password, $port, $dbname] = $this->getConnectionParams();
+
         $any = new Any();
         $any->pack((new GenericBackendCredentials\TeradataCredentialsMeta())->setDatabase(
             $this->getRootDatabase()
         ));
 
         return (new GenericBackendCredentials())
-            ->setHost((string) getenv('TERADATA_HOST'))
-            ->setPrincipal((string) getenv('TERADATA_USERNAME'))
-            ->setSecret((string) getenv('TERADATA_PASSWORD'))
-            ->setPort((int) getenv('TERADATA_PORT'))
+            ->setHost($host)
+            ->setPrincipal($username)
+            ->setSecret($password)
+            ->setPort($port)
             ->setMeta($any);
     }
 
     protected function getRootDatabase(): string
     {
-        return (string) getenv('TERADATA_ROOT_DATABASE');
+        [$host, $username, $password, $port, $dbname] = $this->getConnectionParams();
+
+        return $dbname;
     }
 
     /**
