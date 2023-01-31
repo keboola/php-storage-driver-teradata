@@ -13,7 +13,7 @@
         "php": ">=7.4",
         "ext-odbc": "*",
         "ext-json": "*",
-        "keboola/db-import-export": "^1.17",
+        "keboola/db-import-export": "^1.19",
         "google/protobuf": "^3.21",
         "keboola/php-file-storage-utils": "^0.2.5",
         "keboola/storage-driver-common": "^2.4.2",
@@ -50,18 +50,28 @@
         "lock": false
     },
     "scripts": {
-        "protobufTests": "rm -rf ./tests/generated/* && protoc $(find tests/proto -iname \"*.proto\") --php_out=tests/generated",
         "phplint": "parallel-lint -j 10 --exclude vendor --exclude bin .",
         "phpcs": "phpcs --extensions=php tests --ignore=./tests/generated/*",
         "phpcbf": "phpcbf --extensions=php tests --ignore=./tests/generated/*",
         "phpstan": "phpstan analyse --no-progress",
-        "phpunit": "rm -rf ./tests/generated/* && protoc $(find tests/proto -iname \"*.proto\") --php_out=tests/generated && phpunit",
+        "protobufTests": "rm -rf ./tests/generated/* && protoc $(find tests/proto -iname \"*.proto\") --php_out=tests/generated",
+        "tests-unit": "phpunit --colors=always --testsuite unit",
+        "tests-s3": "STORAGE_TYPE=S3 BUILD_PREFIX=$BUILD_PREFIX phpunit --colors=always --debug --testsuite functional",
+        "tests-abs": "STORAGE_TYPE=ABS BUILD_PREFIX=$BUILD_PREFIX phpunit --colors=always --debug --testsuite functional",
+        "tests-functional": [
+            "@protobufTests",
+            "@tests-s3",
+            "@tests-abs"
+        ],
         "tests": [
             "@protobufTests",
-            "@phpunit"
+            "@tests-unit",
+            "@tests-functional"
         ],
+        "loadAbs": "php ./tests/StubLoader/loader.php abs",
         "loadS3": "php ./tests/StubLoader/loader.php s3",
         "load-data": [
+            "@loadAbs",
             "@loadS3"
         ],
         "check": [
@@ -73,7 +83,7 @@
         ],
         "ci": [
             "@check",
-            "@tests"
+            "@tests-unit"
         ]
     }
 }

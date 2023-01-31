@@ -23,6 +23,7 @@ use Keboola\StorageDriver\Command\Table\TableColumnShared\TeradataTableColumnMet
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageType;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
@@ -131,26 +132,57 @@ class BaseCase extends TestCase
     }
 
     /**
+     * @return array{0: string, 1: string, 2: string, 3: int, 4: string}
+     */
+    private function getConnectionParams(): array
+    {
+        $prefix = (string) getenv('BUILD_PREFIX');
+        $storage = (string) getenv('STORAGE_TYPE');
+
+        if (strpos($prefix, 'gh') === 0 && $storage === StorageType::STORAGE_ABS) {
+            return [
+                (string) getenv('ABS_TERADATA_HOST'),
+                (string) getenv('ABS_TERADATA_USERNAME'),
+                (string) getenv('ABS_TERADATA_PASSWORD'),
+                (int) getenv('ABS_TERADATA_PORT'),
+                (string) getenv('ABS_TERADATA_ROOT_DATABASE'),
+            ];
+        }
+
+        return [
+            (string) getenv('TERADATA_HOST'),
+            (string) getenv('TERADATA_USERNAME'),
+            (string) getenv('TERADATA_PASSWORD'),
+            (int) getenv('TERADATA_PORT'),
+            (string) getenv('TERADATA_ROOT_DATABASE'),
+        ];
+    }
+
+    /**
      * Get credentials from envs
      */
     protected function getCredentials(): GenericBackendCredentials
     {
+        [$host, $username, $password, $port, $dbname] = $this->getConnectionParams();
+
         $any = new Any();
         $any->pack((new GenericBackendCredentials\TeradataCredentialsMeta())->setDatabase(
             $this->getRootDatabase()
         ));
 
         return (new GenericBackendCredentials())
-            ->setHost((string) getenv('TERADATA_HOST'))
-            ->setPrincipal((string) getenv('TERADATA_USERNAME'))
-            ->setSecret((string) getenv('TERADATA_PASSWORD'))
-            ->setPort((int) getenv('TERADATA_PORT'))
+            ->setHost($host)
+            ->setPrincipal($username)
+            ->setSecret($password)
+            ->setPort($port)
             ->setMeta($any);
     }
 
     protected function getRootDatabase(): string
     {
-        return (string) getenv('TERADATA_ROOT_DATABASE');
+        [$host, $username, $password, $port, $dbname] = $this->getConnectionParams();
+
+        return $dbname;
     }
 
     /**
@@ -304,9 +336,13 @@ class BaseCase extends TestCase
     {
         $handler = new CreateProjectHandler($this->sessionManager);
         $meta = new Any();
-        $meta->pack((new CreateProjectCommand\CreateProjectTeradataMeta())->setRootDatabase(
-            $this->getRootDatabase()
-        ));
+        $meta->pack(
+            (new CreateProjectCommand\CreateProjectTeradataMeta())->setRootDatabase(
+                $this->getRootDatabase()
+            )
+            ->setPermSpace('500e6')
+            ->setSpoolSpace('500e6')
+        );
         $command = (new CreateProjectCommand())
             ->setProjectId($this->getProjectId())
             ->setStackPrefix($this->getStackPrefix())
@@ -396,6 +432,11 @@ class BaseCase extends TestCase
         $this->assertEquals($expected, $actual);
     }
 
+    protected function getBucketId(): string
+    {
+        return md5($this->getName() . $this->getStackPrefix()) . '_Test_bucket';
+    }
+
     /**
      * @return array{CreateBucketResponse, Connection}
      */
@@ -403,15 +444,20 @@ class BaseCase extends TestCase
         GenericBackendCredentials $projectCredentials,
         CreateProjectResponse $projectResponse
     ): array {
-        $bucket = md5($this->getName()) . '_Test_bucket';
-
         $handler = new CreateBucketHandler($this->sessionManager);
+        $meta = new Any();
+        $meta->pack(
+            (new CreateBucketCommand\CreateBucketTeradataMeta())
+                ->setPermSpace('100e6')
+                ->setSpoolSpace('100e6')
+        );
         $command = (new CreateBucketCommand())
             ->setStackPrefix($this->getStackPrefix())
             ->setProjectId($this->getProjectId())
-            ->setBucketId($bucket)
+            ->setBucketId($this->getBucketId())
             ->setProjectRoleName($projectResponse->getProjectRoleName())
-            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName());
+            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName())
+            ->setMeta($meta);
 
         $response = $handler(
             $projectCredentials,
@@ -439,7 +485,7 @@ class BaseCase extends TestCase
 
     protected function getWorkspaceId(): string
     {
-        return md5($this->getName()) . '_Test_workspace';
+        return md5($this->getName() . $this->getStackPrefix()) . '_Test_workspace';
     }
 
     /**
@@ -450,13 +496,20 @@ class BaseCase extends TestCase
         CreateProjectResponse $projectResponse
     ): array {
         $handler = new CreateWorkspaceHandler($this->sessionManager);
+        $meta = new Any();
+        $meta->pack(
+            (new CreateWorkspaceCommand\CreateWorkspaceTeradataMeta())
+                ->setPermSpace('50e6')
+                ->setSpoolSpace('50e6')
+        );
         $command = (new CreateWorkspaceCommand())
             ->setStackPrefix($this->getStackPrefix())
             ->setProjectId($this->getProjectId())
             ->setWorkspaceId($this->getWorkspaceId())
             ->setProjectUserName($projectResponse->getProjectUserName())
             ->setProjectRoleName($projectResponse->getProjectRoleName())
-            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName());
+            ->setProjectReadOnlyRoleName($projectResponse->getProjectReadOnlyRoleName())
+            ->setMeta($meta);
 
         $response = $handler(
             $projectCredentials,
@@ -533,51 +586,6 @@ class BaseCase extends TestCase
     {
         return (bool) getenv('DEBUG');
     }
-
-    protected function getS3Client(string $key, string $secret, string $region): S3Client
-    {
-        return new S3Client([
-            'credentials' => [
-                'key' => $key,
-                'secret' => $secret,
-            ],
-            'region' => $region,
-            'version' => '2006-03-01',
-        ]);
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    protected function listS3BucketDirFiles(S3Client $client, string $bucket, string $dir): ?array
-    {
-        $result = $client->listObjects([
-            'Bucket' => $bucket,
-            'Prefix' => $dir,
-        ]);
-        /** @var array<int, array<string, mixed>> $contents */
-        $contents = $result->get('Contents');
-        return $contents;
-    }
-
-    protected function clearS3BucketDir(S3Client $client, string $bucket, string $dir): void
-    {
-        $objects = $this->listS3BucketDirFiles($client, $bucket, $dir);
-
-        if ($objects) {
-            $client->deleteObjects([
-                'Bucket' => $bucket,
-                'Delete' => [
-                    'Objects' => array_map(static function ($object) {
-                        return [
-                            'Key' => $object['Key'],
-                        ];
-                    }, $objects),
-                ],
-            ]);
-        }
-    }
-
 
     /**
      * @param array{columns: array<string, array<string, mixed>>, primaryKeysNames: array<int, string>} $structure
