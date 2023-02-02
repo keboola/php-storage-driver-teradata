@@ -9,6 +9,7 @@ use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Command\Workspace\DropWorkspaceObjectCommand;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\DropObject\DropWorkspaceObjectHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
@@ -105,8 +106,8 @@ class DropWorkspaceObjectTest extends BaseCase
         $this->assertNull($dropResponse);
 
         $db = $this->getConnection($credentials);
-        $this->assertTrue($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
-        $this->assertTrue($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
+        $this->assertTrue(DbUtils::isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
+        $this->assertTrue(DbUtils::isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
 
         // DROP table
         $handler = new DropWorkspaceObjectHandler($this->sessionManager);
@@ -122,8 +123,8 @@ class DropWorkspaceObjectTest extends BaseCase
         $this->assertNull($dropResponse);
 
         $db = $this->getConnection($credentials);
-        $this->assertTrue($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
-        $this->assertFalse($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
+        $this->assertTrue(DbUtils::isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
+        $this->assertFalse(DbUtils::isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
 
         // DROP table used in view
         $handler = new DropWorkspaceObjectHandler($this->sessionManager);
@@ -139,8 +140,8 @@ class DropWorkspaceObjectTest extends BaseCase
         $this->assertNull($dropResponse);
 
         $db = $this->getConnection($credentials);
-        $this->assertFalse($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
-        $this->assertFalse($this->isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
+        $this->assertFalse(DbUtils::isTableExists($db, $response->getWorkspaceObjectName(), 'testTable'));
+        $this->assertFalse(DbUtils::isTableExists($db, $response->getWorkspaceObjectName(), 'testTable2'));
 
         $db->close();
     }

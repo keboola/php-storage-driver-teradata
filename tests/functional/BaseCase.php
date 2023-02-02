@@ -26,6 +26,7 @@ use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageType;
 use Keboola\StorageDriver\Shared\BackendSupportsInterface;
 use Keboola\StorageDriver\Shared\NameGenerator\NameGeneratorFactory;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
@@ -70,20 +71,6 @@ class BaseCase extends TestCase
         $this->sessionManager = new TeradataSessionManager(static::isDebug());
     }
 
-    /**
-     * Check if parent has child
-     */
-    protected function isChildOf(Connection $connection, string $child, string $parent): bool
-    {
-        $exists = $connection->fetchAllAssociative(sprintf(
-            'SELECT * FROM DBC.ChildrenV WHERE Child = %s AND Parent = %s;',
-            TeradataQuote::quote($child),
-            TeradataQuote::quote($parent)
-        ));
-
-        return count($exists) === 1;
-    }
-
     protected function cleanTestProject(): void
     {
         $nameGenerator = NameGeneratorFactory::getGeneratorForBackendAndPrefix(
@@ -95,9 +82,9 @@ class BaseCase extends TestCase
         $projectUsername = $nameGenerator->createUserNameForProject($this->getProjectId());
 
         $db = $this->getConnection($this->getCredentials());
-        $this->cleanUserOrDatabase($db, $projectUsername, $this->getCredentials()->getPrincipal());
-        $this->dropRole($db, $projectReadOnlyRoleName);
-        $this->dropRole($db, $projectRoleName);
+        DbUtils::cleanUserOrDatabase($db, $projectUsername, $this->getCredentials()->getPrincipal());
+        DbUtils::dropRole($db, $projectReadOnlyRoleName);
+        DbUtils::dropRole($db, $projectRoleName);
         $db->close();
     }
 
@@ -111,8 +98,8 @@ class BaseCase extends TestCase
         $workspaceRoleName = $nameGenerator->createWorkspaceRoleNameForWorkspaceId($this->getWorkspaceId());
 
         $db = $this->getConnection($this->getCredentials());
-        $this->cleanUserOrDatabase($db, $workspaceUserName, $this->getCredentials()->getPrincipal());
-        $this->dropRole($db, $workspaceRoleName);
+        DbUtils::cleanUserOrDatabase($db, $workspaceUserName, $this->getCredentials()->getPrincipal());
+        DbUtils::dropRole($db, $workspaceRoleName);
         $db->close();
     }
 
@@ -183,130 +170,6 @@ class BaseCase extends TestCase
         [$host, $username, $password, $port, $dbname] = $this->getConnectionParams();
 
         return $dbname;
-    }
-
-    /**
-     * Drop user and child objects
-     *
-     * @param string $cleanerUser - Connected user which will be granted access to drop user/database
-     */
-    protected function cleanUserOrDatabase(Connection $connection, string $name, string $cleanerUser): void
-    {
-        $isUserExists = $this->isUserExists($connection, $name);
-        $isDatabaseExists = $this->isDatabaseExists($connection, $name);
-
-        if (!$isUserExists && !$isDatabaseExists) {
-            return;
-        }
-
-        $connection->executeStatement(sprintf(
-            'GRANT ALL ON %s TO %s',
-            TeradataQuote::quoteSingleIdentifier($name),
-            $cleanerUser
-        ));
-        $connection->executeStatement(sprintf(
-            'GRANT DROP USER, DROP DATABASE ON %s TO %s',
-            TeradataQuote::quoteSingleIdentifier($name),
-            $cleanerUser
-        ));
-        if ($isUserExists) {
-            $connection->executeStatement(sprintf('DELETE USER %s ALL', TeradataQuote::quoteSingleIdentifier($name)));
-            $childDatabases = $this->getChildDatabases($connection, $name);
-            foreach ($childDatabases as $childDatabase) {
-                $this->cleanUserOrDatabase($connection, $childDatabase, $cleanerUser);
-            }
-            $connection->executeStatement(sprintf('DROP USER %s', TeradataQuote::quoteSingleIdentifier($name)));
-        } else {
-            $connection->executeStatement(sprintf(
-                'DELETE DATABASE %s ALL',
-                TeradataQuote::quoteSingleIdentifier($name)
-            ));
-            $childDatabases = $this->getChildDatabases($connection, $name);
-            foreach ($childDatabases as $childDatabase) {
-                $this->cleanUserOrDatabase($connection, $childDatabase, $cleanerUser);
-            }
-            $connection->executeStatement(sprintf('DROP DATABASE %s', TeradataQuote::quoteSingleIdentifier($name)));
-        }
-    }
-
-    /**
-     * Check if user exists
-     */
-    protected function isUserExists(Connection $connection, string $name): bool
-    {
-        $data = $connection->fetchAllAssociative(
-            sprintf(
-                "SELECT * FROM DBC.DatabasesV t WHERE t.DatabaseName = %s AND t.DBKind = 'U'",
-                TeradataQuote::quote($name)
-            )
-        );
-
-        return count($data) > 0;
-    }
-
-    /**
-     * Check if database exists
-     */
-    protected function isDatabaseExists(Connection $connection, string $name): bool
-    {
-        $data = $connection->fetchAllAssociative(
-            sprintf(
-                "SELECT * FROM DBC.DatabasesV t WHERE t.DatabaseName = %s AND t.DBKind = 'D'",
-                TeradataQuote::quote($name)
-            )
-        );
-
-        return count($data) > 0;
-    }
-
-    /**
-     * @return string[]
-     */
-    protected function getChildDatabases(Connection $connection, string $name): array
-    {
-        /** @var string[] $return */
-        $return = $connection->fetchFirstColumn(sprintf(
-            'SELECT Child FROM DBC.ChildrenV WHERE Parent = %s;',
-            TeradataQuote::quote($name),
-        ));
-        return $return;
-    }
-
-    /**
-     * Drop role if exists
-     */
-    protected function dropRole(Connection $connection, string $roleName): void
-    {
-        if (!$this->isRoleExists($connection, $roleName)) {
-            return;
-        }
-
-        $connection->executeQuery(sprintf(
-            'DROP ROLE %s',
-            TeradataQuote::quoteSingleIdentifier($roleName)
-        ));
-    }
-
-    /**
-     * check if role exists
-     */
-    protected function isRoleExists(Connection $connection, string $roleName): bool
-    {
-        $roles = $connection->fetchAllAssociative(sprintf(
-            'SELECT RoleName FROM DBC.RoleInfoV WHERE RoleName = %s',
-            TeradataQuote::quote($roleName)
-        ));
-        return count($roles) === 1;
-    }
-
-    protected function isTableExists(Connection $connection, string $databaseName, string $tableName): bool
-    {
-        $tables = $connection->fetchAllAssociative(sprintf(
-            'SELECT TableName FROM DBC.TablesVX WHERE DatabaseName = %s AND TableName = %s',
-            TeradataQuote::quote($databaseName),
-            TeradataQuote::quote($tableName)
-        ));
-        return count($tables) === 1;
     }
 
     protected function getProjectReadOnlyRole(): string
@@ -468,7 +331,7 @@ class BaseCase extends TestCase
 
         $db = $this->getConnection($projectCredentials);
 
-        $this->assertTrue($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
+        $this->assertTrue(DbUtils::isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         // read only role has read access to bucket
         $this->assertEqualsArrays(

@@ -9,6 +9,7 @@ use Keboola\StorageDriver\Command\Workspace\ClearWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Clear\ClearWorkspaceHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
@@ -91,12 +92,12 @@ class ClearWorkspaceTest extends BaseCase
         $this->assertNull($clearResponse);
 
         $projectDb = $this->getConnection($this->projectCredentials);
-        $this->assertTrue($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
-        $this->assertTrue($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
+        $this->assertTrue(DbUtils::isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
+        $this->assertTrue(DbUtils::isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
         // object is user, not DB
-        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
-        $this->assertTrue($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
-        $this->assertTrue($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
+        $this->assertFalse(DbUtils::isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        $this->assertTrue(DbUtils::isUserExists($projectDb, $response->getWorkspaceUserName()));
+        $this->assertTrue(DbUtils::isRoleExists($projectDb, $response->getWorkspaceRoleName()));
 
         // CLEAR
         $handler = new ClearWorkspaceHandler($this->sessionManager);
@@ -111,12 +112,12 @@ class ClearWorkspaceTest extends BaseCase
         $this->assertNull($clearResponse);
 
         $projectDb = $this->getConnection($this->projectCredentials);
-        $this->assertFalse($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
-        $this->assertFalse($this->isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
+        $this->assertFalse(DbUtils::isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable'));
+        $this->assertFalse(DbUtils::isTableExists($projectDb, $response->getWorkspaceObjectName(), 'testTable2'));
         // object is user, not DB
-        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
-        $this->assertTrue($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
-        $this->assertTrue($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
+        $this->assertFalse(DbUtils::isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        $this->assertTrue(DbUtils::isUserExists($projectDb, $response->getWorkspaceUserName()));
+        $this->assertTrue(DbUtils::isRoleExists($projectDb, $response->getWorkspaceRoleName()));
 
         $projectDb->close();
     }

@@ -12,6 +12,7 @@ use Keboola\StorageDriver\Command\Workspace\DropWorkspaceCommand;
 use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Create\CreateWorkspaceHandler;
 use Keboola\StorageDriver\Teradata\Handler\Workspace\Drop\DropWorkspaceHandler;
@@ -53,10 +54,10 @@ class CreateDropWorkspaceTest extends BaseCase
         $projectDb = $this->getConnection($this->projectCredentials);
 
         // check objects created
-        $this->assertTrue($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
-        $this->assertTrue($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
+        $this->assertTrue(DbUtils::isUserExists($projectDb, $response->getWorkspaceUserName()));
+        $this->assertTrue(DbUtils::isRoleExists($projectDb, $response->getWorkspaceRoleName()));
         // object is User, not DB
-        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        $this->assertFalse(DbUtils::isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
 
         $db = $this->getConnection($credentials);
 
@@ -199,9 +200,9 @@ class CreateDropWorkspaceTest extends BaseCase
         $this->assertNull($dropResponse);
 
         $projectDb = $this->getConnection($this->projectCredentials);
-        $this->assertFalse($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
-        $this->assertFalse($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
-        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        $this->assertFalse(DbUtils::isUserExists($projectDb, $response->getWorkspaceUserName()));
+        $this->assertFalse(DbUtils::isRoleExists($projectDb, $response->getWorkspaceRoleName()));
+        $this->assertFalse(DbUtils::isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
 
         $projectDb->close();
     }
@@ -244,9 +245,9 @@ class CreateDropWorkspaceTest extends BaseCase
                 $e->getMessage()
             );
         }
-        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
-        $this->assertTrue($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
-        $this->assertTrue($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
+        $this->assertFalse(DbUtils::isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        $this->assertTrue(DbUtils::isUserExists($projectDb, $response->getWorkspaceUserName()));
+        $this->assertTrue(DbUtils::isRoleExists($projectDb, $response->getWorkspaceRoleName()));
 
         // try to DROP - should not fail and database will be deleted
         $command->setIsCascade(true);
@@ -257,9 +258,9 @@ class CreateDropWorkspaceTest extends BaseCase
         );
 
         $projectDb = $this->getConnection($this->projectCredentials);
-        $this->assertFalse($this->isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
-        $this->assertFalse($this->isUserExists($projectDb, $response->getWorkspaceUserName()));
-        $this->assertFalse($this->isRoleExists($projectDb, $response->getWorkspaceRoleName()));
+        $this->assertFalse(DbUtils::isDatabaseExists($projectDb, $response->getWorkspaceObjectName()));
+        $this->assertFalse(DbUtils::isUserExists($projectDb, $response->getWorkspaceUserName()));
+        $this->assertFalse(DbUtils::isRoleExists($projectDb, $response->getWorkspaceRoleName()));
 
         $projectDb->close();
     }
