@@ -8,9 +8,9 @@ use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Workspace\DropWorkspaceCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
-use Throwable;
 
 final class DropWorkspaceHandler implements DriverCommandHandlerInterface
 {
@@ -42,10 +42,11 @@ final class DropWorkspaceHandler implements DriverCommandHandlerInterface
         $db = $this->manager->createSession($credentials);
 
         if ($command->getIsCascade()) {
-            $db->executeStatement(sprintf(
-                'DELETE DATABASE %s ALL',
-                TeradataQuote::quoteSingleIdentifier($command->getWorkspaceObjectName())
-            ));
+            DbUtils::cleanUserOrDatabase(
+                $db,
+                $command->getWorkspaceObjectName(),
+                $credentials->getPrincipal(),
+            );
         }
 
         // abort existing sessions

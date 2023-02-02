@@ -8,7 +8,7 @@ use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 
@@ -45,10 +45,11 @@ final class DropProjectHandler implements DriverCommandHandlerInterface
             TeradataQuote::quoteSingleIdentifier($command->getReadOnlyRoleName())
         ));
 
-        $db->executeStatement(sprintf(
-            'DROP USER %s;',
-            TeradataQuote::quoteSingleIdentifier($command->getProjectUserName())
-        ));
+        DbUtils::cleanUserOrDatabase(
+            $db,
+            $command->getProjectUserName(),
+            $credentials->getPrincipal(),
+        );
 
         $db->close();
         return null;
