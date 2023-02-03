@@ -5,19 +5,20 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\FunctionalTests;
 
 use Psr\Log\AbstractLogger;
+use Stringable;
 
 class TestsLogger extends AbstractLogger
 {
     /**
      * @inheritDoc
      * @param string $level
+     * @param mixed[] $context
      */
-    public function log($level, $message, array $context = [])
+    public function log($level, string|Stringable $message, array $context = []): void
     {
         error_log(
             sprintf(
-                '%s.%s: %s',
-                '',
+                '%s: %s',
                 strtoupper($level),
                 $this->interpolate($message, $context)
             )
@@ -27,8 +28,9 @@ class TestsLogger extends AbstractLogger
     /**
      * @param mixed[] $context
      */
-    protected function interpolate(string $message, array $context = []): string
+    protected function interpolate(string|Stringable $message, array $context = []): string
     {
+        $message = (string) $message;
         // build a replacement array with braces around the context keys
         $replace = [];
         foreach ($context as $key => $val) {
