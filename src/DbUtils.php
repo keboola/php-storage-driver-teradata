@@ -14,8 +14,12 @@ class DbUtils
      *
      * @param string $cleanerUser - Connected user which will be granted access to drop user/database
      */
-    public static function cleanUserOrDatabase(Connection $connection, string $name, string $cleanerUser): void
-    {
+    public static function cleanUserOrDatabase(
+        Connection $connection,
+        string $name,
+        string $cleanerUser,
+        bool $keepYourself = false
+    ): void {
         $isUserExists = self::isUserExists($connection, $name);
         $isDatabaseExists = self::isDatabaseExists($connection, $name);
 
@@ -39,7 +43,12 @@ class DbUtils
             foreach ($childDatabases as $childDatabase) {
                 self::cleanUserOrDatabase($connection, $childDatabase, $cleanerUser);
             }
-            $connection->executeStatement(sprintf('DROP USER %s', TeradataQuote::quoteSingleIdentifier($name)));
+            if ($keepYourself === false) {
+                $connection->executeStatement(sprintf(
+                    'DROP USER %s',
+                    TeradataQuote::quoteSingleIdentifier($name),
+                ));
+            }
         } else {
             $connection->executeStatement(sprintf(
                 'DELETE DATABASE %s ALL',
@@ -49,7 +58,12 @@ class DbUtils
             foreach ($childDatabases as $childDatabase) {
                 self::cleanUserOrDatabase($connection, $childDatabase, $cleanerUser);
             }
-            $connection->executeStatement(sprintf('DROP DATABASE %s', TeradataQuote::quoteSingleIdentifier($name)));
+            if ($keepYourself === false) {
+                $connection->executeStatement(sprintf(
+                    'DROP DATABASE %s',
+                    TeradataQuote::quoteSingleIdentifier($name),
+                ));
+            }
         }
     }
 

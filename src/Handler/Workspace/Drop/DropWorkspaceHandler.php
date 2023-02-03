@@ -46,6 +46,7 @@ final class DropWorkspaceHandler implements DriverCommandHandlerInterface
                 $db,
                 $command->getWorkspaceObjectName(),
                 $credentials->getPrincipal(),
+                true,
             );
         }
 

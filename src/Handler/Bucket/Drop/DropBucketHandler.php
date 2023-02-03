@@ -10,6 +10,7 @@ use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
+use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
 final class DropBucketHandler implements DriverCommandHandlerInterface
@@ -42,12 +43,25 @@ final class DropBucketHandler implements DriverCommandHandlerInterface
                     $db,
                     $command->getBucketObjectName(),
                     $credentials->getPrincipal(),
+                    true,
                 );
             } catch (Throwable $e) {
                 if (!$ignoreErrors) {
                     $db->close();
                     throw $e;
                 }
+            }
+        }
+
+        try {
+            $db->executeStatement(sprintf(
+                'DROP DATABASE %s',
+                TeradataQuote::quoteSingleIdentifier($command->getBucketObjectName()),
+            ));
+        } catch (Throwable $e) {
+            if (!$ignoreErrors) {
+                $db->close();
+                throw $e;
             }
         }
 
