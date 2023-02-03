@@ -30,15 +30,18 @@ class DbUtils
         $connection->executeStatement(sprintf(
             'GRANT ALL ON %s TO %s',
             TeradataQuote::quoteSingleIdentifier($name),
-            $cleanerUser
+            TeradataQuote::quoteSingleIdentifier($cleanerUser),
         ));
         $connection->executeStatement(sprintf(
             'GRANT DROP USER, DROP DATABASE ON %s TO %s',
             TeradataQuote::quoteSingleIdentifier($name),
-            $cleanerUser
+            TeradataQuote::quoteSingleIdentifier($cleanerUser),
         ));
         if ($isUserExists) {
-            $connection->executeStatement(sprintf('DELETE USER %s ALL', TeradataQuote::quoteSingleIdentifier($name)));
+            $connection->executeStatement(sprintf(
+                'DELETE USER %s ALL',
+                TeradataQuote::quoteSingleIdentifier($name),
+            ));
             $childDatabases = self::getChildDatabases($connection, $name);
             foreach ($childDatabases as $childDatabase) {
                 self::cleanUserOrDatabase($connection, $childDatabase, $cleanerUser);
@@ -52,7 +55,7 @@ class DbUtils
         } else {
             $connection->executeStatement(sprintf(
                 'DELETE DATABASE %s ALL',
-                TeradataQuote::quoteSingleIdentifier($name)
+                TeradataQuote::quoteSingleIdentifier($name),
             ));
             $childDatabases = self::getChildDatabases($connection, $name);
             foreach ($childDatabases as $childDatabase) {
