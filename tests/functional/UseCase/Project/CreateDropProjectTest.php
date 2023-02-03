@@ -30,7 +30,7 @@ class CreateDropProjectTest extends BaseCase
         $this->cleanTestProject();
     }
 
-    public function testCreateProject(): void
+    public function testCreateDropProject(): void
     {
         [$credentials, $response] = $this->createTestProject();
 
