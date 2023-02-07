@@ -27,6 +27,7 @@ use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageTrait;
 use Keboola\StorageDriver\FunctionalTests\StorageHelper\StorageType;
 use Keboola\StorageDriver\Shared\Utils\ProtobufHelper;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Table\Export\ExportTableToFileHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Import\ImportTableFromFileHandler;
 use Keboola\TableBackendUtils\Column\ColumnCollection;
@@ -728,7 +729,7 @@ class ExportTableToFileTest extends BaseCase
         string $tableName,
         Connection $db
     ): void {
-        if (!$this->isTableExists($db, $databaseName, $tableName)) {
+        if (!DbUtils::isTableExists($db, $databaseName, $tableName)) {
             return;
         }
         $qb = new TeradataTableQueryBuilder();

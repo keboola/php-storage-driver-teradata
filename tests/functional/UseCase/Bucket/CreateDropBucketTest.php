@@ -11,6 +11,7 @@ use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
@@ -54,7 +55,7 @@ class CreateDropBucketTest extends BaseCase
         );
 
         $db = $this->getConnection($this->projectCredentials);
-        $this->assertFalse($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
+        $this->assertFalse(DbUtils::isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         $db->close();
     }
@@ -88,7 +89,7 @@ class CreateDropBucketTest extends BaseCase
             );
         }
         $db = $this->getConnection($this->projectCredentials);
-        $this->assertTrue($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
+        $this->assertTrue(DbUtils::isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         // ignore errors should not fail but database is not removed
         $command->setIgnoreErrors(true);
@@ -99,7 +100,7 @@ class CreateDropBucketTest extends BaseCase
         );
 
         $db = $this->getConnection($this->projectCredentials);
-        $this->assertTrue($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
+        $this->assertTrue(DbUtils::isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         // should not fail and database will be deleted
         $command->setIgnoreErrors(false);
@@ -110,7 +111,7 @@ class CreateDropBucketTest extends BaseCase
             []
         );
         $db = $this->getConnection($this->projectCredentials);
-        $this->assertFalse($this->isDatabaseExists($db, $response->getCreateBucketObjectName()));
+        $this->assertFalse(DbUtils::isDatabaseExists($db, $response->getCreateBucketObjectName()));
 
         $db->close();
     }

@@ -17,6 +17,7 @@ use Keboola\StorageDriver\Command\Table\DropTableCommand;
 use Keboola\StorageDriver\Command\Table\TableColumnShared;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Table\Create\CreateTableHandler;
 use Keboola\StorageDriver\Teradata\Handler\Table\Drop\DropTableHandler;
 
@@ -140,7 +141,7 @@ class CreateDropTableTest extends BaseCase
 
         $db = $this->getConnection($this->getCredentials());
 
-        $this->assertFalse($this->isTableExists($db, $bucketDatabaseName, $tableName));
+        $this->assertFalse(DbUtils::isTableExists($db, $bucketDatabaseName, $tableName));
 
         $db->close();
     }

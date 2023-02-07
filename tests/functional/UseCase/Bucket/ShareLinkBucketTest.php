@@ -12,6 +12,7 @@ use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Link\LinkBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Share\ShareBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\UnLink\UnLinkBucketHandler;
@@ -71,7 +72,7 @@ class ShareLinkBucketTest extends BaseCase
         ));
         $expectedShareRoleName = 'KBC_PROJECT456_BUCKET123_SHARE';
         // cleaning of the share role
-        $this->dropRole($sourceProjectConnection, $expectedShareRoleName);
+        DbUtils::dropRole($sourceProjectConnection, $expectedShareRoleName);
 
         $sourceProjectConnection->executeQuery('CREATE TABLE TESTTABLE_BEFORE (ID INT)');
         $sourceProjectConnection->executeQuery('INSERT INTO TESTTABLE_BEFORE (1)');
@@ -190,7 +191,7 @@ class ShareLinkBucketTest extends BaseCase
         ));
         $expectedShareRoleName = 'KBC_PROJECT456_BUCKET123_SHARE';
         // cleaning of the share role
-        $this->dropRole($sourceProjectConnection, $expectedShareRoleName);
+        DbUtils::dropRole($sourceProjectConnection, $expectedShareRoleName);
 
         $handler = new ShareBucketHandler($this->sessionManager);
         $command = (new ShareBucketCommand())
@@ -209,7 +210,7 @@ class ShareLinkBucketTest extends BaseCase
         $this->assertInstanceOf(ShareBucketResponse::class, $shareResponse);
         $this->assertEquals($expectedShareRoleName, $shareResponse->getBucketShareRoleName());
 
-        $this->assertTrue($this->isRoleExists($sourceProjectConnection, $expectedShareRoleName));
+        $this->assertTrue(DbUtils::isRoleExists($sourceProjectConnection, $expectedShareRoleName));
 
         $handler = new UnShareBucketHandler($this->sessionManager);
         $command = (new UnShareBucketCommand())
@@ -222,7 +223,7 @@ class ShareLinkBucketTest extends BaseCase
             []
         );
 
-        $this->assertFalse($this->isRoleExists($sourceProjectConnection, $expectedShareRoleName));
+        $this->assertFalse(DbUtils::isRoleExists($sourceProjectConnection, $expectedShareRoleName));
     }
 
     public function testShareUnshareLinkedBucket(): void
@@ -241,7 +242,7 @@ class ShareLinkBucketTest extends BaseCase
             TeradataQuote::quoteSingleIdentifier($bucketDatabaseName)
         ));
         // cleaning of the share role
-        $this->dropRole($sourceProjectConnection, $expectedShareRoleName);
+        DbUtils::dropRole($sourceProjectConnection, $expectedShareRoleName);
 
         $handler = new ShareBucketHandler($this->sessionManager);
         $command = (new ShareBucketCommand())
@@ -264,7 +265,7 @@ class ShareLinkBucketTest extends BaseCase
         $sourceProjectConnection->executeQuery('CREATE TABLE TESTTABLE_AFTER (ID INT)');
         $sourceProjectConnection->executeQuery('INSERT INTO TESTTABLE_AFTER (1)');
 
-        $this->assertTrue($this->isRoleExists($sourceProjectConnection, $expectedShareRoleName));
+        $this->assertTrue(DbUtils::isRoleExists($sourceProjectConnection, $expectedShareRoleName));
 
         $handler = new LinkBucketHandler($this->sessionManager);
         $command = (new LinkBucketCommand())
@@ -288,7 +289,7 @@ class ShareLinkBucketTest extends BaseCase
             []
         );
 
-        $this->assertFalse($this->isRoleExists($sourceProjectConnection, $expectedShareRoleName));
+        $this->assertFalse(DbUtils::isRoleExists($sourceProjectConnection, $expectedShareRoleName));
 
         $targetProjectConnection = $this->getConnection($this->targetProjectCredentials);
         // check that the Project2 cannot access the table anymore

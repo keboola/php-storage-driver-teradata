@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\Teradata\Handler\Bucket\Drop;
 
-use Doctrine\DBAL\Exception;
 use Google\Protobuf\Internal\Message;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
-use Keboola\StorageDriver\Teradata\ConnectionFactory;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
@@ -40,10 +39,12 @@ final class DropBucketHandler implements DriverCommandHandlerInterface
 
         if ($command->getIsCascade() === true) {
             try {
-                $db->executeStatement(sprintf(
-                    'DELETE DATABASE %s ALL',
-                    TeradataQuote::quoteSingleIdentifier($command->getBucketObjectName())
-                ));
+                DbUtils::cleanUserOrDatabase(
+                    $db,
+                    $command->getBucketObjectName(),
+                    $credentials->getPrincipal(),
+                    true,
+                );
             } catch (Throwable $e) {
                 if (!$ignoreErrors) {
                     $db->close();

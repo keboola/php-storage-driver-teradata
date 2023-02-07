@@ -9,6 +9,7 @@ use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
+use Keboola\StorageDriver\Teradata\DbUtils;
 use Keboola\StorageDriver\Teradata\Handler\Exception\NoSpaceException;
 use Keboola\StorageDriver\Teradata\Handler\Project\Create\CreateProjectHandler;
 use Keboola\StorageDriver\Teradata\Handler\Project\Drop\DropProjectHandler;
@@ -29,7 +30,7 @@ class CreateDropProjectTest extends BaseCase
         $this->cleanTestProject();
     }
 
-    public function testCreateProject(): void
+    public function testCreateDropProject(): void
     {
         [$credentials, $response] = $this->createTestProject();
 
@@ -40,8 +41,8 @@ class CreateDropProjectTest extends BaseCase
             $db->fetchOne('SELECT DATABASE;')
         );
         // test created users
-        $this->assertTrue($this->isRoleExists($db, $response->getProjectRoleName()));
-        $this->assertTrue($this->isRoleExists($db, $response->getProjectReadOnlyRoleName()));
+        $this->assertTrue(DbUtils::isRoleExists($db, $response->getProjectRoleName()));
+        $this->assertTrue(DbUtils::isRoleExists($db, $response->getProjectReadOnlyRoleName()));
 
         $this->assertEqualsArrays(
             [
@@ -90,9 +91,9 @@ class CreateDropProjectTest extends BaseCase
 
         $db = $this->getConnection($this->getCredentials());
 
-        $this->assertFalse($this->isUserExists($db, $response->getProjectUserName()));
-        $this->assertFalse($this->isRoleExists($db, $response->getProjectRoleName()));
-        $this->assertFalse($this->isRoleExists($db, $response->getProjectReadOnlyRoleName()));
+        $this->assertFalse(DbUtils::isUserExists($db, $response->getProjectUserName()));
+        $this->assertFalse(DbUtils::isRoleExists($db, $response->getProjectRoleName()));
+        $this->assertFalse(DbUtils::isRoleExists($db, $response->getProjectReadOnlyRoleName()));
     }
 
     public function testCreateTooBigProject(): void
