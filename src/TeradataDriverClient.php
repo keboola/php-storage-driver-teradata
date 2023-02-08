@@ -10,6 +10,7 @@ use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\GrantBucketAccessToReadOnlyRoleCommand;
+use Keboola\StorageDriver\Command\Bucket\RevokeBucketAccessFromReadOnlyRoleCommand;
 use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
@@ -42,6 +43,7 @@ use Keboola\StorageDriver\Teradata\Handler\Backend\Remove\RemoveBackendHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\CreateBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\GrantBucketAccessToReadOnlyRoleHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\DropBucketHandler;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\RevokeBucketAccessFromReadOnlyRoleHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Share\ShareBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\UnShare\UnShareBucketHandler;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Link\LinkBucketHandler;
@@ -156,6 +158,8 @@ class TeradataDriverClient implements ClientInterface
                 return new DeleteTableRowsHandler($manager);
             case $command instanceof GrantBucketAccessToReadOnlyRoleCommand:
                 return new GrantBucketAccessToReadOnlyRoleHandler($manager);
+            case $command instanceof RevokeBucketAccessFromReadOnlyRoleCommand:
+                return new RevokeBucketAccessFromReadOnlyRoleHandler($manager);
         }
 
         throw new CommandNotSupportedException(get_class($command));
