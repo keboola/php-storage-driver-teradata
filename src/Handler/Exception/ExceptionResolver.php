@@ -25,6 +25,12 @@ class ExceptionResolver
                 if (strpos($e->getMessage(), 'No more room in database') !== false) {
                     return NoSpaceException::createForFullDB($e);
                 }
+                if (strpos($e->getMessage(), "available data bytes in the table's perm row has exceeded")) {
+                    return RowSizeTooLargeException::createForTablePermRowHasExceededLimit($e);
+                }
+                if (strpos($e->getMessage(), 'Table has too many columns')) {
+                    return TooManyColumnsException::createForTooManyColumns($e);
+                }
             }
         }
 
