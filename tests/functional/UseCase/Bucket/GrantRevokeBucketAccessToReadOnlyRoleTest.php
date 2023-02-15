@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Bucket;
 
 use Keboola\StorageDriver\Command\Bucket\GrantBucketAccessToReadOnlyRoleCommand;
+use Keboola\StorageDriver\Command\Bucket\RevokeBucketAccessFromReadOnlyRoleCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
 use Keboola\StorageDriver\Teradata\Handler\Bucket\Create\GrantBucketAccessToReadOnlyRoleHandler;
+use Keboola\StorageDriver\Teradata\Handler\Bucket\Drop\RevokeBucketAccessFromReadOnlyRoleHandler;
 use Keboola\TableBackendUtils\Escaping\Teradata\TeradataQuote;
 use Throwable;
 
-class GrantBucketAccessToReadOnlyRoleTest extends BaseCase
+class GrantRevokeBucketAccessToReadOnlyRoleTest extends BaseCase
 {
     protected GenericBackendCredentials $mainProjectCredentials;
     protected CreateProjectResponse $mainProjectResponse;
@@ -22,6 +24,7 @@ class GrantBucketAccessToReadOnlyRoleTest extends BaseCase
     protected CreateProjectResponse $externalProjectResponse;
 
     private const PROJ_SUFFIX = '_external';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -52,7 +55,7 @@ class GrantBucketAccessToReadOnlyRoleTest extends BaseCase
         $this->cleanTestProject();
     }
 
-    public function testWSCanAccessExternalBucketAfterGrantingToRO(): void
+    public function testWSCanAccessExternalBucketAfterGrantingAndRevokingToRO(): void
     {
         // create a DB and table in EXT project.
         [$externalBucketResponse, $externalProjectConnection] = $this->createTestBucket(
@@ -101,7 +104,7 @@ class GrantBucketAccessToReadOnlyRoleTest extends BaseCase
             )
         );
 
-        // grant select on ext bucket to RO
+        // GRANT SELECT on ext bucket to RO
         $handler = new GrantBucketAccessToReadOnlyRoleHandler($this->sessionManager);
         $command = (new GrantBucketAccessToReadOnlyRoleCommand())
             ->setBucketObjectName($externalBucketDatabaseName)
@@ -122,5 +125,31 @@ class GrantBucketAccessToReadOnlyRoleTest extends BaseCase
             )
         );
         $this->assertEquals([['ID' => '1']], $data);
+
+        // REVOKE SELECT on ext bucket from RO
+        $handler = new RevokeBucketAccessFromReadOnlyRoleHandler($this->sessionManager);
+        $command = (new RevokeBucketAccessFromReadOnlyRoleCommand())
+            ->setBucketObjectName($externalBucketDatabaseName)
+            ->setProjectReadOnlyRoleName($this->mainProjectResponse->getProjectReadOnlyRoleName());
+
+        $handler(
+            $this->mainProjectCredentials,
+            $command,
+            []
+        );
+
+        // check that the Project2 cannot access the table
+        try {
+            $wsConnection->fetchAllAssociative(
+                sprintf(
+                    'SELECT * FROM %s.%s',
+                    TeradataQuote::quoteSingleIdentifier($externalBucketDatabaseName),
+                    TeradataQuote::quoteSingleIdentifier('TESTTABLE')
+                )
+            );
+            $this->fail('Should fail. Bucket is no longer registered as external');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('The user does not have SELECT access to', $e->getMessage());
+        }
     }
 }
