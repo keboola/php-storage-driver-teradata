@@ -14,6 +14,6 @@ class TooManyColumnsException extends Exception
 
     public static function createForTooManyColumns(\Throwable $e): self
     {
-        return new self('Table has too many columns.', $e);
+        return new self('Too many columns. Maximum is 2047 columns.', $e);
     }
 }
