@@ -15,11 +15,13 @@ use Keboola\StorageDriver\Command\Table\TableColumnShared\TeradataTableColumnMet
 use Keboola\StorageDriver\Contract\Driver\Command\DriverCommandHandlerInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\Shared\Driver\MetaHelper;
+use Keboola\StorageDriver\Teradata\Handler\Exception\ExceptionResolver;
 use Keboola\StorageDriver\Teradata\Handler\Table\TableReflectionResponseTransformer;
 use Keboola\StorageDriver\Teradata\TeradataSessionManager;
 use Keboola\TableBackendUtils\Column\Teradata\TeradataColumn;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableQueryBuilder;
 use Keboola\TableBackendUtils\Table\Teradata\TeradataTableReflection;
+use Throwable;
 
 final class AddColumnHandler implements DriverCommandHandlerInterface
 {
@@ -94,6 +96,8 @@ final class AddColumnHandler implements DriverCommandHandlerInterface
                         $command->getTableName()
                     )
                 ));
+        } catch (Throwable $e) {
+            throw ExceptionResolver::resolveException($e);
         } finally {
             if (isset($db)) {
                 $db->close();
