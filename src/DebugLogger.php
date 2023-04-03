@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\Teradata;
 
 use Psr\Log\AbstractLogger;
+use Stringable;
 
 class DebugLogger extends AbstractLogger
 {
     /**
      * @inheritDoc
      * @param string $level
+     * @param array<mixed> $context
      */
-    public function log($level, $message, array $context = [])
+    public function log($level, $message, array $context = []): void
     {
         error_log(
             sprintf(
@@ -26,7 +28,7 @@ class DebugLogger extends AbstractLogger
     /**
      * @param mixed[] $context
      */
-    protected function interpolate(string $message, array $context = []): string
+    protected function interpolate(string|Stringable $message, array $context = []): string
     {
         // build a replacement array with braces around the context keys
         $replace = [];
@@ -37,6 +39,6 @@ class DebugLogger extends AbstractLogger
         }
 
         // interpolate replacement values into the message and return
-        return strtr($message, $replace);
+        return strtr((string) $message, $replace);
     }
 }

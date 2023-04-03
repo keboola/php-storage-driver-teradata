@@ -63,9 +63,8 @@ class BaseCase extends TestCase
 
     /**
      * @param array<mixed> $data
-     * @param int|string $dataName
      */
-    public function __construct(?string $name = null, array $data = [], $dataName = '')
+    public function __construct(?string $name = null, array $data = [], int|string $dataName = '')
     {
         parent::__construct($name, $data, $dataName);
         $this->sessionManager = new TeradataSessionManager(static::isDebug());
