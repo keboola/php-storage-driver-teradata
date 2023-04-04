@@ -122,7 +122,7 @@ trait StorageTrait
     /**
      * @return array<int, array<string, mixed>>|ListBlobsResult
      */
-    public function listStorageDirFiles(string $dir)
+    public function listStorageDirFiles(string $dir): array|ListBlobsResult
     {
         $client = $this->getStorageClient();
 
@@ -146,10 +146,7 @@ trait StorageTrait
         }
     }
 
-    /**
-     * @return S3Client|BlobRestProxy
-     */
-    public function getStorageClient()
+    public function getStorageClient(): S3Client|BlobRestProxy
     {
         switch ($this->getStorageType()) {
             case StorageType::STORAGE_S3:
