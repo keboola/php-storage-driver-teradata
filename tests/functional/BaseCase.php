@@ -46,7 +46,7 @@ class BaseCase extends TestCase
     protected const PROJECT_READ_ONLY_ROLE_SUFFIX = '_KBC_RO';
     protected const PROJECT_PASSWORD = 'PassW0rd#';
 
-//    use RetryTrait;
+    use RetryTrait;
 
     /**
      * Set all connections to db here so they can be closed in teardown
