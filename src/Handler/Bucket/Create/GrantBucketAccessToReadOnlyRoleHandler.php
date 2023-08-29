@@ -29,10 +29,13 @@ final class GrantBucketAccessToReadOnlyRoleHandler implements DriverCommandHandl
     public function __invoke(
         Message $credentials, // project credentials
         Message $command,
-        array $features
+        array $features,
+        Message $runtimeOptions,
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof GrantBucketAccessToReadOnlyRoleCommand);
+        assert($runtimeOptions->getRunId() === '');
+        assert($runtimeOptions->getMeta() === null);
         assert(
             $command->getProjectReadOnlyRoleName() !== '',
             'GrantBucketAccessToReadOnlyRoleCommand.projectReadOnlyRoleName is required'

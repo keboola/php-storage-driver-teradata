@@ -9,6 +9,7 @@ use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\ShareBucketResponse;
 use Keboola\StorageDriver\Command\Bucket\UnlinkBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
@@ -105,7 +106,8 @@ class ShareLinkBucketTest extends BaseCase
         $shareResponse = $handler(
             $this->sourceProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $this->assertInstanceOf(ShareBucketResponse::class, $shareResponse);
@@ -121,7 +123,8 @@ class ShareLinkBucketTest extends BaseCase
         $handler(
             $this->sourceProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         // check that there is no need to re-share or whatever
@@ -157,7 +160,8 @@ class ShareLinkBucketTest extends BaseCase
         $unlinkHandler(
             $this->sourceProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         // check that the Project2 cannot access the table anymore
@@ -204,7 +208,8 @@ class ShareLinkBucketTest extends BaseCase
         $shareResponse = $handler(
             $this->sourceProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $this->assertInstanceOf(ShareBucketResponse::class, $shareResponse);
@@ -220,7 +225,8 @@ class ShareLinkBucketTest extends BaseCase
         $handler(
             $this->sourceProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $this->assertFalse(DbUtils::isRoleExists($sourceProjectConnection, $expectedShareRoleName));
@@ -255,7 +261,8 @@ class ShareLinkBucketTest extends BaseCase
         $shareResponse = $handler(
             $this->sourceProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $this->assertInstanceOf(ShareBucketResponse::class, $shareResponse);
@@ -275,7 +282,8 @@ class ShareLinkBucketTest extends BaseCase
         $handler(
             $this->sourceProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $handler = new UnShareBucketHandler($this->sessionManager);
@@ -286,7 +294,8 @@ class ShareLinkBucketTest extends BaseCase
         $handler(
             $this->sourceProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $this->assertFalse(DbUtils::isRoleExists($sourceProjectConnection, $expectedShareRoleName));

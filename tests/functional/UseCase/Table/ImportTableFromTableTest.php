@@ -13,6 +13,7 @@ use Keboola\CsvOptions\CsvOptions;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
@@ -162,7 +163,8 @@ class ImportTableFromTableTest extends ImportBaseCase
         $response = $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertSame(3, $response->getImportedRowsCount());
         $this->assertSame(
@@ -276,7 +278,8 @@ class ImportTableFromTableTest extends ImportBaseCase
         $response = $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertSame(3, $response->getImportedRowsCount());
         $this->assertSame(
@@ -402,7 +405,8 @@ class ImportTableFromTableTest extends ImportBaseCase
         $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // 1 row unique from source, 3 rows deduped from source and destination
@@ -464,7 +468,8 @@ class ImportTableFromTableTest extends ImportBaseCase
         $bigBucketResponse = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(CreateBucketResponse::class, $bigBucketResponse);
 
@@ -540,7 +545,8 @@ class ImportTableFromTableTest extends ImportBaseCase
         $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         // 3. create a small bucket
@@ -564,7 +570,8 @@ class ImportTableFromTableTest extends ImportBaseCase
         $smallBucketResponse = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(CreateBucketResponse::class, $smallBucketResponse);
 
@@ -630,7 +637,8 @@ class ImportTableFromTableTest extends ImportBaseCase
             $handler(
                 $this->projectCredentials,
                 $cmd,
-                []
+                [],
+                new RuntimeOptions(),
             );
             $this->fail('should fail');
         } catch (Throwable $e) {

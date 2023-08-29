@@ -12,6 +12,7 @@ use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Info\ObjectInfoResponse;
 use Keboola\StorageDriver\Command\Info\ObjectType;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
@@ -213,7 +214,8 @@ class BaseCase extends TestCase
         $response = $handler(
             $this->getCredentials(),
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         assert($response instanceof CreateProjectResponse);
 
@@ -324,7 +326,8 @@ class BaseCase extends TestCase
         $response = $handler(
             $projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(CreateBucketResponse::class, $response);
 
@@ -376,7 +379,8 @@ class BaseCase extends TestCase
         $response = $handler(
             $projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(CreateWorkspaceResponse::class, $response);
 
@@ -433,7 +437,8 @@ class BaseCase extends TestCase
         $handler(
             $credentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         return $tableName;
     }
@@ -483,7 +488,8 @@ class BaseCase extends TestCase
         $createTableResponse = $createTableHandler(
             $this->projectCredentials,
             $createTableCommand,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $this->assertInstanceOf(ObjectInfoResponse::class, $createTableResponse);
@@ -544,7 +550,8 @@ class BaseCase extends TestCase
         $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
     }
 }

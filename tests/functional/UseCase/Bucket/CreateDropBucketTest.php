@@ -7,6 +7,7 @@ namespace Keboola\StorageDriver\FunctionalTests\UseCase\Bucket;
 use Google\Protobuf\Any;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\DropBucketCommand;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -51,7 +52,8 @@ class CreateDropBucketTest extends BaseCase
         $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $db = $this->getConnection($this->projectCredentials);
@@ -79,7 +81,8 @@ class CreateDropBucketTest extends BaseCase
             $handler(
                 $this->projectCredentials,
                 $command,
-                []
+                [],
+                new RuntimeOptions(),
             );
             $this->fail('Should fail as bucket database contains table');
         } catch (Throwable $e) {
@@ -96,7 +99,8 @@ class CreateDropBucketTest extends BaseCase
         $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $db = $this->getConnection($this->projectCredentials);
@@ -108,7 +112,8 @@ class CreateDropBucketTest extends BaseCase
         $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $db = $this->getConnection($this->projectCredentials);
         $this->assertFalse(DbUtils::isDatabaseExists($db, $response->getCreateBucketObjectName()));
@@ -140,7 +145,8 @@ class CreateDropBucketTest extends BaseCase
             $handler(
                 $this->getCredentials(),
                 $command,
-                []
+                [],
+                new RuntimeOptions(),
             );
             $this->fail('should fail');
         } catch (Throwable $e) {

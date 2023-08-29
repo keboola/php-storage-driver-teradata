@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Workspace;
 
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Command\Workspace\DropWorkspaceObjectCommand;
@@ -77,7 +78,8 @@ class DropWorkspaceObjectTest extends BaseCase
             $handler(
                 $credentials,
                 $command,
-                []
+                [],
+                new RuntimeOptions(),
             );
             $this->fail('Should fail');
         } catch (Throwable $e) {
@@ -101,7 +103,8 @@ class DropWorkspaceObjectTest extends BaseCase
         $dropResponse = $handler(
             $credentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertNull($dropResponse);
 
@@ -118,7 +121,8 @@ class DropWorkspaceObjectTest extends BaseCase
         $dropResponse = $handler(
             $credentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertNull($dropResponse);
 
@@ -135,7 +139,8 @@ class DropWorkspaceObjectTest extends BaseCase
         $dropResponse = $handler(
             $credentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertNull($dropResponse);
 

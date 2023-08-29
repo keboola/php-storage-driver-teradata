@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Project;
 
 use Google\Protobuf\Any;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
 use Keboola\StorageDriver\Contract\Driver\Exception\ExceptionInterface;
@@ -86,7 +87,8 @@ class CreateDropProjectTest extends BaseCase
         $handler(
             $this->getCredentials(),
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $db = $this->getConnection($this->getCredentials());
@@ -115,7 +117,8 @@ class CreateDropProjectTest extends BaseCase
             $handler(
                 $this->getCredentials(),
                 $command,
-                []
+                [],
+                new RuntimeOptions(),
             );
             $this->fail('should fail');
         } catch (Throwable $e) {

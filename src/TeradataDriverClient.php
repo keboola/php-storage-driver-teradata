@@ -15,6 +15,7 @@ use Keboola\StorageDriver\Command\Bucket\ShareBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\UnshareBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\LinkBucketCommand;
 use Keboola\StorageDriver\Command\Bucket\UnlinkBucketCommand;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
 use Keboola\StorageDriver\Command\Project\CreateProjectCommand;
 use Keboola\StorageDriver\Command\Project\DropProjectCommand;
@@ -88,7 +89,8 @@ class TeradataDriverClient implements ClientInterface
             $response = $handler(
                 $credentials,
                 $command,
-                $features
+                $features,
+                new RuntimeOptions(),
             );
         } finally {
             $manager->close();

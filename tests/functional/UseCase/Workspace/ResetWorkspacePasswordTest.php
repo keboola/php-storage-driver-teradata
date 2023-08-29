@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Workspace;
 
 use Doctrine\DBAL\Exception\DriverException;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
 use Keboola\StorageDriver\Command\Workspace\ResetWorkspacePasswordCommand;
@@ -52,7 +53,8 @@ class ResetWorkspacePasswordTest extends BaseCase
         $passwordResponse = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         assert($passwordResponse instanceof ResetWorkspacePasswordResponse);
 
