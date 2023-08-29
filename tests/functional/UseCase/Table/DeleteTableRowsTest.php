@@ -10,6 +10,7 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Value;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Table\DeleteTableRowsCommand;
 use Keboola\StorageDriver\Command\Table\DeleteTableRowsResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
@@ -257,7 +258,8 @@ class DeleteTableRowsTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(DeleteTableRowsResponse::class, $response);
         $this->assertSame($expectedDeletedRowsCount, $response->getDeletedRowsCount());
@@ -283,7 +285,8 @@ class DeleteTableRowsTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(PreviewTableResponse::class, $response);
         return $response;

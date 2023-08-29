@@ -28,11 +28,14 @@ final class UnLinkBucketHandler implements DriverCommandHandlerInterface
     public function __invoke(
         Message $credentials, // project credentials
         Message $command, // linked bucket
-        array   $features
+        array   $features,
+        Message $runtimeOptions,
     ): ?Message
     {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof UnlinkBucketCommand);
+        assert($runtimeOptions->getRunId() === '');
+        assert($runtimeOptions->getMeta() === null);
 
         $db = $this->manager->createSession($credentials);
 

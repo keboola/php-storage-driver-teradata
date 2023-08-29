@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Workspace;
 
 use Google\Protobuf\Any;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
@@ -195,7 +196,8 @@ class CreateDropWorkspaceTest extends BaseCase
         $dropResponse = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertNull($dropResponse);
 
@@ -236,7 +238,8 @@ class CreateDropWorkspaceTest extends BaseCase
             $handler(
                 $this->projectCredentials,
                 $command,
-                []
+                [],
+                new RuntimeOptions(),
             );
             $this->fail('Should fail as workspace database contains table');
         } catch (Throwable $e) {
@@ -254,7 +257,8 @@ class CreateDropWorkspaceTest extends BaseCase
         $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $projectDb = $this->getConnection($this->projectCredentials);
@@ -285,7 +289,8 @@ class CreateDropWorkspaceTest extends BaseCase
             $handler(
                 $this->projectCredentials,
                 $command,
-                []
+                [],
+                new RuntimeOptions(),
             );
             $this->fail('should fail');
         } catch (Throwable $e) {

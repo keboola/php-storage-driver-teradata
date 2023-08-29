@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Info;
 
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Info\DatabaseInfo;
 use Keboola\StorageDriver\Command\Info\ObjectInfo;
 use Keboola\StorageDriver\Command\Info\ObjectInfoCommand;
@@ -91,7 +92,8 @@ class ObjectInfoTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(ObjectInfoResponse::class, $response);
         $this->assertSame(ObjectType::DATABASE, $response->getObjectType());
@@ -107,7 +109,8 @@ class ObjectInfoTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(ObjectInfoResponse::class, $response);
         $this->assertSame(ObjectType::SCHEMA, $response->getObjectType());
@@ -128,7 +131,8 @@ class ObjectInfoTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(ObjectInfoResponse::class, $response);
         $this->assertSame(ObjectType::SCHEMA, $response->getObjectType());
@@ -167,7 +171,8 @@ class ObjectInfoTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(ObjectInfoResponse::class, $response);
         $this->assertSame(ObjectType::TABLE, $response->getObjectType());
@@ -215,7 +220,8 @@ class ObjectInfoTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(ObjectInfoResponse::class, $response);
         $this->assertSame(ObjectType::VIEW, $response->getObjectType());

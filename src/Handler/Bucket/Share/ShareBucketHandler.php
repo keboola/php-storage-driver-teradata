@@ -30,11 +30,14 @@ final class ShareBucketHandler implements DriverCommandHandlerInterface
     public function __invoke(
         Message $credentials, // project credentials
         Message $command,
-        array   $features
+        array   $features,
+        Message $runtimeOptions,
     ): ?Message
     {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof ShareBucketCommand);
+        assert($runtimeOptions->getRunId() === '');
+        assert($runtimeOptions->getMeta() === null);
 
         $db = $this->manager->createSession($credentials);
         $nameGenerator = new GenericNameGenerator($command->getStackPrefix());

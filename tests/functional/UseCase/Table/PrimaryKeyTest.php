@@ -8,6 +8,7 @@ use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Table\AddPrimaryKeyCommand;
 use Keboola\StorageDriver\Command\Table\DropPrimaryKeyCommand;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
@@ -91,7 +92,8 @@ class PrimaryKeyTest extends BaseCase
         $addPKHandler(
             $this->projectCredentials,
             $addPKCommand,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         // check the existence of PK via table reflection
@@ -107,7 +109,8 @@ class PrimaryKeyTest extends BaseCase
         $dropPKHandler(
             $this->projectCredentials,
             $dropPKCommand,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         // check the non-existence of PK via table reflection
@@ -168,7 +171,8 @@ class PrimaryKeyTest extends BaseCase
         $addPKHandler(
             $this->projectCredentials,
             $addPKCommand,
-            []
+            [],
+            new RuntimeOptions(),
         );
     }
 
@@ -219,7 +223,8 @@ class PrimaryKeyTest extends BaseCase
         $addPKHandler(
             $this->projectCredentials,
             $addPKCommand,
-            []
+            [],
+            new RuntimeOptions(),
         );
     }
 
@@ -270,7 +275,8 @@ class PrimaryKeyTest extends BaseCase
         $addPKHandler(
             $this->projectCredentials,
             $addPKCommand,
-            []
+            [],
+            new RuntimeOptions(),
         );
     }
 }

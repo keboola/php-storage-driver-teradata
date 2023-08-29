@@ -12,6 +12,7 @@ use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\Datatype\Definition\Teradata;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Info\TableInfo;
 use Keboola\StorageDriver\Command\Table\ImportExportShared;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\DataType;
@@ -183,7 +184,8 @@ class ExportTableToFileTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertInstanceOf(TableExportToFileResponse::class, $response);
     }
@@ -240,7 +242,8 @@ class ExportTableToFileTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $this->assertInstanceOf(TableExportToFileResponse::class, $response);
@@ -411,7 +414,8 @@ class ExportTableToFileTest extends BaseCase
         $response = $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         $this->assertInstanceOf(TableExportToFileResponse::class, $response);
@@ -823,7 +827,8 @@ class ExportTableToFileTest extends BaseCase
         $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
     }
 

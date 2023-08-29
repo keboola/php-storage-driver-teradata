@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Keboola\StorageDriver\FunctionalTests\UseCase\Workspace;
 
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Workspace\ClearWorkspaceCommand;
 use Keboola\StorageDriver\Command\Workspace\CreateWorkspaceResponse;
@@ -68,7 +69,8 @@ class ClearWorkspaceTest extends BaseCase
             $handler(
                 $this->projectCredentials,
                 $command,
-                []
+                [],
+                new RuntimeOptions(),
             );
             $this->fail('Should fail');
         } catch (Throwable $e) {
@@ -87,7 +89,8 @@ class ClearWorkspaceTest extends BaseCase
         $clearResponse = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertNull($clearResponse);
 
@@ -107,7 +110,8 @@ class ClearWorkspaceTest extends BaseCase
         $clearResponse = $handler(
             $this->projectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertNull($clearResponse);
 

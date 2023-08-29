@@ -11,6 +11,7 @@ use Google\Protobuf\Internal\GPBType;
 use Google\Protobuf\Internal\RepeatedField;
 use Keboola\CsvOptions\CsvOptions;
 use Keboola\StorageDriver\Command\Bucket\CreateBucketResponse;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\FileFormat;
 use Keboola\StorageDriver\Command\Table\ImportExportShared\ImportOptions;
@@ -120,7 +121,8 @@ class ImportTableFromFileTest extends ImportBaseCase
         $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         // 2 not unique rows from destination + 1 unique row from source
         // + 1 row which is dedup of two duplicates in source and one from destination
@@ -190,7 +192,8 @@ class ImportTableFromFileTest extends ImportBaseCase
         $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $ref = new TeradataTableReflection($db, $bucketDatabaseName, $destinationTableName);
         // nothing from destination and 3 rows from source -> dedup to two
@@ -273,7 +276,8 @@ class ImportTableFromFileTest extends ImportBaseCase
         $response = $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertSame(3, $response->getImportedRowsCount());
         $this->assertSame(['col1', 'col2', 'col3'], iterator_to_array($response->getImportedColumns()));
@@ -406,7 +410,8 @@ class ImportTableFromFileTest extends ImportBaseCase
         $response = $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         $this->assertSame(3, $response->getImportedRowsCount());
         $this->assertSame(
@@ -507,7 +512,8 @@ class ImportTableFromFileTest extends ImportBaseCase
         $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         // 1 row from destination (10) + 1 row from destination updated (15) + 1 row from first slice (18)
         // + 1 row from second slice (60)
@@ -591,7 +597,8 @@ class ImportTableFromFileTest extends ImportBaseCase
         $handler(
             $this->projectCredentials,
             $cmd,
-            []
+            [],
+            new RuntimeOptions(),
         );
         // 1 row from destination + 1 row from destination updated + 1 row from first slice, 1 row from the second one
         $this->assertIDsInLoadedTable($db, $bucketDatabaseName, $destinationTableName, ['10', '15', '18', '60']);
@@ -703,7 +710,8 @@ class ImportTableFromFileTest extends ImportBaseCase
             $handler(
                 $this->projectCredentials,
                 $cmd,
-                []
+                [],
+                new RuntimeOptions(),
             );
         } catch (Throwable $e) {
             $this->assertInstanceOf(NoSpaceException::class, $e);

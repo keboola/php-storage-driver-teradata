@@ -6,6 +6,7 @@ namespace Keboola\StorageDriver\FunctionalTests\UseCase\Bucket;
 
 use Keboola\StorageDriver\Command\Bucket\GrantBucketAccessToReadOnlyRoleCommand;
 use Keboola\StorageDriver\Command\Bucket\RevokeBucketAccessFromReadOnlyRoleCommand;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Command\Project\CreateProjectResponse;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\FunctionalTests\BaseCase;
@@ -113,7 +114,8 @@ class GrantRevokeBucketAccessToReadOnlyRoleTest extends BaseCase
         $handler(
             $this->mainProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         // WS should be able to select now
@@ -135,7 +137,8 @@ class GrantRevokeBucketAccessToReadOnlyRoleTest extends BaseCase
         $handler(
             $this->mainProjectCredentials,
             $command,
-            []
+            [],
+            new RuntimeOptions(),
         );
 
         // check that the Project2 cannot access the table

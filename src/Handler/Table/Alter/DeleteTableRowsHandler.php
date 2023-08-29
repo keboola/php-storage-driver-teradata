@@ -35,13 +35,17 @@ final class DeleteTableRowsHandler implements DriverCommandHandlerInterface
     public function __invoke(
         Message $credentials,
         Message $command,
-        array $features
+        array $features,
+        Message $runtimeOptions,
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         assert($command instanceof DeleteTableRowsCommand);
 
         assert($command->getPath()->count() === 1, 'AddColumnCommand.path is required and size must equal 1');
         assert($command->getTableName() !== '', 'AddColumnCommand.tableName is required');
+
+        assert($runtimeOptions->getRunId() === '');
+        assert($runtimeOptions->getMeta() === null);
 
         $db = $this->manager->createSession($credentials);
         /** @var string $datasetName */
