@@ -42,7 +42,7 @@ final class GrantBucketAccessToReadOnlyRoleHandler implements DriverCommandHandl
         );
         assert(
             $command->getPath()->count() === 1,
-            'GrantBucketAccessToReadOnlyRoleCommand.path is required and size must equal 4'
+            'GrantBucketAccessToReadOnlyRoleCommand.path is required and size must equal 1'
         );
 
         /** @var string $bucketObjectName */
