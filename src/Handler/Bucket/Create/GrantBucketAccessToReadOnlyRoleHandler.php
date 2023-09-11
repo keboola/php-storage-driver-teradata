@@ -41,16 +41,17 @@ final class GrantBucketAccessToReadOnlyRoleHandler implements DriverCommandHandl
             'GrantBucketAccessToReadOnlyRoleCommand.projectReadOnlyRoleName is required'
         );
         assert(
-            $command->getBucketObjectName() !== '',
-            'GrantBucketAccessToReadOnlyRoleCommand.bucketObjectName is required'
+            $command->getPath()->count() === 1,
+            'GrantBucketAccessToReadOnlyRoleCommand.path is required and size must equal 4'
         );
 
-
+        /** @var string $bucketObjectName */
+        $bucketObjectName = $command->getPath()[0];
         $db = $this->manager->createSession($credentials);
         try {
             $db->executeQuery(sprintf(
                 'GRANT SELECT ON %s TO %s',
-                TeradataQuote::quoteSingleIdentifier($command->getBucketObjectName()),
+                TeradataQuote::quoteSingleIdentifier($bucketObjectName),
                 TeradataQuote::quoteSingleIdentifier($command->getProjectReadOnlyRoleName()),
             ));
         } catch (Throwable $e) {

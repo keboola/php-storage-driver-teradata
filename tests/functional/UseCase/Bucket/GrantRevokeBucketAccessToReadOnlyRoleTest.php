@@ -108,7 +108,7 @@ class GrantRevokeBucketAccessToReadOnlyRoleTest extends BaseCase
         // GRANT SELECT on ext bucket to RO
         $handler = new GrantBucketAccessToReadOnlyRoleHandler($this->sessionManager);
         $command = (new GrantBucketAccessToReadOnlyRoleCommand())
-            ->setBucketObjectName($externalBucketDatabaseName)
+            ->setPath([$externalBucketDatabaseName])
             ->setProjectReadOnlyRoleName($this->mainProjectResponse->getProjectReadOnlyRoleName());
 
         $handler(
