@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Keboola\StorageDriver\UnitTests;
 
 use Keboola\StorageDriver\Command\Backend\RemoveBackendCommand;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 use Keboola\StorageDriver\Credentials\GenericBackendCredentials;
 use Keboola\StorageDriver\GeneratedTests\CustomMessage;
 use Keboola\StorageDriver\Shared\Driver\Exception\CommandNotSupportedException;
 use Keboola\StorageDriver\Teradata\TeradataDriverClient;
 use PHPUnit\Framework\TestCase;
-use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 
 class TeradataDriverClientTest extends TestCase
 {
