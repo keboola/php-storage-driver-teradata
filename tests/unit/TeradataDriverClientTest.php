@@ -10,6 +10,7 @@ use Keboola\StorageDriver\GeneratedTests\CustomMessage;
 use Keboola\StorageDriver\Shared\Driver\Exception\CommandNotSupportedException;
 use Keboola\StorageDriver\Teradata\TeradataDriverClient;
 use PHPUnit\Framework\TestCase;
+use Keboola\StorageDriver\Command\Common\RuntimeOptions;
 
 class TeradataDriverClientTest extends TestCase
 {
@@ -21,7 +22,8 @@ class TeradataDriverClientTest extends TestCase
         $client->runCommand(
             $this->createMock(GenericBackendCredentials::class),
             new CustomMessage(),
-            []
+            [],
+            new RuntimeOptions()
         );
     }
 
@@ -34,7 +36,8 @@ class TeradataDriverClientTest extends TestCase
         $client->runCommand(
             $this->createMock(GenericBackendCredentials::class),
             $this->createMock(RemoveBackendCommand::class),
-            []
+            [],
+            new RuntimeOptions()
         );
     }
 }
