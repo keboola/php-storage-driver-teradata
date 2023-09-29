@@ -77,7 +77,8 @@ class TeradataDriverClient implements ClientInterface
     public function runCommand(
         Message $credentials,
         Message $command,
-        array $features
+        array $features,
+        Message $runtimeOptions
     ): ?Message {
         assert($credentials instanceof GenericBackendCredentials);
         $manager = new TeradataSessionManager();
