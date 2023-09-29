@@ -79,16 +79,16 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
     /**
      * @return Generator<int, ObjectInfo>
      */
-    private function getChildSchemas(Connection $db, string $databaseName): Generator
+    private function getChildDBs(Connection $db, string $databaseName): Generator
     {
-        /** @var array{child:string} $childSchemas */
-        $childSchemas = $db->fetchFirstColumn(sprintf(
+        /** @var array{child:string} $childDBs */
+        $childDBs = $db->fetchFirstColumn(sprintf(
             'SELECT Child AS child FROM DBC.ChildrenVX WHERE Parent = %s',
             TeradataQuote::quote($databaseName)
         ));
-        foreach ($childSchemas as $child) {
+        foreach ($childDBs as $child) {
             yield (new ObjectInfo())
-                ->setObjectType(ObjectType::SCHEMA)
+                ->setObjectType(ObjectType::DATABASE)
                 ->setObjectName($child);
         }
     }
@@ -96,7 +96,7 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
     /**
      * @return Generator<int, ObjectInfo>
      */
-    private function getChildObjectsForSchema(Connection $db, string $databaseName): Generator
+    private function getChildObjectsForDB(Connection $db, string $databaseName): Generator
     {
         $ref = new TeradataSchemaReflection($db, $databaseName);
         $tables = $ref->getTablesNames();
@@ -111,7 +111,7 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
                 ->setObjectType(ObjectType::VIEW)
                 ->setObjectName($view);
         }
-        yield from $this->getChildSchemas($db, $databaseName);
+        yield from $this->getChildDBs($db, $databaseName);
     }
 
     /**
@@ -121,7 +121,7 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
     {
         assert(count($path) === 1, 'Error path must have exactly one element.');
         $objects = new RepeatedField(GPBType::MESSAGE, ObjectInfo::class);
-        foreach ($this->getChildObjectsForSchema($db, $path[0]) as $object) {
+        foreach ($this->getChildObjectsForDB($db, $path[0]) as $object) {
             $objects[] = $object;
         }
         $this->assertDatabaseExists($objects, $db, $path[0]);
@@ -142,7 +142,7 @@ final class ObjectInfoHandler implements DriverCommandHandlerInterface
         assert(count($path) === 1, 'Error path must have exactly one element.');
         $infoObject = new SchemaInfo();
         $objects = new RepeatedField(GPBType::MESSAGE, ObjectInfo::class);
-        foreach ($this->getChildObjectsForSchema($db, $path[0]) as $object) {
+        foreach ($this->getChildObjectsForDB($db, $path[0]) as $object) {
             $objects[] = $object;
         }
         $this->assertDatabaseExists($objects, $db, $path[0]);
